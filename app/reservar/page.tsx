@@ -36,6 +36,7 @@ export default function ReservarPage() {
   const [members, setMembers] = useState<MemberPublic[]>([]);
   const [playersRaw, setPlayersRaw] = useState<{ reservation_id: string; seat: number; member_user_id: string }[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   // modal/selector simple
   const [pickerForReservationId, setPickerForReservationId] = useState<string | null>(null);
@@ -292,76 +293,87 @@ export default function ReservarPage() {
                     );
                   }
 
-                  // Partida existente: compacto por defecto + detalles al desplegar
+                  // Partida existente (sin <details>, toggle propio para iPhone)
                   const seats = seatNames(res.id);
                   const filled = seats.filter(Boolean).length;
-                  const badge =
-                    filled >= 4 ? "Completa" : filled === 0 ? "Libre" : `${filled}/4`;
+                  const badge = filled >= 4 ? "Completa" : `${filled}/4`;
+
+                  const isOpen = openKey === `${s.start}-${c.id}`;
+                  const cardKey = `${s.start}-${c.id}`;
 
                   return (
-                    <details key={c.id} className="border rounded-2xl bg-white overflow-hidden">
-                      <summary className="list-none cursor-pointer p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="font-semibold">{c.name}</div>
+                    <div key={c.id} className="border rounded-2xl bg-white overflow-hidden">
+                      {/* Cabecera tarjeta */}
+                      <button
+                        type="button"
+                        onClick={() => setOpenKey(isOpen ? null : cardKey)}
+                        className="w-full p-4 text-left active:scale-[0.99] transition"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-base font-semibold text-gray-900">{c.name}</div>
+
                           <span
-                            className={`text-xs px-2 py-1 rounded-full border ${
-                              filled >= 4 ? "bg-gray-100" : "bg-white"
+                            className={`text-xs font-semibold px-2 py-1 rounded-full border ${
+                              filled >= 4 ? "bg-gray-100 text-gray-700" : "bg-white text-gray-900"
                             }`}
+                            style={filled < 4 ? { borderColor: "rgba(15, 94, 46, 0.25)" } : undefined}
                           >
                             {badge}
                           </span>
                         </div>
 
-                        <div className="mt-3 flex gap-2">
+                        <div className="mt-3">
                           <span
-                            className={`inline-flex items-center justify-center rounded-xl px-3 py-2 font-semibold border ${
-                              filled >= 4 ? "bg-gray-100 text-gray-600" : "bg-white"
+                            className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold border ${
+                              isOpen ? "bg-gray-50 text-gray-900" : "bg-white text-gray-900"
                             }`}
+                            style={{ borderColor: "rgba(0,0,0,0.12)" }}
                           >
-                            Abrir
+                            {isOpen ? "Cerrar" : "Abrir"}
                           </span>
                         </div>
-                      </summary>
+                      </button>
 
-                      <div className="px-4 pb-4">
-                        {/* plazas */}
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {seats.map((name, idx) => (
-                            <div key={idx} className="border rounded-xl p-2 bg-gray-50">
-                              <div className="text-[11px] text-gray-500">Plaza {idx + 1}</div>
-                              <div className="font-medium">{name ?? "Libre"}</div>
-                            </div>
-                          ))}
+                      {/* Detalle */}
+                      {isOpen && (
+                        <div className="px-4 pb-4">
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            {seats.map((name, idx) => (
+                              <div key={idx} className="border rounded-xl p-2 bg-gray-50">
+                                <div className="text-[11px] text-gray-500">Plaza {idx + 1}</div>
+                                <div className="font-medium text-gray-900">{name ?? "Libre"}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              className="rounded-xl px-4 py-2 text-white font-semibold disabled:opacity-50"
+                              style={{ backgroundColor: CLUB_GREEN }}
+                              disabled={filled >= 4}
+                              onClick={async () => {
+                                const { data } = await supabase.auth.getUser();
+                                if (!data.user) return setMsg("No hay sesión.");
+                                await join(res.id, data.user.id);
+                              }}
+                            >
+                              Unirme
+                            </button>
+
+                            <button
+                              className="rounded-xl px-4 py-2 border font-semibold disabled:opacity-50 text-gray-900"
+                              disabled={filled >= 4}
+                              onClick={() => {
+                                setPickerForReservationId(res.id);
+                                setSearch("");
+                              }}
+                            >
+                              Añadir socio
+                            </button>
+                          </div>
                         </div>
-
-                        {/* acciones */}
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            className="rounded-xl px-4 py-2 text-white font-semibold disabled:opacity-50"
-                            style={{ backgroundColor: CLUB_GREEN }}
-                            disabled={filled >= 4}
-                            onClick={async () => {
-                              const { data } = await supabase.auth.getUser();
-                              if (!data.user) return setMsg("No hay sesión.");
-                              await join(res.id, data.user.id);
-                            }}
-                          >
-                            Unirme
-                          </button>
-
-                          <button
-                            className="rounded-xl px-4 py-2 border font-semibold disabled:opacity-50"
-                            disabled={filled >= 4}
-                            onClick={() => {
-                              setPickerForReservationId(res.id);
-                              setSearch("");
-                            }}
-                          >
-                            Añadir socio
-                          </button>
-                        </div>
-                      </div>
-                    </details>
+                      )}
+                    </div>
                   );
                 })}
               </div>
