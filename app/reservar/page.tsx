@@ -16,7 +16,6 @@ type ReservationPublic = {
 };
 
 type PlayerRow = { reservation_id: string; seat: number; member_user_id: string };
-
 type MemberPublic = { user_id: string; full_name: string };
 
 const CLUB_GREEN = "#0f5e2e";
@@ -47,6 +46,9 @@ export default function ReservarPage() {
 
   const [msg, setMsg] = useState<string | null>(null);
 
+  // sesión
+  const [me, setMe] = useState<string | null>(null);
+
   // UI
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -57,6 +59,10 @@ export default function ReservarPage() {
   const [searching, setSearching] = useState(false);
   const searchTimer = useRef<number | null>(null);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null));
+  }, []);
+
   const dayOfWeek = useMemo(() => new Date(date + "T00:00:00").getDay(), [date]);
   const slots = useMemo(() => {
     if (dayOfWeek === 6) return SATURDAY_SLOTS; // sábado
@@ -65,7 +71,6 @@ export default function ReservarPage() {
   }, [dayOfWeek]);
 
   useEffect(() => {
-    // Courts (3 pistas en tu BD ya)
     supabase
       .from("courts")
       .select("id,name")
@@ -112,7 +117,6 @@ export default function ReservarPage() {
     const pr = (p.data as any[]) as PlayerRow[];
     setPlayersRaw(pr);
 
-    // Traer SOLO nombres de los users que aparecen hoy (no toda la lista del club)
     const userIds = Array.from(new Set(pr.map((x) => x.member_user_id)));
     if (userIds.length === 0) {
       setMembersMap({});
@@ -149,14 +153,14 @@ export default function ReservarPage() {
   }, [reservations]);
 
   const playersByReservation = useMemo(() => {
-    const m = new Map<string, { seat: number; name: string }[]>();
+    const m = new Map<string, { seat: number; name: string; memberId: string }[]>();
     for (const p of playersRaw) {
       const arr = m.get(p.reservation_id) ?? [];
       const full = membersMap[p.member_user_id] ?? "Socio";
-      arr.push({ seat: p.seat, name: shortName(full) });
+      arr.push({ seat: p.seat, name: shortName(full), memberId: p.member_user_id });
       m.set(p.reservation_id, arr);
     }
-    for (const [k, arr] of m) arr.sort((a, b) => a.seat - b.seat);
+    for (const [, arr] of m) arr.sort((a, b) => a.seat - b.seat);
     return m;
   }, [playersRaw, membersMap]);
 
@@ -167,6 +171,29 @@ export default function ReservarPage() {
     return seats;
   }
 
+  function isMeInReservation(resId: string) {
+    if (!me) return false;
+    const arr = playersByReservation.get(resId) ?? [];
+    return arr.some((x) => x.memberId === me);
+  }
+
+  async function join(reservationId: string, memberId: string) {
+    setMsg(null);
+
+    const rpc = await supabase.rpc("join_reservation", {
+      p_reservation_id: reservationId,
+      p_member: memberId,
+    });
+
+    if (rpc.error) return setMsg(rpc.error.message);
+
+    setPickerForReservationId(null);
+    setSearch("");
+    setSuggestions([]);
+    await loadDay();
+  }
+
+  // Crear partida (idempotente): si ya existe, la abre/te une en vez de error
   async function createMatch(slotStart: string, slotEnd: string, courtId: number) {
     setMsg(null);
 
@@ -187,8 +214,34 @@ export default function ReservarPage() {
       .select("id")
       .single();
 
-    if (ins.error) return setMsg(ins.error.message);
+    // Si ya existe (unique), buscamos la reserva existente y nos unimos
+    if (ins.error) {
+      const msgLower = (ins.error.message || "").toLowerCase();
+      const isDuplicate =
+        msgLower.includes("duplicate key") ||
+        msgLower.includes("unique constraint") ||
+        msgLower.includes("uq_reservation_unique");
 
+      if (!isDuplicate) return setMsg(ins.error.message);
+
+      const existing = await supabase
+        .from("reservations_public")
+        .select("id")
+        .eq("date", date)
+        .eq("slot_start", slotStart)
+        .eq("court_id", courtId)
+        .limit(1)
+        .single();
+
+      if (existing.error || !existing.data?.id) {
+        return setMsg("Esa partida ya existe, pero no he podido cargarla. Recarga la página.");
+      }
+
+      await join(existing.data.id, user.id);
+      return;
+    }
+
+    // Reserva creada => me uno
     const rpc = await supabase.rpc("join_reservation", {
       p_reservation_id: ins.data.id,
       p_member: user.id,
@@ -199,23 +252,7 @@ export default function ReservarPage() {
     await loadDay();
   }
 
-  async function join(reservationId: string, memberId: string) {
-    setMsg(null);
-
-    const rpc = await supabase.rpc("join_reservation", {
-      p_reservation_id: reservationId,
-      p_member: memberId,
-    });
-
-    if (rpc.error) return setMsg(rpc.error.message);
-
-    setPickerForReservationId(null);
-    setSearch("");
-    setSuggestions([]);
-    await loadDay();
-  }
-
-  // Buscar socios en BD mientras escribes (sin listar todos)
+  // Buscar socios mientras escribes
   useEffect(() => {
     if (!pickerForReservationId) return;
 
@@ -281,21 +318,18 @@ export default function ReservarPage() {
                 key={s.start}
                 className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
               >
-                {/* Cabecera franja */}
                 <div className="px-5 py-4 border-b border-gray-200">
                   <div className="font-semibold" style={{ color: CLUB_GREEN }}>
                     {s.start} – {s.end}
                   </div>
                 </div>
 
-                {/* Tarjetas de pistas */}
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {courts.map((c) => {
                     const key = `${s.start}-${c.id}`;
                     const blocked = blockMap.get(key);
                     const res = reservationMap.get(key);
 
-                    // Bloqueada
                     if (blocked) {
                       return (
                         <div
@@ -309,7 +343,7 @@ export default function ReservarPage() {
                       );
                     }
 
-                    // Libre
+                    // Libre => Crear
                     if (!res) {
                       return (
                         <button
@@ -319,10 +353,7 @@ export default function ReservarPage() {
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div>
-                              <div className="text-base font-semibold text-gray-900">
-                                {c.name}
-                              </div>
-
+                              <div className="text-base font-semibold text-gray-900">{c.name}</div>
                               <span
                                 className="mt-2 inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full border bg-white"
                                 style={{
@@ -349,39 +380,65 @@ export default function ReservarPage() {
                     const seats = seatNames(res.id);
                     const filled = seats.filter(Boolean).length;
                     const badge = filled >= 4 ? "Completa" : `${filled}/4`;
+
                     const cardKey = `${s.start}-${c.id}`;
                     const isOpen = openKey === cardKey;
+
+                    const meIn = isMeInReservation(res.id);
+                    const canJoin = filled < 4 && !meIn;
+
+                    const quickLabel = canJoin ? "Unirme" : "Ver";
 
                     return (
                       <div
                         key={c.id}
                         className="border border-gray-300 rounded-3xl bg-white shadow-sm overflow-hidden"
                       >
-                        <button
-                          type="button"
-                          onClick={() => setOpenKey(isOpen ? null : cardKey)}
-                          className="w-full p-4 text-left transition active:scale-[0.99]"
-                        >
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="text-base font-semibold text-gray-900">{c.name}</div>
+                        {/* Header + acción rápida (WhatsApp-like) */}
+                        <div className="p-4 flex items-center justify-between gap-4">
+                          <button
+                            type="button"
+                            onClick={() => setOpenKey(isOpen ? null : cardKey)}
+                            className="text-left flex-1 active:scale-[0.99] transition"
+                          >
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="text-base font-semibold text-gray-900">{c.name}</div>
+                              <span
+                                className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                                  filled >= 4
+                                    ? "bg-gray-100 text-gray-700 border-gray-200"
+                                    : "bg-white text-gray-900"
+                                }`}
+                                style={filled < 4 ? { borderColor: "rgba(15, 94, 46, 0.25)" } : undefined}
+                              >
+                                {badge}
+                              </span>
+                            </div>
+                          </button>
 
-                            <span
-                              className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                                filled >= 4 ? "bg-gray-100 text-gray-700 border-gray-200" : "bg-white text-gray-900"
-                              }`}
-                              style={filled < 4 ? { borderColor: "rgba(15, 94, 46, 0.25)" } : undefined}
-                            >
-                              {badge}
-                            </span>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const { data } = await supabase.auth.getUser();
+                              if (!data.user) return setMsg("No hay sesión.");
 
-                          <div className="mt-3">
-                            <span className="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold border border-gray-300 bg-white text-gray-900">
-                              {isOpen ? "Cerrar" : "Abrir"}
-                            </span>
-                          </div>
-                        </button>
+                              if (canJoin) {
+                                await join(res.id, data.user.id);
+                                setOpenKey(cardKey); // lo abre para que vea quién está
+                                return;
+                              }
 
+                              // Ver => abre/cierra
+                              setOpenKey(isOpen ? null : cardKey);
+                            }}
+                            className="shrink-0 rounded-full px-4 py-2 text-sm font-semibold border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 transition active:scale-[0.99]"
+                          >
+                            {quickLabel}
+                          </button>
+                        </div>
+
+                        {/* Detalle */}
                         {isOpen && (
                           <div className="px-4 pb-4">
                             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -401,7 +458,7 @@ export default function ReservarPage() {
                               <button
                                 className="rounded-2xl px-5 py-3 text-white font-semibold disabled:opacity-50 transition active:scale-[0.99]"
                                 style={{ backgroundColor: CLUB_GREEN }}
-                                disabled={filled >= 4}
+                                disabled={filled >= 4 || meIn}
                                 onClick={async () => {
                                   const { data } = await supabase.auth.getUser();
                                   if (!data.user) return setMsg("No hay sesión.");
@@ -462,7 +519,6 @@ export default function ReservarPage() {
                 autoFocus
               />
 
-              {/* Resultados (sin texto extra cuando está vacío) */}
               {search.trim() ? (
                 <div className="mt-4 space-y-2">
                   {searching ? (
