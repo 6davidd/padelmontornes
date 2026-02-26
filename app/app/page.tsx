@@ -5,13 +5,61 @@ import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
 
 const CLUB_GREEN = "#0f5e2e";
-const CLUB_GREEN_DARK = "#0b4723";
 
 type MemberRow = {
   role: "member" | "admin";
   is_active: boolean;
   full_name: string;
 };
+
+function Arrow() {
+  return (
+    <span className="text-lg opacity-60 group-hover:opacity-100 transition">
+      →
+    </span>
+  );
+}
+
+function TileLink({ href, title }: { href: string; title: string }) {
+  return (
+    <a
+      href={href}
+      className="group bg-white rounded-3xl shadow-sm ring-1 ring-black/5 px-5 py-4 hover:bg-gray-50 hover:ring-black/10 transition active:scale-[0.99] flex items-center justify-between"
+    >
+      <span className="text-base sm:text-lg font-semibold text-gray-900">
+        {title}
+      </span>
+      <Arrow />
+    </a>
+  );
+}
+
+function TileButton({
+  title,
+  onClick,
+  variant = "solid",
+}: {
+  title: string;
+  onClick: () => void;
+  variant?: "solid" | "light";
+}) {
+  const base =
+    "group w-full rounded-3xl px-5 py-4 shadow-sm transition active:scale-[0.99] flex items-center justify-between";
+
+  const light = "bg-white ring-1 ring-black/5 hover:bg-gray-50 hover:ring-black/10 text-gray-900";
+  const solid = "text-white ring-1 ring-black/5 hover:brightness-[0.95]";
+
+  return (
+    <button
+      onClick={onClick}
+      className={`${base} ${variant === "light" ? light : solid}`}
+      style={variant === "solid" ? { backgroundColor: CLUB_GREEN } : undefined}
+    >
+      <span className="text-base sm:text-lg font-semibold">{title}</span>
+      <Arrow />
+    </button>
+  );
+}
 
 export default function AppHome() {
   const [fullName, setFullName] = useState<string | null>(null);
@@ -47,7 +95,7 @@ export default function AppHome() {
         return;
       }
 
-      const firstName = row.full_name.split(" ")[0];
+      const firstName = row.full_name.trim().split(" ")[0];
       setFullName(firstName);
       setIsAdmin(row.role === "admin");
     }
@@ -61,85 +109,40 @@ export default function AppHome() {
   }
 
   return (
-    <div className="p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
-
-        {/* Card Zona Socio */}
-        <div className="bg-white border rounded-2xl p-6 shadow-sm">
-          <h1 className="text-3xl font-bold" style={{ color: CLUB_GREEN }}>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-24 space-y-6">
+        {/* Card bienvenida */}
+        <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
+          <h1
+            className="text-3xl sm:text-4xl font-bold"
+            style={{ color: CLUB_GREEN }}
+          >
             Zona socio
           </h1>
 
-          <p className="text-sm text-gray-600 mt-2">
-            Bienvenido,{" "}
-            <span className="font-medium">
+          <p className="mt-2 text-gray-600">
+            Bienvenido{fullName ? `, ` : ""}{" "}
+            <span className="font-semibold text-gray-900">
               {fullName ?? "Cargando..."}
             </span>
           </p>
 
           {msg && (
-            <div className="mt-4 border rounded-xl p-3 bg-yellow-50">
-              <p className="text-sm">{msg}</p>
+            <div className="mt-4 rounded-2xl p-4 bg-yellow-50 ring-1 ring-yellow-200">
+              <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
         </div>
 
-        {/* Botones */}
+        {/* Acciones */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <TileLink href="/reservar" title="Reservar pista" />
+          <TileLink href="/mis-reservas" title="Mis reservas" />
 
-          <a
-            href="/reservar"
-            className="bg-white border rounded-2xl p-6 hover:shadow-md transition flex items-center justify-between"
-          >
-            <span className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
-              Reservar pista
-            </span>
-            <span className="text-xl">→</span>
-          </a>
+          {isAdmin && <TileLink href="/admin/bloqueos" title="Admin · Bloqueos" />}
 
-          <a
-            href="/mis-reservas"
-            className="bg-white border rounded-2xl p-6 hover:shadow-md transition flex items-center justify-between"
-          >
-            <span className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
-              Mis reservas
-            </span>
-            <span className="text-xl">→</span>
-          </a>
-
-          {isAdmin && (
-            <a
-              href="/admin/bloqueos"
-              className="bg-white border rounded-2xl p-6 hover:shadow-md transition flex items-center justify-between"
-            >
-              <span className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
-                Admin · Bloqueos
-              </span>
-              <span className="text-xl">→</span>
-            </a>
-          )}
-
-          <button
-            onClick={logout}
-            className="rounded-2xl p-6 text-white font-semibold transition flex items-center justify-between"
-            style={{ backgroundColor: CLUB_GREEN }}
-            onMouseDown={(e) =>
-              (e.currentTarget.style.backgroundColor = CLUB_GREEN_DARK)
-            }
-            onMouseUp={(e) =>
-              (e.currentTarget.style.backgroundColor = CLUB_GREEN)
-            }
-          >
-            <span className="text-lg font-bold">Cerrar sesión</span>
-            <span className="text-xl">→</span>
-          </button>
-
+          <TileButton title="Cerrar sesión" onClick={logout} />
         </div>
-
-        <div className="text-xs text-gray-500 text-center pt-4">
-          Club Pàdel Montornès · Reservas L–V 15:30–20:00 · Turnos 90 min
-        </div>
-
       </div>
     </div>
   );
