@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 
-type Court = { id: number; name: string };
-type Block = { id: string; date: string; slot_start: string; court_id: number; reason: string };
+const CLUB_GREEN = "#0f5e2e";
 
-type ReservationPublic = {
+type Court = { id: number; name: string };
+
+type ReservationRow = {
   id: string;
   date: string;
   slot_start: string;
@@ -15,11 +16,27 @@ type ReservationPublic = {
   court_id: number;
 };
 
-type PlayerRow = { reservation_id: string; seat: number; member_user_id: string };
-type MemberPublic = { user_id: string; full_name: string };
+type PlayerRow = {
+  reservation_id: string;
+  seat: number;
+  member_user_id: string;
+};
 
-const CLUB_GREEN = "#0f5e2e";
-const toHM = (t: string) => t.slice(0, 5);
+type MemberRow = {
+  user_id: string;
+  full_name: string;
+  is_active: boolean;
+  email?: string | null;
+};
+
+type BlockRow = {
+  id: string;
+  date: string;
+  slot_start: string;
+  slot_end: string;
+  court_id: number;
+  reason: string;
+};
 
 function todayISO() {
   const d = new Date();
@@ -29,82 +46,192 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function shortName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/);
-  if (parts.length >= 2) return `${parts[0]} ${parts[1]}`;
-  return parts[0] ?? "Socio";
+const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
+const cap1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+function nameFirstSurname(full: string) {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts[0]} ${parts[1]}`;
+}
+
+function classNames(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "green" | "red";
+}) {
+  return (
+    <span
+      className={classNames(
+        "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold border",
+        tone === "green" && "bg-green-50 text-green-800 border-green-200",
+        tone === "red" && "bg-red-50 text-red-800 border-red-200",
+        tone === "neutral" && "bg-gray-50 text-gray-700 border-gray-200"
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Modal({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <button
+        className="absolute inset-0 bg-black/30"
+        onClick={onClose}
+        aria-label="Cerrar"
+      />
+      <div className="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-lg font-semibold text-gray-900">{title}</div>
+          <button
+            onClick={onClose}
+            className="text-sm font-semibold text-gray-700 hover:text-gray-900"
+          >
+            Cerrar
+          </button>
+        </div>
+        <div className="mt-4">{children}</div>
+      </div>
+    </div>
+  );
 }
 
 export default function ReservarPage() {
   const [date, setDate] = useState(todayISO());
 
   const [courts, setCourts] = useState<Court[]>([]);
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [reservations, setReservations] = useState<ReservationPublic[]>([]);
-  const [playersRaw, setPlayersRaw] = useState<PlayerRow[]>([]);
-  const [membersMap, setMembersMap] = useState<Record<string, string>>({});
+  const [reservations, setReservations] = useState<ReservationRow[]>([]);
+  const [blocks, setBlocks] = useState<BlockRow[]>([]);
+  const [players, setPlayers] = useState<PlayerRow[]>([]);
+  const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
 
   const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // sesión
-  const [me, setMe] = useState<string | null>(null);
+  const [openResId, setOpenResId] = useState<string | null>(null);
 
-  // UI
-  const [openKey, setOpenKey] = useState<string | null>(null);
-
-  // modal add member
-  const [pickerForReservationId, setPickerForReservationId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [suggestions, setSuggestions] = useState<MemberPublic[]>([]);
+  const [addSeat, setAddSeat] = useState<number | null>(null);
+  const [addResId, setAddResId] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [suggestions, setSuggestions] = useState<Array<{ user_id: string; label: string }>>([]);
   const [searching, setSearching] = useState(false);
-  const searchTimer = useRef<number | null>(null);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null));
-  }, []);
+  const slotsToShow = useMemo(() => {
+    const d = new Date(`${date}T12:00:00`);
+    const day = d.getDay();
+    return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
+  }, [date]);
 
-  const dayOfWeek = useMemo(() => new Date(date + "T00:00:00").getDay(), [date]);
-  const slots = useMemo(() => {
-    if (dayOfWeek === 6) return SATURDAY_SLOTS; // sábado
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) return WEEKDAY_SLOTS; // L–V
-    return []; // domingo
-  }, [dayOfWeek]);
+  const openReservation = useMemo(() => {
+    if (!openResId) return null;
+    return reservations.find((r) => r.id === openResId) ?? null;
+  }, [openResId, reservations]);
+
+  const playersByReservation = useMemo(() => {
+    const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
+    for (const p of players) {
+      const arr = m.get(p.reservation_id) ?? [];
+      arr.push({
+        seat: p.seat,
+        name: membersMap.get(p.member_user_id) ?? "Socio",
+        userId: p.member_user_id,
+      });
+      m.set(p.reservation_id, arr);
+    }
+    for (const [k, arr] of m.entries()) {
+      arr.sort((a, b) => a.seat - b.seat);
+      m.set(k, arr);
+    }
+    return m;
+  }, [players, membersMap]);
+
+  const reservationByKey = useMemo(() => {
+    const m = new Map<string, ReservationRow>();
+    for (const r of reservations) {
+      m.set(`${toHM(r.slot_start)}-${r.court_id}`, r);
+    }
+    return m;
+  }, [reservations]);
+
+  const blockByKey = useMemo(() => {
+    const m = new Map<string, BlockRow>();
+    for (const b of blocks) {
+      m.set(`${toHM(b.slot_start)}-${b.court_id}`, b);
+    }
+    return m;
+  }, [blocks]);
 
   useEffect(() => {
     supabase
       .from("courts")
       .select("id,name")
-      .order("id")
+      .order("id", { ascending: true })
       .then(({ data, error }) => {
         if (error) setMsg(error.message);
-        else setCourts((data as Court[]) ?? []);
+        else setCourts(((data ?? []) as Court[]).slice(0, 3));
       });
   }, []);
 
   async function loadDay() {
     setMsg(null);
-
-    const b = await supabase
-      .from("blocks")
-      .select("id,date,slot_start,court_id,reason")
-      .eq("date", date);
-
-    if (b.error) return setMsg(b.error.message);
-    setBlocks((b.data as Block[]) ?? []);
+    setLoading(true);
 
     const r = await supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
-      .eq("date", date);
+      .eq("date", date)
+      .order("slot_start", { ascending: true })
+      .order("court_id", { ascending: true });
 
-    if (r.error) return setMsg(r.error.message);
-    const res = (r.data as ReservationPublic[]) ?? [];
-    setReservations(res);
+    if (r.error) {
+      setMsg(r.error.message);
+      setLoading(false);
+      return;
+    }
 
-    const ids = res.map((x) => x.id);
+    const resRows = (r.data ?? []) as ReservationRow[];
+    setReservations(resRows);
+
+    const b = await supabase
+      .from("blocks")
+      .select("id,date,slot_start,slot_end,court_id,reason")
+      .eq("date", date)
+      .order("slot_start", { ascending: true })
+      .order("court_id", { ascending: true });
+
+    if (b.error) {
+      setMsg(b.error.message);
+      setLoading(false);
+      return;
+    }
+
+    setBlocks((b.data ?? []) as BlockRow[]);
+
+    const ids = resRows.map((x) => x.id);
     if (ids.length === 0) {
-      setPlayersRaw([]);
-      setMembersMap({});
+      setPlayers([]);
+      setMembersMap(new Map());
+      setLoading(false);
       return;
     }
 
@@ -113,26 +240,40 @@ export default function ReservarPage() {
       .select("reservation_id,seat,member_user_id")
       .in("reservation_id", ids);
 
-    if (p.error) return setMsg(p.error.message);
-    const pr = (p.data as any[]) as PlayerRow[];
-    setPlayersRaw(pr);
+    if (p.error) {
+      setMsg(p.error.message);
+      setLoading(false);
+      return;
+    }
 
-    const userIds = Array.from(new Set(pr.map((x) => x.member_user_id)));
+    const playerRows = (p.data ?? []) as PlayerRow[];
+    setPlayers(playerRows);
+
+    const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
     if (userIds.length === 0) {
-      setMembersMap({});
+      setMembersMap(new Map());
+      setLoading(false);
       return;
     }
 
     const m = await supabase
-      .from("members_public")
-      .select("user_id,full_name")
+      .from("members")
+      .select("user_id,full_name,is_active,email")
       .in("user_id", userIds);
 
-    if (m.error) return setMsg(m.error.message);
+    if (m.error) {
+      setMsg(m.error.message);
+      setLoading(false);
+      return;
+    }
 
-    const map: Record<string, string> = {};
-    for (const row of (m.data ?? []) as MemberPublic[]) map[row.user_id] = row.full_name;
+    const map = new Map<string, string>();
+    for (const row of (m.data ?? []) as MemberRow[]) {
+      map.set(row.user_id, nameFirstSurname(row.full_name));
+    }
     setMembersMap(map);
+
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -140,66 +281,176 @@ export default function ReservarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
-  const blockMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const b of blocks) m.set(`${toHM(b.slot_start)}-${b.court_id}`, b.reason);
-    return m;
-  }, [blocks]);
-
-  const reservationMap = useMemo(() => {
-    const m = new Map<string, ReservationPublic>();
-    for (const r of reservations) m.set(`${toHM(r.slot_start)}-${r.court_id}`, r);
-    return m;
-  }, [reservations]);
-
-  const playersByReservation = useMemo(() => {
-    const m = new Map<string, { seat: number; name: string; memberId: string }[]>();
-    for (const p of playersRaw) {
-      const arr = m.get(p.reservation_id) ?? [];
-      const full = membersMap[p.member_user_id] ?? "Socio";
-      arr.push({ seat: p.seat, name: shortName(full), memberId: p.member_user_id });
-      m.set(p.reservation_id, arr);
+  async function getUserIdOrMsg() {
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (!user) {
+      setMsg("No hay sesión. Vuelve a iniciar sesión.");
+      return null;
     }
-    for (const [, arr] of m) arr.sort((a, b) => a.seat - b.seat);
-    return m;
-  }, [playersRaw, membersMap]);
-
-  function seatNames(resId: string) {
-    const arr = playersByReservation.get(resId) ?? [];
-    const seats = Array(4).fill(null) as (string | null)[];
-    for (const it of arr) seats[it.seat - 1] = it.name;
-    return seats;
+    return user.id;
   }
 
-  function isMeInReservation(resId: string) {
-    if (!me) return false;
-    const arr = playersByReservation.get(resId) ?? [];
-    return arr.some((x) => x.memberId === me);
+  async function sendBookingCreatedEmail(params: {
+    to: string;
+    fullName?: string;
+    date: string;
+    slotStart: string;
+    slotEnd: string;
+    courtName: string;
+  }) {
+    try {
+      await fetch("/api/send-booking-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "booking_created",
+          to: params.to,
+          fullName: params.fullName ?? "",
+          date: params.date,
+          slotStart: params.slotStart,
+          slotEnd: params.slotEnd,
+          courtName: params.courtName,
+        }),
+      });
+    } catch (error) {
+      console.error("Error enviando email de reserva:", error);
+    }
   }
 
-  async function join(reservationId: string, memberId: string) {
+  async function sendAddedToMatchEmail(params: {
+    to: string;
+    fullName?: string;
+    addedByName?: string;
+    date: string;
+    slotStart: string;
+    slotEnd: string;
+    courtName: string;
+  }) {
+    try {
+      await fetch("/api/send-booking-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "added_to_match",
+          to: params.to,
+          fullName: params.fullName ?? "",
+          addedByName: params.addedByName ?? "",
+          date: params.date,
+          slotStart: params.slotStart,
+          slotEnd: params.slotEnd,
+          courtName: params.courtName,
+        }),
+      });
+    } catch (error) {
+      console.error("Error enviando email de añadido a partida:", error);
+    }
+  }
+
+  async function sendMatchCompletedEmail(params: {
+    to: string;
+    fullName?: string;
+    date: string;
+    slotStart: string;
+    slotEnd: string;
+    courtName: string;
+    playersCount: number;
+  }) {
+    try {
+      await fetch("/api/send-booking-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "match_completed",
+          to: params.to,
+          fullName: params.fullName ?? "",
+          date: params.date,
+          slotStart: params.slotStart,
+          slotEnd: params.slotEnd,
+          courtName: params.courtName,
+          playersCount: params.playersCount,
+        }),
+      });
+    } catch (error) {
+      console.error("Error enviando email de partida completa:", error);
+    }
+  }
+
+  async function notifyMatchCompleted(resId: string) {
+    const reservation = reservations.find((r) => r.id === resId);
+    if (!reservation) return;
+
+    const playersRes = await supabase
+      .from("reservation_players")
+      .select("reservation_id,seat,member_user_id")
+      .eq("reservation_id", resId);
+
+    if (playersRes.error || !playersRes.data) return;
+
+    const playerRows = playersRes.data as PlayerRow[];
+    if (playerRows.length !== 4) return;
+
+    const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
+    if (userIds.length === 0) return;
+
+    const membersRes = await supabase
+      .from("members")
+      .select("user_id,full_name,is_active,email")
+      .in("user_id", userIds);
+
+    if (membersRes.error || !membersRes.data) return;
+
+    const members = membersRes.data as MemberRow[];
+    const courtName =
+      courts.find((c) => c.id === reservation.court_id)?.name ??
+      `Pista ${reservation.court_id}`;
+
+    for (const member of members) {
+      if (!member.email) continue;
+
+      await sendMatchCompletedEmail({
+        to: member.email,
+        fullName: nameFirstSurname(member.full_name),
+        date: reservation.date,
+        slotStart: toHM(reservation.slot_start),
+        slotEnd: toHM(reservation.slot_end),
+        courtName,
+        playersCount: 4,
+      });
+    }
+  }
+
+  async function createOrOpen(slotStart: string, slotEnd: string, courtId: number) {
     setMsg(null);
 
-    const rpc = await supabase.rpc("join_reservation", {
-      p_reservation_id: reservationId,
-      p_member: memberId,
-    });
+    const block = blockByKey.get(`${slotStart}-${courtId}`);
+    if (block) {
+      setMsg("Esta pista está bloqueada en ese horario.");
+      return;
+    }
 
-    if (rpc.error) return setMsg(rpc.error.message);
+    const existing = reservationByKey.get(`${slotStart}-${courtId}`);
+    if (existing) {
+      setOpenResId(existing.id);
+      return;
+    }
 
-    setPickerForReservationId(null);
-    setSearch("");
-    setSuggestions([]);
-    await loadDay();
-  }
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
 
-  // Crear partida (idempotente): si ya existe, la abre/te une en vez de error
-  async function createMatch(slotStart: string, slotEnd: string, courtId: number) {
-    setMsg(null);
+    if (!user) {
+      setMsg("No hay sesión. Vuelve a iniciar sesión.");
+      return;
+    }
 
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
-    if (!user) return setMsg("No hay sesión.");
+    const userId = user.id;
+    const userEmail = user.email ?? "";
 
     const ins = await supabase
       .from("reservations")
@@ -208,96 +459,233 @@ export default function ReservarPage() {
         slot_start: slotStart,
         slot_end: slotEnd,
         court_id: courtId,
-        member_user_id: user.id,
+        member_user_id: userId,
         status: "active",
       })
       .select("id")
       .single();
 
-    // Si ya existe (unique), buscamos la reserva existente y nos unimos
     if (ins.error) {
-      const msgLower = (ins.error.message || "").toLowerCase();
-      const isDuplicate =
-        msgLower.includes("duplicate key") ||
-        msgLower.includes("unique constraint") ||
-        msgLower.includes("uq_reservation_unique");
-
-      if (!isDuplicate) return setMsg(ins.error.message);
-
-      const existing = await supabase
-        .from("reservations_public")
-        .select("id")
-        .eq("date", date)
-        .eq("slot_start", slotStart)
-        .eq("court_id", courtId)
-        .limit(1)
-        .single();
-
-      if (existing.error || !existing.data?.id) {
-        return setMsg("Esa partida ya existe, pero no he podido cargarla. Recarga la página.");
+      const msg = ins.error.message ?? "";
+      if (
+        msg.toLowerCase().includes("duplicate key") ||
+        msg.toLowerCase().includes("uq_reservation_unique")
+      ) {
+        await loadDay();
+        const nowExisting = reservationByKey.get(`${slotStart}-${courtId}`);
+        if (nowExisting) setOpenResId(nowExisting.id);
+        return;
       }
-
-      await join(existing.data.id, user.id);
+      setMsg(ins.error.message);
       return;
     }
 
-    // Reserva creada => me uno
-    const rpc = await supabase.rpc("join_reservation", {
-      p_reservation_id: ins.data.id,
-      p_member: user.id,
+    const createdReservationId = ins.data.id as string;
+
+    const playerIns = await supabase.from("reservation_players").insert({
+      reservation_id: createdReservationId,
+      seat: 1,
+      member_user_id: userId,
     });
 
-    if (rpc.error) return setMsg(rpc.error.message);
-
-    await loadDay();
-  }
-
-  // Buscar socios mientras escribes
-  useEffect(() => {
-    if (!pickerForReservationId) return;
-
-    const q = search.trim();
-    if (!q) {
-      setSuggestions([]);
-      setSearching(false);
-      if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    if (playerIns.error) {
+      setMsg(playerIns.error.message);
+      await loadDay();
+      setOpenResId(createdReservationId);
       return;
     }
 
-    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    const courtName =
+      courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
 
-    setSearching(true);
-    searchTimer.current = window.setTimeout(async () => {
-      const { data, error } = await supabase
-        .from("members_public")
-        .select("user_id,full_name")
-        .ilike("full_name", `%${q}%`)
-        .order("full_name")
-        .limit(10);
+    if (userEmail) {
+      const memberName = membersMap.get(userId) ?? "";
+      await sendBookingCreatedEmail({
+        to: userEmail,
+        fullName: memberName,
+        date,
+        slotStart,
+        slotEnd,
+        courtName,
+      });
+    }
 
-      if (error) {
-        setMsg(error.message);
+    await loadDay();
+    setOpenResId(createdReservationId);
+  }
+
+  async function joinSeat(resId: string, seat: number, memberUserId: string) {
+    setMsg(null);
+
+    const ins = await supabase.from("reservation_players").insert({
+      reservation_id: resId,
+      seat,
+      member_user_id: memberUserId,
+    });
+
+    if (ins.error) {
+      setMsg(ins.error.message);
+      return false;
+    }
+
+    await loadDay();
+    await notifyMatchCompleted(resId);
+    return true;
+  }
+
+  async function joinMe(resId: string) {
+    const userId = await getUserIdOrMsg();
+    if (!userId) return;
+
+    const alreadyIn = (playersByReservation.get(resId) ?? []).some((x) => x.userId === userId);
+    if (alreadyIn) {
+      setMsg("Ya estás apuntado en esta partida.");
+      return;
+    }
+
+    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
+    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+    if (!freeSeat) {
+      setMsg("Esta partida ya está completa.");
+      return;
+    }
+    await joinSeat(resId, freeSeat, userId);
+  }
+
+  async function openAddSocio(resId: string) {
+    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
+    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+    if (!freeSeat) {
+      setMsg("Esta partida ya está completa.");
+      return;
+    }
+
+    setAddResId(resId);
+    setAddSeat(freeSeat);
+    setQ("");
+    setSuggestions([]);
+  }
+
+  useEffect(() => {
+    let alive = true;
+
+    async function run() {
+      if (!addResId || !addSeat) return;
+      const term = q.trim();
+      if (term.length < 2) {
         setSuggestions([]);
-      } else {
-        setSuggestions(((data ?? []) as MemberPublic[]) ?? []);
+        return;
       }
-      setSearching(false);
-    }, 150);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, pickerForReservationId]);
+      setSearching(true);
+      const res = await supabase
+        .from("members")
+        .select("user_id,full_name,is_active,email")
+        .eq("is_active", true)
+        .ilike("full_name", `%${term}%`)
+        .limit(8);
+
+      if (!alive) return;
+
+      setSearching(false);
+      if (res.error) {
+        setMsg(res.error.message);
+        setSuggestions([]);
+        return;
+      }
+
+      const list = ((res.data ?? []) as MemberRow[]).map((m) => ({
+        user_id: m.user_id,
+        label: nameFirstSurname(m.full_name),
+      }));
+      setSuggestions(list);
+    }
+
+    run();
+    return () => {
+      alive = false;
+    };
+  }, [q, addResId, addSeat]);
+
+  async function addSocio(userId: string) {
+    if (!addResId || !addSeat) return;
+
+    const reservation = reservations.find((r) => r.id === addResId);
+    if (!reservation) {
+      setMsg("No se ha encontrado la partida.");
+      return;
+    }
+
+    const alreadyIn = (playersByReservation.get(addResId) ?? []).some((x) => x.userId === userId);
+    if (alreadyIn) {
+      setMsg("Ese socio ya está apuntado en esta partida.");
+      return;
+    }
+
+    const ok = await joinSeat(addResId, addSeat, userId);
+    if (!ok) return;
+
+    const memberRes = await supabase
+      .from("members")
+      .select("user_id,full_name,is_active,email")
+      .eq("user_id", userId)
+      .single();
+
+    if (!memberRes.error && memberRes.data) {
+      const member = memberRes.data as MemberRow;
+      const courtName =
+        courts.find((c) => c.id === reservation.court_id)?.name ??
+        `Pista ${reservation.court_id}`;
+
+      const { data } = await supabase.auth.getUser();
+      const currentUser = data.user;
+
+      let addedByName = "";
+
+      if (currentUser?.id) {
+        const addedByRes = await supabase
+          .from("members")
+          .select("full_name")
+          .eq("user_id", currentUser.id)
+          .single();
+
+        if (!addedByRes.error && addedByRes.data) {
+          addedByName = nameFirstSurname(addedByRes.data.full_name);
+        }
+      }
+
+      if (member.email) {
+        await sendAddedToMatchEmail({
+          to: member.email,
+          fullName: nameFirstSurname(member.full_name),
+          addedByName,
+          date: reservation.date,
+          slotStart: toHM(reservation.slot_start),
+          slotEnd: toHM(reservation.slot_end),
+          courtName,
+        });
+      }
+    }
+
+    setAddResId(null);
+    setAddSeat(null);
+    setQ("");
+    setSuggestions([]);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6">
-        {/* Selector fecha */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
-          <input
-            type="date"
-            className="w-full sm:w-auto border border-gray-300 rounded-2xl px-4 py-3 text-base bg-white"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <div className="flex items-center gap-4">
+            <div className="text-sm font-semibold text-gray-900">Fecha</div>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="ml-auto w-[170px] sm:w-[190px] rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
+            />
+          </div>
 
           {msg && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
@@ -306,244 +694,194 @@ export default function ReservarPage() {
           )}
         </div>
 
-        {/* Domingo cerrado */}
-        {slots.length === 0 ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5">
-            <p className="font-semibold text-gray-900">Domingos cerrado.</p>
+        {loading ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
+            Cargando…
           </div>
         ) : (
           <div className="space-y-6">
-            {slots.map((s) => (
-              <div
-                key={s.start}
-                className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
-              >
-                <div className="px-5 py-4 border-b border-gray-200">
-                  <div className="font-semibold" style={{ color: CLUB_GREEN }}>
-                    {s.start} – {s.end}
+            {slotsToShow.map((s) => {
+              const slotLabel = `${s.start} – ${s.end}`;
+              return (
+                <div
+                  key={s.start}
+                  className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
+                >
+                  <div className="px-5 py-4 border-b border-gray-200">
+                    <div className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
+                      {slotLabel}
+                    </div>
+                  </div>
+
+                  <div className="p-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {courts.map((c) => {
+                        const key = `${s.start}-${c.id}`;
+                        const res = reservationByKey.get(key);
+                        const block = blockByKey.get(key);
+                        const blocked = !!block;
+                        const filled = res ? (playersByReservation.get(res.id) ?? []).length : 0;
+
+                        return (
+                          <div
+                            key={c.id}
+                            className={classNames(
+                              "rounded-3xl border shadow-sm p-4 sm:p-5",
+                              blocked
+                                ? "bg-red-50 border-red-200"
+                                : res
+                                ? "bg-white border-gray-300"
+                                : "bg-green-50 border-gray-300"
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-lg font-bold text-gray-900">{c.name}</div>
+
+                                <div className="mt-2">
+                                  {blocked ? (
+                                    <Badge tone="red">Bloqueada</Badge>
+                                  ) : res ? (
+                                    <Badge tone="neutral">{filled}/4</Badge>
+                                  ) : (
+                                    <Badge tone="green">Libre</Badge>
+                                  )}
+                                </div>
+
+                                {blocked && (
+                                  <div className="mt-3 text-sm font-medium text-red-700">
+                                    {block?.reason || "Bloqueado"}
+                                  </div>
+                                )}
+                              </div>
+
+                              {!blocked &&
+                                (res ? (
+                                  <button
+                                    onClick={() => setOpenResId(res.id)}
+                                    className="shrink-0 rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                    style={{ backgroundColor: CLUB_GREEN }}
+                                  >
+                                    Ver / Unirme
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => createOrOpen(s.start, s.end, c.id)}
+                                    className="shrink-0 rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                    style={{ backgroundColor: CLUB_GREEN }}
+                                  >
+                                    Crear
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-
-                <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {courts.map((c) => {
-                    const key = `${s.start}-${c.id}`;
-                    const blocked = blockMap.get(key);
-                    const res = reservationMap.get(key);
-
-                    if (blocked) {
-                      return (
-                        <div
-                          key={c.id}
-                          className="border border-gray-300 rounded-3xl p-4 bg-red-50 shadow-sm"
-                        >
-                          <div className="font-semibold text-gray-900">{c.name}</div>
-                          <div className="text-sm text-red-700 mt-1">Bloqueada</div>
-                          <div className="text-xs text-red-700 opacity-80 mt-1">{blocked}</div>
-                        </div>
-                      );
-                    }
-
-                    // Libre => Crear
-                    if (!res) {
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => createMatch(s.start, s.end, c.id)}
-                          className="w-full border border-gray-300 rounded-3xl p-4 text-left bg-white shadow-sm hover:bg-gray-50 transition active:scale-[0.99]"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="text-base font-semibold text-gray-900">{c.name}</div>
-                              <span
-                                className="mt-2 inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full border bg-white"
-                                style={{
-                                  color: CLUB_GREEN,
-                                  borderColor: "rgba(15, 94, 46, 0.30)",
-                                }}
-                              >
-                                Libre
-                              </span>
-                            </div>
-
-                            <span
-                              className="shrink-0 inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-white"
-                              style={{ backgroundColor: CLUB_GREEN }}
-                            >
-                              Crear
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    }
-
-                    // Partida existente
-                    const seats = seatNames(res.id);
-                    const filled = seats.filter(Boolean).length;
-                    const badge = filled >= 4 ? "Completa" : `${filled}/4`;
-
-                    const cardKey = `${s.start}-${c.id}`;
-                    const isOpen = openKey === cardKey;
-
-                    const meIn = isMeInReservation(res.id);
-                    const canJoin = filled < 4 && !meIn;
-
-                    const quickLabel = canJoin ? "Unirme" : "Ver";
-
-                    return (
-                      <div
-                        key={c.id}
-                        className="border border-gray-300 rounded-3xl bg-white shadow-sm overflow-hidden"
-                      >
-                        {/* Header + acción rápida (WhatsApp-like) */}
-                        <div className="p-4 flex items-center justify-between gap-4">
-                          <button
-                            type="button"
-                            onClick={() => setOpenKey(isOpen ? null : cardKey)}
-                            className="text-left flex-1 active:scale-[0.99] transition"
-                          >
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="text-base font-semibold text-gray-900">{c.name}</div>
-                              <span
-                                className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                                  filled >= 4
-                                    ? "bg-gray-100 text-gray-700 border-gray-200"
-                                    : "bg-white text-gray-900"
-                                }`}
-                                style={filled < 4 ? { borderColor: "rgba(15, 94, 46, 0.25)" } : undefined}
-                              >
-                                {badge}
-                              </span>
-                            </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              const { data } = await supabase.auth.getUser();
-                              if (!data.user) return setMsg("No hay sesión.");
-
-                              if (canJoin) {
-                                await join(res.id, data.user.id);
-                                setOpenKey(cardKey); // lo abre para que vea quién está
-                                return;
-                              }
-
-                              // Ver => abre/cierra
-                              setOpenKey(isOpen ? null : cardKey);
-                            }}
-                            className="shrink-0 rounded-full px-4 py-2 text-sm font-semibold border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 transition active:scale-[0.99]"
-                          >
-                            {quickLabel}
-                          </button>
-                        </div>
-
-                        {/* Detalle */}
-                        {isOpen && (
-                          <div className="px-4 pb-4">
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              {seats.map((name, idx) => (
-                                <div
-                                  key={idx}
-                                  className={`border border-gray-200 rounded-2xl px-3 py-3 text-center ${
-                                    name ? "bg-gray-50 text-gray-900" : "bg-white text-gray-700"
-                                  }`}
-                                >
-                                  <div className="font-semibold">{name ?? "Libre"}</div>
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="mt-4 flex flex-wrap gap-3">
-                              <button
-                                className="rounded-2xl px-5 py-3 text-white font-semibold disabled:opacity-50 transition active:scale-[0.99]"
-                                style={{ backgroundColor: CLUB_GREEN }}
-                                disabled={filled >= 4 || meIn}
-                                onClick={async () => {
-                                  const { data } = await supabase.auth.getUser();
-                                  if (!data.user) return setMsg("No hay sesión.");
-                                  await join(res.id, data.user.id);
-                                }}
-                              >
-                                Unirme
-                              </button>
-
-                              <button
-                                className="rounded-2xl px-5 py-3 border border-gray-300 font-semibold disabled:opacity-50 text-gray-900 bg-white hover:bg-gray-50 transition active:scale-[0.99]"
-                                disabled={filled >= 4}
-                                onClick={() => {
-                                  setPickerForReservationId(res.id);
-                                  setSearch("");
-                                  setSuggestions([]);
-                                }}
-                              >
-                                Añadir socio
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Modal: añadir socio */}
-      {pickerForReservationId && (
-        <div className="fixed inset-0 bg-black/30 flex items-end sm:items-center justify-center p-3 z-50">
-          <div className="w-full sm:max-w-md bg-white rounded-3xl border border-gray-300 shadow-xl overflow-hidden">
-            <div className="p-4 sm:p-5">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-gray-900">Añadir socio</div>
-                <button
-                  className="text-sm underline text-gray-700"
-                  onClick={() => {
-                    setPickerForReservationId(null);
-                    setSearch("");
-                    setSuggestions([]);
-                  }}
-                >
-                  Cerrar
-                </button>
-              </div>
+      <Modal
+        open={!!openResId && !!openReservation}
+        onClose={() => setOpenResId(null)}
+        title={
+          openReservation
+            ? `${cap1(openReservation.date)} · ${toHM(openReservation.slot_start)}–${toHM(
+                openReservation.slot_end
+              )} · Pista ${openReservation.court_id}`
+            : "Partida"
+        }
+      >
+        {openReservation && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((seat) => {
+                const arr = playersByReservation.get(openReservation.id) ?? [];
+                const occ = arr.find((x) => x.seat === seat);
 
-              <input
-                className="mt-4 w-full border border-gray-300 rounded-2xl px-4 py-3"
-                placeholder="Buscar por nombre..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                autoFocus
-              />
+                return (
+                  <div
+                    key={seat}
+                    className={classNames(
+                      "rounded-2xl border border-gray-300 p-4 shadow-sm",
+                      occ ? "bg-white" : "bg-gray-50"
+                    )}
+                  >
+                    <div className="text-base font-semibold text-gray-900">
+                      {occ ? occ.name : "Libre"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-              {search.trim() ? (
-                <div className="mt-4 space-y-2">
-                  {searching ? (
-                    <div className="text-sm text-gray-600 px-1">Buscando…</div>
-                  ) : suggestions.length === 0 ? (
-                    <div className="text-sm text-gray-600 px-1">No se han encontrado socios.</div>
-                  ) : (
-                    suggestions.map((m) => (
-                      <button
-                        key={m.user_id}
-                        className="w-full text-left border border-gray-300 rounded-2xl px-4 py-3 bg-white hover:bg-gray-50 transition"
-                        onClick={() => join(pickerForReservationId, m.user_id)}
-                      >
-                        {m.full_name}
-                      </button>
-                    ))
-                  )}
-                </div>
-              ) : null}
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => joinMe(openReservation.id)}
+                className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                style={{ backgroundColor: CLUB_GREEN }}
+              >
+                Unirme
+              </button>
+
+              <button
+                onClick={() => openAddSocio(openReservation.id)}
+                className="rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
+              >
+                Añadir socio
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {/* Bottom nav fijo (móvil) */}
+      <Modal
+        open={!!addResId && !!addSeat}
+        onClose={() => {
+          setAddResId(null);
+          setAddSeat(null);
+          setQ("");
+          setSuggestions([]);
+        }}
+        title="Añadir socio"
+      >
+        <div className="space-y-4">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar por nombre…"
+            className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
+          />
+
+          {q.trim().length < 2 ? null : searching ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              Buscando…
+            </div>
+          ) : suggestions.length === 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              Sin resultados.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {suggestions.map((s) => (
+                <button
+                  key={s.user_id}
+                  onClick={() => addSocio(s.user_id)}
+                  className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
+                >
+                  <div className="font-semibold text-gray-900">{s.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
       <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
         <div className="max-w-3xl mx-auto grid grid-cols-3">
           <a href="/reservar" className="py-3 text-center font-semibold" style={{ color: CLUB_GREEN }}>
@@ -552,7 +890,7 @@ export default function ReservarPage() {
           <a href="/mis-reservas" className="py-3 text-center font-semibold text-gray-700">
             Mis reservas
           </a>
-          <a href="/app" className="py-3 text-center font-semibold text-gray-700">
+          <a href="/" className="py-3 text-center font-semibold text-gray-700">
             Socio
           </a>
         </div>

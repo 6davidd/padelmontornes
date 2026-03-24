@@ -212,7 +212,7 @@ export default function MisReservasPage() {
           <a href="/mis-reservas" className="py-3 text-center font-semibold" style={{ color: CLUB_GREEN }}>
             Mis reservas
           </a>
-          <a href="/app" className="py-3 text-center font-semibold text-gray-700">
+          <a href="/" className="py-3 text-center font-semibold text-gray-700">
             Socio
           </a>
         </div>

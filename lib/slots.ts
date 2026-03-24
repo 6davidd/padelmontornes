@@ -5,6 +5,5 @@ export const WEEKDAY_SLOTS = [
 ];
 
 export const SATURDAY_SLOTS = [
-  { start: "11:00", end: "12:30" },
-  { start: "12:30", end: "14:00" },
+  { start: "09:30", end: "11:00" },
 ];

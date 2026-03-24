@@ -32,15 +32,13 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/app");
+    router.push("/");
   }
 
   return (
     <div className="min-h-[calc(100vh-56px)] bg-gray-50">
       <div className="max-w-md mx-auto px-4 sm:px-6 py-10 sm:py-12">
         <div className="bg-white border border-gray-300 rounded-3xl p-6 sm:p-8 shadow-sm">
-          {/* OJO: aquí NO ponemos logo ni “Acceso” para no duplicar el header global */}
-
           {msg && (
             <div className="mb-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm text-yellow-900">{msg}</p>
