@@ -9,8 +9,8 @@ type Court = { id: number; name: string };
 
 type BlockRow = {
   id: string;
-  date: string; // YYYY-MM-DD
-  slot_start: string; // "15:30:00" o "15:30"
+  date: string;
+  slot_start: string;
   slot_end: string;
   court_id: number;
   reason: string;
@@ -28,7 +28,7 @@ function todayISO() {
 
 function isSaturday(dateISO: string) {
   const d = new Date(dateISO + "T00:00:00");
-  return d.getDay() === 6; // 0 dom ... 6 sáb
+  return d.getDay() === 6;
 }
 
 const toHM = (t: string) => (t.length >= 5 ? t.slice(0, 5) : t);
@@ -37,7 +37,7 @@ export default function AdminBloqueosPage() {
   const router = useRouter();
 
   const [date, setDate] = useState(todayISO());
-  const [reason, setReason] = useState("Mantenimiento");
+  const [reason, setReason] = useState("");
   const [courts, setCourts] = useState<Court[]>([]);
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
@@ -47,7 +47,6 @@ export default function AdminBloqueosPage() {
     return isSaturday(date) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
   }, [date]);
 
-  // --- Guard: solo admin ---
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
@@ -65,17 +64,17 @@ export default function AdminBloqueosPage() {
         .single();
 
       if (m.error || !m.data) {
-        router.push("/app");
+        router.push("/");
         return;
       }
 
       if (!m.data.is_active) {
-        router.push("/app");
+        router.push("/");
         return;
       }
 
       if (m.data.role !== "admin") {
-        router.push("/app");
+        router.push("/");
         return;
       }
 
@@ -83,7 +82,6 @@ export default function AdminBloqueosPage() {
     })();
   }, [router]);
 
-  // --- Cargar pistas ---
   useEffect(() => {
     supabase
       .from("courts")
@@ -129,14 +127,12 @@ export default function AdminBloqueosPage() {
     const existing = blockMap.get(key);
 
     if (existing) {
-      // quitar bloqueo
       const del = await supabase.from("blocks").delete().eq("id", existing.id);
       if (del.error) return setMsg(del.error.message);
       await loadDay();
       return;
     }
 
-    // crear bloqueo
     const ins = await supabase.from("blocks").insert({
       date,
       slot_start: slotStart,
@@ -165,7 +161,6 @@ export default function AdminBloqueosPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        {/* Controles */}
         <div className="bg-white border border-gray-300 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -186,22 +181,22 @@ export default function AdminBloqueosPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label className="space-y-2">
-              <div className="text-sm font-semibold text-gray-700">Fecha</div>
+              <div className="text-sm font-semibold text-gray-900">Fecha</div>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-2xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
               />
             </label>
 
             <label className="space-y-2">
-              <div className="text-sm font-semibold text-gray-700">Motivo</div>
+              <div className="text-sm font-semibold text-gray-900">Motivo</div>
               <input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Ej: Mantenimiento / Torneo"
-                className="w-full bg-white border border-gray-300 rounded-2xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                placeholder="Motivo del bloqueo"
+                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
               />
             </label>
           </div>
@@ -218,9 +213,8 @@ export default function AdminBloqueosPage() {
           </div>
         </div>
 
-        {/* Slots */}
         <div className="space-y-6">
-          {slots.map((s: any) => (
+          {slots.map((s: { start: string; end: string }) => (
             <div key={s.start} className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-200">
                 <div className="font-semibold" style={{ color: CLUB_GREEN }}>
@@ -282,7 +276,6 @@ export default function AdminBloqueosPage() {
         </div>
       </div>
 
-      {/* Bottom nav fijo (móvil) */}
       <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
         <div className="max-w-3xl mx-auto grid grid-cols-3">
           <a href="/reservar" className="py-3 text-center font-semibold text-gray-700">
@@ -291,7 +284,7 @@ export default function AdminBloqueosPage() {
           <a href="/mis-reservas" className="py-3 text-center font-semibold text-gray-700">
             Mis reservas
           </a>
-          <a href="/app" className="py-3 text-center font-semibold text-gray-700">
+          <a href="/" className="py-3 text-center font-semibold text-gray-700">
             Socio
           </a>
         </div>
