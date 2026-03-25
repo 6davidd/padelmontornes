@@ -29,7 +29,7 @@ function capitalizeFirst(text: string) {
 
 function formatDateES(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("es-ES"); // dd/mm/aaaa
+  return d.toLocaleDateString("es-ES");
 }
 
 function weekdayES(dateStr: string) {
@@ -55,7 +55,6 @@ export default function MisReservasPage() {
       return;
     }
 
-    // 1) reservation_id donde estoy apuntado
     const rp = await supabase
       .from("reservation_players")
       .select("reservation_id")
@@ -75,7 +74,6 @@ export default function MisReservasPage() {
       return;
     }
 
-    // 2) traer reservas activas + SOLO de hoy en adelante
     const r = await supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
@@ -107,7 +105,6 @@ export default function MisReservasPage() {
     load();
   }, []);
 
-  // agrupar por fecha
   const grouped = useMemo(() => {
     const map = new Map<string, Item[]>();
     for (const it of items) {
@@ -203,17 +200,19 @@ export default function MisReservasPage() {
         )}
       </div>
 
-      {/* Bottom nav fijo (móvil) */}
       <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
-        <div className="max-w-3xl mx-auto grid grid-cols-3">
+        <div className="max-w-3xl mx-auto grid grid-cols-4">
+          <a href="/" className="py-3 text-center font-semibold text-gray-700">
+            Inicio
+          </a>
           <a href="/reservar" className="py-3 text-center font-semibold text-gray-700">
             Reservar
           </a>
+          <a href="/partidas-abiertas" className="py-3 text-center font-semibold text-gray-700">
+            Partidas
+          </a>
           <a href="/mis-reservas" className="py-3 text-center font-semibold" style={{ color: CLUB_GREEN }}>
             Mis reservas
-          </a>
-          <a href="/" className="py-3 text-center font-semibold text-gray-700">
-            Socio
           </a>
         </div>
       </div>

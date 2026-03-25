@@ -205,8 +205,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-24 space-y-6">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6">
         <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
           <h1
             className="text-3xl sm:text-4xl font-bold"
@@ -241,6 +241,23 @@ export default function HomePage() {
           {isAdmin && <TileLink href="/admin/bloqueos" title="Admin · Bloqueos" />}
 
           <TileButton title="Cerrar sesión" onClick={logout} />
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
+        <div className="max-w-3xl mx-auto grid grid-cols-4">
+          <a href="/" className="py-3 text-center font-semibold" style={{ color: CLUB_GREEN }}>
+            Inicio
+          </a>
+          <a href="/reservar" className="py-3 text-center font-semibold text-gray-700">
+            Reservar
+          </a>
+          <a href="/partidas-abiertas" className="py-3 text-center font-semibold text-gray-700">
+            Partidas
+          </a>
+          <a href="/mis-reservas" className="py-3 text-center font-semibold text-gray-700">
+            Mis reservas
+          </a>
         </div>
       </div>
     </div>

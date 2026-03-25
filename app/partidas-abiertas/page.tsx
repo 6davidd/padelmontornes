@@ -444,6 +444,23 @@ export default function PartidasAbiertasPage() {
           </div>
         )}
       </Modal>
+
+      <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
+        <div className="max-w-3xl mx-auto grid grid-cols-4">
+          <a href="/" className="py-3 text-center font-semibold text-gray-700">
+            Inicio
+          </a>
+          <a href="/reservar" className="py-3 text-center font-semibold text-gray-700">
+            Reservar
+          </a>
+          <a href="/partidas-abiertas" className="py-3 text-center font-semibold" style={{ color: CLUB_GREEN }}>
+            Partidas
+          </a>
+          <a href="/mis-reservas" className="py-3 text-center font-semibold text-gray-700">
+            Mis reservas
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
