@@ -6,6 +6,11 @@ import Header from "./_components/Header";
 export const metadata: Metadata = {
   title: "Club Pàdel Montornès",
   description: "Sistema de reservas del club",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

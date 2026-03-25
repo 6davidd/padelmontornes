@@ -159,7 +159,7 @@ export default function AdminBloqueosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-28">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex items-start justify-between gap-4">
@@ -277,15 +277,13 @@ export default function AdminBloqueosPage() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
-        <div className="max-w-3xl mx-auto grid grid-cols-3">
-          <a href="/reservar" className="py-3 text-center font-semibold text-gray-700">
-            Reservar
-          </a>
-          <a href="/mis-reservas" className="py-3 text-center font-semibold text-gray-700">
-            Mis reservas
-          </a>
-          <a href="/" className="py-3 text-center font-semibold text-gray-700">
-            Socio
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <a
+            href="/"
+            className="block w-full rounded-2xl py-3 text-center font-semibold text-white shadow-sm active:scale-[0.99] transition"
+            style={{ backgroundColor: CLUB_GREEN }}
+          >
+            Inicio
           </a>
         </div>
       </div>

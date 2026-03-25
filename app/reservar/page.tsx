@@ -674,7 +674,7 @@ export default function ReservarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-28">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
           <div className="flex items-center gap-4">
@@ -883,18 +883,13 @@ export default function ReservarPage() {
       </Modal>
 
       <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
-        <div className="max-w-3xl mx-auto grid grid-cols-4">
-          <a href="/" className="py-3 text-center font-semibold text-gray-700">
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <a
+            href="/"
+            className="block w-full rounded-2xl py-3 text-center font-semibold text-white shadow-sm active:scale-[0.99] transition"
+            style={{ backgroundColor: CLUB_GREEN }}
+          >
             Inicio
-          </a>
-          <a href="/reservar" className="py-3 text-center font-semibold" style={{ color: CLUB_GREEN }}>
-            Reservar
-          </a>
-          <a href="/partidas-abiertas" className="py-3 text-center font-semibold text-gray-700">
-            Partidas
-          </a>
-          <a href="/mis-reservas" className="py-3 text-center font-semibold text-gray-700">
-            Mis reservas
           </a>
         </div>
       </div>
