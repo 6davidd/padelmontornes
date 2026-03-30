@@ -159,7 +159,7 @@ export default function AdminBloqueosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex items-start justify-between gap-4">

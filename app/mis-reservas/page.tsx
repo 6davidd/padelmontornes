@@ -136,7 +136,7 @@ export default function MisReservasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
         {msg && (
           <div className="mt-3 border border-yellow-300 rounded-2xl p-3 bg-yellow-50">

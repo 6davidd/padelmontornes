@@ -104,13 +104,13 @@ function Modal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         className="absolute inset-0 bg-black/30"
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold text-gray-900">{title}</div>
           <button
@@ -317,7 +317,7 @@ export default function PartidasAbiertasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6">
           <div className="flex items-start justify-between gap-3">
