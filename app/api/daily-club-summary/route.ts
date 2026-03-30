@@ -99,27 +99,42 @@ function buildWhatsappMessage(params: {
   lines.push("");
 
   lines.push("🟢 ABIERTAS");
+  lines.push("");
+
   if (openMatches.length === 0) {
-    lines.push("• No hay partidas abiertas");
+    lines.push("No hay partidas abiertas");
   } else {
     for (const match of openMatches) {
-      const faltanTexto =
-        match.missing === 1 ? "falta 1" : `faltan ${match.missing}`;
-      lines.push(
-        `• ${match.slotStart}-${match.slotEnd} · ${match.courtName} · ${match.players.join(", ")} · ${faltanTexto}`
-      );
+      lines.push(`${match.slotStart}-${match.slotEnd} · ${match.courtName}`);
+
+      for (const player of match.players) {
+        lines.push(`🎾 ${player}`);
+      }
+
+      if (match.missing > 0) {
+        const txt = match.missing === 1 ? "falta 1" : `faltan ${match.missing}`;
+        lines.push(`➕ ${txt}`);
+      }
+
+      lines.push("");
     }
   }
 
   lines.push("");
   lines.push("🔒 CERRADAS");
+  lines.push("");
+
   if (closedMatches.length === 0) {
-    lines.push("• No hay partidas cerradas");
+    lines.push("No hay partidas cerradas");
   } else {
     for (const match of closedMatches) {
-      lines.push(
-        `• ${match.slotStart}-${match.slotEnd} · ${match.courtName} · ${match.players.join(", ")}`
-      );
+      lines.push(`${match.slotStart}-${match.slotEnd} · ${match.courtName}`);
+
+      for (const player of match.players) {
+        lines.push(`🎾 ${player}`);
+      }
+
+      lines.push("");
     }
   }
 
@@ -231,7 +246,7 @@ async function runDailySummary() {
 
   const userIds = Array.from(new Set(players.map((p) => p.member_user_id)));
 
-  let membersMap = new Map<string, string>();
+  const membersMap = new Map<string, string>();
   if (userIds.length > 0) {
     const membersRes = await supabase
       .from("members")
