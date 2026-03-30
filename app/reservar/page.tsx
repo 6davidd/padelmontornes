@@ -46,6 +46,26 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function addDaysISO(baseISO: string, days: number) {
+  const d = new Date(`${baseISO}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function isSundayISO(dateISO: string) {
+  const d = new Date(`${dateISO}T12:00:00`);
+  return d.getDay() === 0;
+}
+
+function isDateWithin7Days(dateISO: string) {
+  const min = todayISO();
+  const max = addDaysISO(min, 7);
+  return dateISO >= min && dateISO <= max;
+}
+
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
 const cap1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
@@ -117,6 +137,9 @@ function Modal({
 }
 
 export default function ReservarPage() {
+  const minDate = todayISO();
+  const maxDate = addDaysISO(minDate, 7);
+
   const [date, setDate] = useState(todayISO());
 
   const [courts, setCourts] = useState<Court[]>([]);
@@ -136,11 +159,15 @@ export default function ReservarPage() {
   const [suggestions, setSuggestions] = useState<Array<{ user_id: string; label: string }>>([]);
   const [searching, setSearching] = useState(false);
 
+  const isSunday = useMemo(() => isSundayISO(date), [date]);
+  const isOutOfRange = useMemo(() => !isDateWithin7Days(date), [date]);
+
   const slotsToShow = useMemo(() => {
+    if (isSunday || isOutOfRange) return [];
     const d = new Date(`${date}T12:00:00`);
     const day = d.getDay();
     return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-  }, [date]);
+  }, [date, isSunday, isOutOfRange]);
 
   const openReservation = useMemo(() => {
     if (!openResId) return null;
@@ -195,6 +222,15 @@ export default function ReservarPage() {
   async function loadDay() {
     setMsg(null);
     setLoading(true);
+
+    if (isSundayISO(date) || !isDateWithin7Days(date)) {
+      setReservations([]);
+      setBlocks([]);
+      setPlayers([]);
+      setMembersMap(new Map());
+      setLoading(false);
+      return;
+    }
 
     const r = await supabase
       .from("reservations_public")
@@ -428,6 +464,16 @@ export default function ReservarPage() {
 
   async function createOrOpen(slotStart: string, slotEnd: string, courtId: number) {
     setMsg(null);
+
+    if (!isDateWithin7Days(date)) {
+      setMsg("Solo se puede reservar con un máximo de 7 días de antelación.");
+      return;
+    }
+
+    if (isSundayISO(date)) {
+      setMsg("Domingo cerrado: no se puede reservar.");
+      return;
+    }
 
     const block = blockByKey.get(`${slotStart}-${courtId}`);
     if (block) {
@@ -682,10 +728,32 @@ export default function ReservarPage() {
             <input
               type="date"
               value={date}
+              min={minDate}
+              max={maxDate}
               onChange={(e) => setDate(e.target.value)}
               className="ml-auto w-[170px] sm:w-[190px] rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
             />
           </div>
+
+          <div className="mt-3 text-xs text-gray-500">
+            Solo se puede reservar entre hoy y los próximos 7 días.
+          </div>
+
+          {isOutOfRange && (
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+              <p className="text-sm font-semibold text-yellow-900">
+                Solo se puede reservar con un máximo de 7 días de antelación.
+              </p>
+            </div>
+          )}
+
+          {isSunday && (
+            <div className="mt-4 border border-red-200 rounded-2xl p-4 bg-red-50">
+              <p className="text-sm font-semibold text-red-800">
+                Domingo: club cerrado. No se puede reservar.
+              </p>
+            </div>
+          )}
 
           {msg && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
@@ -697,6 +765,20 @@ export default function ReservarPage() {
         {loading ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
             Cargando…
+          </div>
+        ) : isOutOfRange ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
+            <div className="text-lg font-bold text-gray-900">Fecha no disponible</div>
+            <div className="mt-2 text-sm text-gray-600">
+              Solo se puede reservar entre hoy y los próximos 7 días.
+            </div>
+          </div>
+        ) : isSunday ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
+            <div className="text-lg font-bold text-gray-900">Club cerrado</div>
+            <div className="mt-2 text-sm text-gray-600">
+              Los domingos no se pueden hacer reservas.
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
