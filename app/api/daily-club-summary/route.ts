@@ -35,6 +35,26 @@ type CourtRow = {
   name: string;
 };
 
+type OpenMatch = {
+  slotStart: string;
+  slotEnd: string;
+  courtName: string;
+  players: string[];
+  missing: number;
+};
+
+type ClosedMatch = {
+  reservationId: string;
+  slotStart: string;
+  slotEnd: string;
+  courtName: string;
+  players: string[];
+  playerDetails: Array<{
+    userId: string;
+    name: string;
+  }>;
+};
+
 function esc(s: string) {
   return s
     .replaceAll("&", "&amp;")
@@ -78,19 +98,8 @@ function nameFirstSurname(full: string) {
 
 function buildWhatsappMessage(params: {
   targetDate: string;
-  openMatches: Array<{
-    slotStart: string;
-    slotEnd: string;
-    courtName: string;
-    players: string[];
-    missing: number;
-  }>;
-  closedMatches: Array<{
-    slotStart: string;
-    slotEnd: string;
-    courtName: string;
-    players: string[];
-  }>;
+  openMatches: OpenMatch[];
+  closedMatches: ClosedMatch[];
 }) {
   const { targetDate, openMatches, closedMatches } = params;
 
@@ -202,6 +211,36 @@ function buildEmailHtml(params: {
   `;
 }
 
+function buildReminderEmailHtml(params: {
+  fullName: string;
+  targetDate: string;
+  slotStart: string;
+  slotEnd: string;
+  courtName: string;
+}) {
+  const { fullName, targetDate, slotStart, slotEnd, courtName } = params;
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.45;">
+      <h2 style="margin: 0 0 12px;">Recordatorio de partida</h2>
+
+      <p style="margin: 0 0 12px;">Hola ${esc(fullName)},</p>
+
+      <p style="margin: 0 0 12px;">
+        Te recordamos que mañana tienes una partida cerrada en el club.
+      </p>
+
+      <ul style="margin: 0 0 16px; padding-left: 18px;">
+        <li><strong>Fecha:</strong> ${esc(capitalize(formatDateLongES(targetDate)))}</li>
+        <li><strong>Hora:</strong> ${esc(slotStart)}-${esc(slotEnd)}</li>
+        <li><strong>Pista:</strong> ${esc(courtName)}</li>
+      </ul>
+
+      <p style="margin: 0;">Nos vemos en pista 🎾</p>
+    </div>
+  `;
+}
+
 function isAuthorized(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
 
@@ -209,6 +248,105 @@ function isAuthorized(req: Request) {
 
   const auth = req.headers.get("authorization");
   return auth === `Bearer ${cronSecret}`;
+}
+
+async function sendClosedMatchReminders(params: {
+  targetDate: string;
+  closedMatches: ClosedMatch[];
+}) {
+  const { targetDate, closedMatches } = params;
+
+  let remindersSent = 0;
+  let remindersSkipped = 0;
+
+  for (const match of closedMatches) {
+    for (const player of match.playerDetails) {
+      const existingLogRes = await supabase
+        .from("match_reminder_logs")
+        .select("id")
+        .eq("reservation_id", match.reservationId)
+        .eq("member_user_id", player.userId)
+        .eq("reminder_type", "day_before_closed_match")
+        .eq("sent_for_date", targetDate)
+        .maybeSingle();
+
+      if (existingLogRes.error) {
+        throw new Error(
+          `Error comprobando log de recordatorio: ${existingLogRes.error.message}`
+        );
+      }
+
+      if (existingLogRes.data) {
+        remindersSkipped++;
+        continue;
+      }
+
+      const memberRes = await supabase
+        .from("members")
+        .select("user_id,full_name,email")
+        .eq("user_id", player.userId)
+        .single();
+
+      if (memberRes.error) {
+        throw new Error(
+          `Error cargando socio para recordatorio: ${memberRes.error.message}`
+        );
+      }
+
+      const member = memberRes.data as MemberRow | null;
+      if (!member?.email) {
+        remindersSkipped++;
+        continue;
+      }
+
+      const subject = `Recordatorio de partida mañana - ${capitalize(
+        formatDateLongES(targetDate)
+      )}`;
+
+      const html = buildReminderEmailHtml({
+        fullName: nameFirstSurname(member.full_name),
+        targetDate,
+        slotStart: match.slotStart,
+        slotEnd: match.slotEnd,
+        courtName: match.courtName,
+      });
+
+      const { error: reminderEmailError } = await resend.emails.send({
+        from: process.env.EMAIL_FROM as string,
+        to: member.email,
+        subject,
+        html,
+      });
+
+      if (reminderEmailError) {
+        throw new Error(
+          typeof reminderEmailError === "string"
+            ? reminderEmailError
+            : JSON.stringify(reminderEmailError)
+        );
+      }
+
+      const insertLogRes = await supabase.from("match_reminder_logs").insert({
+        reservation_id: match.reservationId,
+        member_user_id: player.userId,
+        reminder_type: "day_before_closed_match",
+        sent_for_date: targetDate,
+      });
+
+      if (insertLogRes.error) {
+        throw new Error(
+          `Error guardando log de recordatorio: ${insertLogRes.error.message}`
+        );
+      }
+
+      remindersSent++;
+    }
+  }
+
+  return {
+    remindersSent,
+    remindersSkipped,
+  };
 }
 
 async function runDailySummary() {
@@ -292,20 +430,8 @@ async function runDailySummary() {
     playersByReservation.set(key, arr);
   }
 
-  const openMatches: Array<{
-    slotStart: string;
-    slotEnd: string;
-    courtName: string;
-    players: string[];
-    missing: number;
-  }> = [];
-
-  const closedMatches: Array<{
-    slotStart: string;
-    slotEnd: string;
-    courtName: string;
-    players: string[];
-  }> = [];
+  const openMatches: OpenMatch[] = [];
+  const closedMatches: ClosedMatch[] = [];
 
   for (const reservation of reservations) {
     const arr = playersByReservation.get(reservation.id) ?? [];
@@ -316,10 +442,15 @@ async function runDailySummary() {
 
     if (count >= 4) {
       closedMatches.push({
+        reservationId: reservation.id,
         slotStart: toHM(reservation.slot_start),
         slotEnd: toHM(reservation.slot_end),
         courtName,
         players: names,
+        playerDetails: arr.map((x) => ({
+          userId: x.userId,
+          name: x.name,
+        })),
       });
     } else {
       openMatches.push({
@@ -335,6 +466,11 @@ async function runDailySummary() {
   const messageText = buildWhatsappMessage({
     targetDate,
     openMatches,
+    closedMatches,
+  });
+
+  const reminderResult = await sendClosedMatchReminders({
+    targetDate,
     closedMatches,
   });
 
@@ -403,6 +539,8 @@ async function runDailySummary() {
     token,
     openUrl,
     emailData,
+    remindersSent: reminderResult.remindersSent,
+    remindersSkipped: reminderResult.remindersSkipped,
   };
 }
 
