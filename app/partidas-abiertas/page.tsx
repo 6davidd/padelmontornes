@@ -445,11 +445,11 @@ export default function PartidasAbiertasPage() {
         )}
       </Modal>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
-        <div className="max-w-3xl mx-auto px-4 py-3">
+      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
+        <div className="max-w-3xl mx-auto">
           <a
             href="/"
-            className="block w-full rounded-2xl py-3 text-center font-semibold text-white shadow-sm active:scale-[0.99] transition"
+            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio

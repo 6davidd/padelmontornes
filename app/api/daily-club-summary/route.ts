@@ -217,8 +217,9 @@ function buildReminderEmailHtml(params: {
   slotStart: string;
   slotEnd: string;
   courtName: string;
+  players: string[];
 }) {
-  const { fullName, targetDate, slotStart, slotEnd, courtName } = params;
+  const { fullName, targetDate, slotStart, slotEnd, courtName, players } = params;
 
   return `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.45;">
@@ -234,6 +235,11 @@ function buildReminderEmailHtml(params: {
         <li><strong>Fecha:</strong> ${esc(capitalize(formatDateLongES(targetDate)))}</li>
         <li><strong>Hora:</strong> ${esc(slotStart)}-${esc(slotEnd)}</li>
         <li><strong>Pista:</strong> ${esc(courtName)}</li>
+      </ul>
+
+      <p style="margin: 0 0 8px;"><strong>Integrantes:</strong></p>
+      <ul style="margin: 0 0 16px; padding-left: 18px;">
+        ${players.map((player) => `<li>${esc(player)}</li>`).join("")}
       </ul>
 
       <p style="margin: 0;">Nos vemos en pista 🎾</p>
@@ -309,6 +315,7 @@ async function sendClosedMatchReminders(params: {
         slotStart: match.slotStart,
         slotEnd: match.slotEnd,
         courtName: match.courtName,
+        players: match.players,
       });
 
       const { error: reminderEmailError } = await resend.emails.send({

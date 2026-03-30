@@ -114,13 +114,13 @@ function Modal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         className="absolute inset-0 bg-black/30"
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold text-gray-900">{title}</div>
           <button
@@ -395,6 +395,7 @@ export default function ReservarPage() {
     slotEnd: string;
     courtName: string;
     playersCount: number;
+    players: string[];
   }) {
     try {
       await fetch("/api/send-booking-email", {
@@ -411,6 +412,7 @@ export default function ReservarPage() {
           slotEnd: params.slotEnd,
           courtName: params.courtName,
           playersCount: params.playersCount,
+          players: params.players,
         }),
       });
     } catch (error) {
@@ -442,7 +444,16 @@ export default function ReservarPage() {
 
     if (membersRes.error || !membersRes.data) return;
 
-    const members = membersRes.data as MemberRow[];
+    const members = (membersRes.data as MemberRow[]).sort((a, b) => {
+      const seatA =
+        playerRows.find((p) => p.member_user_id === a.user_id)?.seat ?? 999;
+      const seatB =
+        playerRows.find((p) => p.member_user_id === b.user_id)?.seat ?? 999;
+      return seatA - seatB;
+    });
+
+    const playerNames = members.map((member) => nameFirstSurname(member.full_name));
+
     const courtName =
       courts.find((c) => c.id === reservation.court_id)?.name ??
       `Pista ${reservation.court_id}`;
@@ -458,6 +469,7 @@ export default function ReservarPage() {
         slotEnd: toHM(reservation.slot_end),
         courtName,
         playersCount: 4,
+        players: playerNames,
       });
     }
   }
@@ -964,11 +976,11 @@ export default function ReservarPage() {
         </div>
       </Modal>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
-        <div className="max-w-3xl mx-auto px-4 py-3">
+      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
+        <div className="max-w-3xl mx-auto">
           <a
             href="/"
-            className="block w-full rounded-2xl py-3 text-center font-semibold text-white shadow-sm active:scale-[0.99] transition"
+            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio
