@@ -14,6 +14,7 @@ type Body = {
   slotEnd: string;
   courtName: string;
   playersCount?: number;
+  players?: string[];
 };
 
 function esc(s: string) {
@@ -23,6 +24,17 @@ function esc(s: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function renderPlayersList(players?: string[]) {
+  if (!players || players.length === 0) return "";
+
+  return `
+    <p style="margin: 0 0 8px;"><strong>Integrantes:</strong></p>
+    <ul style="margin: 0 0 16px; padding-left: 18px;">
+      ${players.map((player) => `<li>${esc(player)}</li>`).join("")}
+    </ul>
+  `;
 }
 
 export async function POST(req: Request) {
@@ -39,6 +51,7 @@ export async function POST(req: Request) {
       slotEnd,
       courtName,
       playersCount,
+      players = [],
     } = body;
 
     if (!to || !type || !date || !slotStart || !slotEnd || !courtName) {
@@ -103,6 +116,7 @@ export async function POST(req: Request) {
             <li><strong>Horario:</strong> ${esc(slotStart)} - ${esc(slotEnd)}</li>
             <li><strong>Pista:</strong> ${esc(courtName)}</li>
           </ul>
+          ${renderPlayersList(players)}
         </div>
       `;
     }
