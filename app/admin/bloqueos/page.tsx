@@ -162,23 +162,6 @@ export default function AdminBloqueosPage() {
     <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl p-6 shadow-sm space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm text-gray-600">Admin</div>
-              <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: CLUB_GREEN }}>
-                Bloqueos
-              </h1>
-            </div>
-
-            <a
-              href="/reservar"
-              className="text-sm font-semibold text-gray-700 hover:underline"
-              title="Ir a Reservar"
-            >
-              Ir a Reservar →
-            </a>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label className="space-y-2">
               <div className="text-sm font-semibold text-gray-900">Fecha</div>
@@ -206,11 +189,6 @@ export default function AdminBloqueosPage() {
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
-
-          <div className="text-sm text-gray-600">
-            Toca una pista para <span className="font-semibold">bloquear</span> o{" "}
-            <span className="font-semibold">desbloquear</span>.
-          </div>
         </div>
 
         <div className="space-y-6">

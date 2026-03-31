@@ -747,10 +747,6 @@ export default function ReservarPage() {
             />
           </div>
 
-          <div className="mt-3 text-xs text-gray-500">
-            Solo se puede reservar entre hoy y los próximos 7 días.
-          </div>
-
           {isOutOfRange && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm font-semibold text-yellow-900">

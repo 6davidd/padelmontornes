@@ -238,7 +238,7 @@ export default function HomePage() {
           <TileLink href="/reservar" title="Reservar pista" />
           <TileLink href="/mis-reservas" title="Mis reservas" />
 
-          {isAdmin && <TileLink href="/admin/bloqueos" title="Admin · Bloqueos" />}
+          {isAdmin && <TileLink href="/admin/bloqueos" title="Bloquear pistas" />}
 
           <TileButton title="Cerrar sesión" onClick={logout} />
         </div>
