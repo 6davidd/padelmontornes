@@ -142,13 +142,12 @@ export default function MiPerfilPage() {
                   value={alias}
                   onChange={(e) => setAlias(e.target.value)}
                   maxLength={30}
-                  placeholder="Ej: Gori, Sanchez, Toni..."
+                  placeholder="Escribe tu alias…"
                   className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400 outline-none focus:border-gray-300 focus:ring-2 focus:ring-black/5"
                 />
 
                 <p className="mt-2 text-sm text-gray-500">
-                  Es el nombre con el que te verá el resto en la app. Si lo
-                  dejas vacío, se mostrará tu nombre.
+                  Si lo dejas vacío, se mostrará tu nombre.
                 </p>
               </div>
 
