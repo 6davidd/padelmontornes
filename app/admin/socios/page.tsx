@@ -349,7 +349,7 @@ export default function AdminSociosPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Nombre real
+                    Nombre
                   </label>
                   <input
                     value={newFullName}
@@ -482,7 +482,7 @@ export default function AdminSociosPage() {
                       <div className="mt-3 space-y-1 text-sm text-gray-600">
                         <div>
                           <span className="font-semibold text-gray-800">
-                            Nombre real:
+                            Nombre:
                           </span>{" "}
                           {member.full_name || "—"}
                         </div>
