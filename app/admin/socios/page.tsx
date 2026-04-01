@@ -52,6 +52,34 @@ function RoleBadge({ role }: { role: "member" | "admin" }) {
   );
 }
 
+function buildWhatsappMessage(params: {
+  fullName: string;
+  email: string;
+}) {
+  const { fullName, email } = params;
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://www.clubpadelmontornes.com";
+
+  return `Hola 👋
+
+Ya te he dado de alta en la app del Club Pádel Montornès 🎾
+
+Puedes entrar aquí:
+${appUrl}
+
+Tu email es:
+${email}
+
+Te debería haber llegado un correo para completar el acceso.
+
+Si no lo ves, mira también en spam.
+
+¡Nos vemos en pista! 🎾`;
+}
+
 export default function AdminSociosPage() {
   const router = useRouter();
 
@@ -70,6 +98,12 @@ export default function AdminSociosPage() {
   const [newAlias, setNewAlias] = useState("");
   const [newRole, setNewRole] = useState<"member" | "admin">("member");
   const [creatingMember, setCreatingMember] = useState(false);
+
+  const [lastWhatsappMessage, setLastWhatsappMessage] = useState<string | null>(
+    null
+  );
+  const [lastCreatedName, setLastCreatedName] = useState<string | null>(null);
+  const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -247,70 +281,98 @@ export default function AdminSociosPage() {
     setOk(null);
     setCreatingMember(true);
 
-    const fullName = newFullName.trim();
-    const email = newEmail.trim().toLowerCase();
-    const alias = newAlias.trim();
+    try {
+      const fullName = newFullName.trim();
+      const email = newEmail.trim().toLowerCase();
+      const alias = newAlias.trim();
 
-    if (!fullName) {
-      setMsg("El nombre es obligatorio.");
-      setCreatingMember(false);
-      return;
-    }
+      if (!fullName) {
+        setMsg("El nombre es obligatorio.");
+        return;
+      }
 
-    if (!email) {
-      setMsg("El email es obligatorio.");
-      setCreatingMember(false);
-      return;
-    }
+      if (!email) {
+        setMsg("El email es obligatorio.");
+        return;
+      }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setMsg("El email no es válido.");
-      setCreatingMember(false);
-      return;
-    }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setMsg("El email no es válido.");
+        return;
+      }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    const accessToken = session?.access_token;
-    if (!accessToken) {
-      setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
-      setCreatingMember(false);
-      return;
-    }
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
+        return;
+      }
 
-    const res = await fetch("/api/admin/create-member", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
+      const res = await fetch("/api/admin/create-member", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          fullName,
+          email,
+          alias,
+          role: newRole,
+        }),
+      });
+
+      const rawText = await res.text();
+
+      let data: any = null;
+      try {
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        setMsg(rawText || "La respuesta del servidor no es válida.");
+        return;
+      }
+
+      if (!res.ok || !data?.ok) {
+        setMsg(data?.error || "No se ha podido crear el socio.");
+        return;
+      }
+
+      const whatsappMessage = buildWhatsappMessage({
         fullName,
         email,
-        alias,
-        role: newRole,
-      }),
-    });
+      });
 
-    const data = await res.json();
+      setLastWhatsappMessage(whatsappMessage);
+      setLastCreatedName(fullName);
+      setCopiedWhatsapp(false);
 
-    if (!res.ok || !data.ok) {
-      setMsg(data.error || "No se ha podido crear el socio.");
+      setNewFullName("");
+      setNewEmail("");
+      setNewAlias("");
+      setNewRole("member");
+      setCreating(false);
+      setOk("Socio creado correctamente. Se ha enviado el acceso por email.");
+      await loadMembers();
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Error inesperado.");
+    } finally {
       setCreatingMember(false);
-      return;
     }
+  }
 
-    setNewFullName("");
-    setNewEmail("");
-    setNewAlias("");
-    setNewRole("member");
-    setCreating(false);
-    setCreatingMember(false);
-    setOk("Socio creado correctamente. Se ha enviado el acceso por email.");
-    await loadMembers();
+  async function copyWhatsappMessage() {
+    if (!lastWhatsappMessage) return;
+
+    try {
+      await navigator.clipboard.writeText(lastWhatsappMessage);
+      setCopiedWhatsapp(true);
+    } catch {
+      setMsg("No se ha podido copiar el mensaje.");
+    }
   }
 
   return (
@@ -342,14 +404,12 @@ export default function AdminSociosPage() {
 
           {creating && (
             <div className="mt-6 rounded-3xl border border-gray-200 bg-gray-50 p-5 space-y-4">
-              <div className="text-lg font-bold text-gray-900">
-                Nuevo socio
-              </div>
+              <div className="text-lg font-bold text-gray-900">Nuevo socio</div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Nombre
+                    Nombre real
                   </label>
                   <input
                     value={newFullName}
@@ -447,6 +507,36 @@ export default function AdminSociosPage() {
               <p className="text-sm text-green-900">{ok}</p>
             </div>
           )}
+
+          {lastWhatsappMessage && (
+            <div className="mt-4 rounded-3xl border border-green-200 bg-green-50 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg font-bold text-green-900">
+                    Mensaje de WhatsApp listo
+                  </div>
+
+                  <p className="mt-2 text-sm text-green-800">
+                    {lastCreatedName
+                      ? `Puedes enviárselo ahora a ${lastCreatedName}.`
+                      : "Puedes enviárselo ahora al nuevo socio."}
+                  </p>
+                </div>
+
+                <button
+                  onClick={copyWhatsappMessage}
+                  className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99]"
+                  style={{ backgroundColor: CLUB_GREEN }}
+                >
+                  {copiedWhatsapp ? "Mensaje copiado" : "Copiar mensaje WhatsApp"}
+                </button>
+              </div>
+
+              <pre className="mt-4 whitespace-pre-wrap break-words rounded-2xl border border-green-200 bg-white p-4 text-sm text-gray-800">
+                {lastWhatsappMessage}
+              </pre>
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -482,7 +572,7 @@ export default function AdminSociosPage() {
                       <div className="mt-3 space-y-1 text-sm text-gray-600">
                         <div>
                           <span className="font-semibold text-gray-800">
-                            Nombre:
+                            Nombre real:
                           </span>{" "}
                           {member.full_name || "—"}
                         </div>
