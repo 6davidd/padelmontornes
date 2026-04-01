@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
+import { getDisplayName } from "../../lib/display-name";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -25,6 +26,7 @@ type PlayerRow = {
 type MemberRow = {
   user_id: string;
   full_name: string;
+  alias?: string | null;
   is_active: boolean;
   email?: string | null;
 };
@@ -68,12 +70,6 @@ function isDateWithin7Days(dateISO: string) {
 
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
 const cap1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-
-function nameFirstSurname(full: string) {
-  const parts = full.trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return parts[0] ?? "";
-  return `${parts[0]} ${parts[1]}`;
-}
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -156,7 +152,9 @@ export default function ReservarPage() {
   const [addSeat, setAddSeat] = useState<number | null>(null);
   const [addResId, setAddResId] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [suggestions, setSuggestions] = useState<Array<{ user_id: string; label: string }>>([]);
+  const [suggestions, setSuggestions] = useState<
+    Array<{ user_id: string; label: string }>
+  >([]);
   const [searching, setSearching] = useState(false);
 
   const isSunday = useMemo(() => isSundayISO(date), [date]);
@@ -294,7 +292,7 @@ export default function ReservarPage() {
 
     const m = await supabase
       .from("members")
-      .select("user_id,full_name,is_active,email")
+      .select("user_id,full_name,alias,is_active,email")
       .in("user_id", userIds);
 
     if (m.error) {
@@ -305,7 +303,7 @@ export default function ReservarPage() {
 
     const map = new Map<string, string>();
     for (const row of (m.data ?? []) as MemberRow[]) {
-      map.set(row.user_id, nameFirstSurname(row.full_name));
+      map.set(row.user_id, getDisplayName(row));
     }
     setMembersMap(map);
 
@@ -439,7 +437,7 @@ export default function ReservarPage() {
 
     const membersRes = await supabase
       .from("members")
-      .select("user_id,full_name,is_active,email")
+      .select("user_id,full_name,alias,is_active,email")
       .in("user_id", userIds);
 
     if (membersRes.error || !membersRes.data) return;
@@ -452,7 +450,7 @@ export default function ReservarPage() {
       return seatA - seatB;
     });
 
-    const playerNames = members.map((member) => nameFirstSurname(member.full_name));
+    const playerNames = members.map((member) => getDisplayName(member));
 
     const courtName =
       courts.find((c) => c.id === reservation.court_id)?.name ??
@@ -463,7 +461,7 @@ export default function ReservarPage() {
 
       await sendMatchCompletedEmail({
         to: member.email,
-        fullName: nameFirstSurname(member.full_name),
+        fullName: getDisplayName(member),
         date: reservation.date,
         slotStart: toHM(reservation.slot_start),
         slotEnd: toHM(reservation.slot_end),
@@ -557,7 +555,17 @@ export default function ReservarPage() {
       courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
 
     if (userEmail) {
-      const memberName = membersMap.get(userId) ?? "";
+      const memberRes = await supabase
+        .from("members")
+        .select("full_name,alias")
+        .eq("user_id", userId)
+        .single();
+
+      const memberName =
+        !memberRes.error && memberRes.data
+          ? getDisplayName(memberRes.data)
+          : membersMap.get(userId) ?? "";
+
       await sendBookingCreatedEmail({
         to: userEmail,
         fullName: memberName,
@@ -595,7 +603,9 @@ export default function ReservarPage() {
     const userId = await getUserIdOrMsg();
     if (!userId) return;
 
-    const alreadyIn = (playersByReservation.get(resId) ?? []).some((x) => x.userId === userId);
+    const alreadyIn = (playersByReservation.get(resId) ?? []).some(
+      (x) => x.userId === userId
+    );
     if (alreadyIn) {
       setMsg("Ya estás apuntado en esta partida.");
       return;
@@ -638,9 +648,9 @@ export default function ReservarPage() {
       setSearching(true);
       const res = await supabase
         .from("members")
-        .select("user_id,full_name,is_active,email")
+        .select("user_id,full_name,alias,is_active,email")
         .eq("is_active", true)
-        .ilike("full_name", `%${term}%`)
+        .or(`full_name.ilike.%${term}%,alias.ilike.%${term}%`)
         .limit(8);
 
       if (!alive) return;
@@ -654,7 +664,7 @@ export default function ReservarPage() {
 
       const list = ((res.data ?? []) as MemberRow[]).map((m) => ({
         user_id: m.user_id,
-        label: nameFirstSurname(m.full_name),
+        label: getDisplayName(m),
       }));
       setSuggestions(list);
     }
@@ -674,7 +684,9 @@ export default function ReservarPage() {
       return;
     }
 
-    const alreadyIn = (playersByReservation.get(addResId) ?? []).some((x) => x.userId === userId);
+    const alreadyIn = (playersByReservation.get(addResId) ?? []).some(
+      (x) => x.userId === userId
+    );
     if (alreadyIn) {
       setMsg("Ese socio ya está apuntado en esta partida.");
       return;
@@ -685,7 +697,7 @@ export default function ReservarPage() {
 
     const memberRes = await supabase
       .from("members")
-      .select("user_id,full_name,is_active,email")
+      .select("user_id,full_name,alias,is_active,email")
       .eq("user_id", userId)
       .single();
 
@@ -703,19 +715,19 @@ export default function ReservarPage() {
       if (currentUser?.id) {
         const addedByRes = await supabase
           .from("members")
-          .select("full_name")
+          .select("full_name,alias")
           .eq("user_id", currentUser.id)
           .single();
 
         if (!addedByRes.error && addedByRes.data) {
-          addedByName = nameFirstSurname(addedByRes.data.full_name);
+          addedByName = getDisplayName(addedByRes.data);
         }
       }
 
       if (member.email) {
         await sendAddedToMatchEmail({
           to: member.email,
-          fullName: nameFirstSurname(member.full_name),
+          fullName: getDisplayName(member),
           addedByName,
           date: reservation.date,
           slotStart: toHM(reservation.slot_start),
@@ -944,7 +956,7 @@ export default function ReservarPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nombre…"
+            placeholder="Buscar por nombre o alias…"
             className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
           />
 

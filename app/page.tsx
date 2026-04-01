@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
+import { getDisplayName } from "../lib/display-name";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -10,6 +11,7 @@ type MemberRow = {
   role: "member" | "admin";
   is_active: boolean;
   full_name: string;
+  alias?: string | null;
 };
 
 function Arrow() {
@@ -92,7 +94,7 @@ function toHM(t: string) {
 }
 
 export default function HomePage() {
-  const [fullName, setFullName] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [openMatchesCount, setOpenMatchesCount] = useState(0);
@@ -111,7 +113,7 @@ export default function HomePage() {
 
       const m = await supabase
         .from("members")
-        .select("role,is_active,full_name")
+        .select("role,is_active,full_name,alias")
         .eq("user_id", user.id)
         .single();
 
@@ -127,8 +129,7 @@ export default function HomePage() {
         return;
       }
 
-      const firstName = row.full_name.trim().split(" ")[0];
-      setFullName(firstName);
+      setDisplayName(getDisplayName(row));
       setIsAdmin(row.role === "admin");
 
       await loadOpenMatchesCount();
@@ -216,9 +217,9 @@ export default function HomePage() {
           </h1>
 
           <p className="mt-2 text-gray-600">
-            Bienvenido{fullName ? "," : ""}{" "}
+            Bienvenido{displayName ? "," : ""}{" "}
             <span className="font-semibold text-gray-900">
-              {fullName ?? "Cargando..."}
+              {displayName ?? "Cargando..."}
             </span>
           </p>
 
@@ -237,6 +238,7 @@ export default function HomePage() {
           />
           <TileLink href="/reservar" title="Reservar pista" />
           <TileLink href="/mis-reservas" title="Mis reservas" />
+          <TileLink href="/mi-perfil" title="Mi perfil" />
 
           {isAdmin && <TileLink href="/admin/bloqueos" title="Bloquear pistas" />}
 

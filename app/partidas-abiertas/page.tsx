@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { getDisplayName } from "../../lib/display-name";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -22,6 +23,7 @@ type PlayerRow = {
 type MemberRow = {
   user_id: string;
   full_name: string;
+  alias?: string | null;
   is_active: boolean;
 };
 
@@ -32,12 +34,6 @@ type CourtRow = {
 
 function toHM(t: string) {
   return t?.length >= 5 ? t.slice(0, 5) : t;
-}
-
-function nameFirstSurname(full: string) {
-  const parts = full.trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return parts[0] ?? "";
-  return `${parts[0]} ${parts[1]}`;
 }
 
 function formatDatePretty(iso: string) {
@@ -204,7 +200,10 @@ export default function PartidasAbiertasPage() {
     const resRows = (r.data ?? []) as ReservationRow[];
     setReservations(resRows);
 
-    const c = await supabase.from("courts").select("id,name").order("id", { ascending: true });
+    const c = await supabase
+      .from("courts")
+      .select("id,name")
+      .order("id", { ascending: true });
 
     if (c.error) {
       setMsg(c.error.message);
@@ -249,7 +248,7 @@ export default function PartidasAbiertasPage() {
 
     const m = await supabase
       .from("members")
-      .select("user_id,full_name,is_active")
+      .select("user_id,full_name,alias,is_active")
       .in("user_id", userIds);
 
     if (m.error) {
@@ -260,7 +259,7 @@ export default function PartidasAbiertasPage() {
 
     const map = new Map<string, string>();
     for (const row of (m.data ?? []) as MemberRow[]) {
-      map.set(row.user_id, nameFirstSurname(row.full_name));
+      map.set(row.user_id, getDisplayName(row));
     }
     setMembersMap(map);
 
@@ -298,7 +297,9 @@ export default function PartidasAbiertasPage() {
     const userId = await getUserIdOrMsg();
     if (!userId) return;
 
-    const alreadyIn = (playersByReservation.get(resId) ?? []).some((x) => x.userId === userId);
+    const alreadyIn = (playersByReservation.get(resId) ?? []).some(
+      (x) => x.userId === userId
+    );
     if (alreadyIn) {
       setMsg("Ya estás apuntado en esta partida.");
       return;
@@ -361,7 +362,8 @@ export default function PartidasAbiertasPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="text-lg sm:text-xl font-bold text-gray-900">
-                          {formatDatePretty(match.date)} · {toHM(match.slot_start)} - {toHM(match.slot_end)}
+                          {formatDatePretty(match.date)} · {toHM(match.slot_start)} -{" "}
+                          {toHM(match.slot_end)}
                         </div>
 
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -405,9 +407,12 @@ export default function PartidasAbiertasPage() {
         onClose={() => setOpenResId(null)}
         title={
           openReservation
-            ? `${formatDatePretty(openReservation.date)} · ${toHM(openReservation.slot_start)}–${toHM(
-                openReservation.slot_end
-              )} · ${courtsMap.get(openReservation.court_id) ?? `Pista ${openReservation.court_id}`}`
+            ? `${formatDatePretty(openReservation.date)} · ${toHM(
+                openReservation.slot_start
+              )}–${toHM(openReservation.slot_end)} · ${
+                courtsMap.get(openReservation.court_id) ??
+                `Pista ${openReservation.court_id}`
+              }`
             : "Partida"
         }
       >
