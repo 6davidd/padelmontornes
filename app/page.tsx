@@ -7,8 +7,10 @@ import { getDisplayName } from "../lib/display-name";
 
 const CLUB_GREEN = "#0f5e2e";
 
+type MemberRole = "member" | "admin" | "superadmin";
+
 type MemberRow = {
-  role: "member" | "admin";
+  role: MemberRole;
   is_active: boolean;
   full_name: string;
   alias?: string | null;
@@ -130,7 +132,7 @@ export default function HomePage() {
       }
 
       setDisplayName(getDisplayName(row));
-      setIsAdmin(row.role === "admin");
+      setIsAdmin(row.role === "admin" || row.role === "superadmin");
 
       await loadOpenMatchesCount();
     }

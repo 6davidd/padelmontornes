@@ -31,6 +31,7 @@ function TileLink({ href, title }: { href: string; title: string }) {
 export default function AdminPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkAdmin() {
@@ -53,11 +54,14 @@ export default function AdminPage() {
         return;
       }
 
-      if (!m.data.is_active || m.data.role !== "admin") {
+      const allowedRoles = ["admin", "superadmin"];
+
+      if (!m.data.is_active || !allowedRoles.includes(m.data.role)) {
         router.push("/");
         return;
       }
 
+      setRole(m.data.role);
       setLoading(false);
     }
 
@@ -75,6 +79,8 @@ export default function AdminPage() {
       </div>
     );
   }
+
+  const isSuperadmin = role === "superadmin";
 
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
@@ -95,6 +101,9 @@ export default function AdminPage() {
         <div className="grid grid-cols-1 gap-4">
           <TileLink href="/admin/bloqueos" title="Bloquear pistas" />
           <TileLink href="/admin/socios" title="Socios" />
+          {isSuperadmin && (
+            <TileLink href="/admin/contabilidad" title="Contabilidad" />
+          )}
         </div>
       </div>
 

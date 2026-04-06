@@ -7,13 +7,15 @@ import { getDisplayName } from "../../../lib/display-name";
 
 const CLUB_GREEN = "#0f5e2e";
 
+type MemberRole = "member" | "admin" | "superadmin";
+
 type MemberRow = {
   user_id: string;
   full_name: string;
   alias: string | null;
   email: string | null;
   is_active: boolean;
-  role: "member" | "admin";
+  role: MemberRole;
 };
 
 function classNames(...xs: Array<string | false | null | undefined>) {
@@ -35,19 +37,27 @@ function StatusBadge({ active }: { active: boolean }) {
   );
 }
 
-function RoleBadge({ role }: { role: "member" | "admin" }) {
-  const isAdmin = role === "admin";
+function RoleBadge({ role }: { role: MemberRole }) {
+  const stylesByRole: Record<MemberRole, string> = {
+    superadmin: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    admin: "border-gray-300 bg-gray-100 text-gray-900",
+    member: "border-gray-200 bg-white text-gray-700",
+  };
+
+  const labelByRole: Record<MemberRole, string> = {
+    superadmin: "Superadmin",
+    admin: "Admin",
+    member: "Socio",
+  };
 
   return (
     <span
       className={classNames(
         "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
-        isAdmin
-          ? "border-gray-300 bg-gray-100 text-gray-900"
-          : "border-gray-200 bg-white text-gray-700"
+        stylesByRole[role]
       )}
     >
-      {isAdmin ? "Admin" : "Socio"}
+      {labelByRole[role]}
     </span>
   );
 }
@@ -78,6 +88,12 @@ Te debería haber llegado un correo para completar el acceso.
 Si no lo ves, mira también en spam.
 
 ¡Nos vemos en pista! 🎾`;
+}
+
+function getRoleOrder(role: MemberRole) {
+  if (role === "superadmin") return 0;
+  if (role === "admin") return 1;
+  return 2;
 }
 
 export default function AdminSociosPage() {
@@ -126,7 +142,9 @@ export default function AdminSociosPage() {
         return;
       }
 
-      if (!me.data.is_active || me.data.role !== "admin") {
+      const allowedRoles: MemberRole[] = ["admin", "superadmin"];
+
+      if (!me.data.is_active || !allowedRoles.includes(me.data.role as MemberRole)) {
         router.push("/");
         return;
       }
@@ -160,7 +178,9 @@ export default function AdminSociosPage() {
   const filteredMembers = useMemo(() => {
     const base = [...members].sort((a, b) => {
       if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
-      if (a.role !== b.role) return a.role === "admin" ? -1 : 1;
+
+      const roleCompare = getRoleOrder(a.role) - getRoleOrder(b.role);
+      if (roleCompare !== 0) return roleCompare;
 
       const an = getDisplayName(a).toLocaleLowerCase("es-ES");
       const bn = getDisplayName(b).toLocaleLowerCase("es-ES");
@@ -389,7 +409,8 @@ export default function AdminSociosPage() {
               </h1>
 
               <p className="mt-2 text-gray-600">
-                Desde aquí puedes ver los socios del club, añadir nuevos, editar alias y activarlos o desactivarlos.
+                Desde aquí puedes ver los socios del club, añadir nuevos, editar
+                alias y activarlos o desactivarlos.
               </p>
             </div>
 

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 
+type MemberRole = "member" | "admin" | "superadmin";
+
 type Body = {
   fullName?: string;
   email?: string;
@@ -47,11 +49,13 @@ export async function POST(req: Request) {
       .eq("user_id", user.id)
       .single();
 
+    const allowedRoles: MemberRole[] = ["admin", "superadmin"];
+
     if (
       meRes.error ||
       !meRes.data ||
       !meRes.data.is_active ||
-      meRes.data.role !== "admin"
+      !allowedRoles.includes(meRes.data.role as MemberRole)
     ) {
       return NextResponse.json(
         { ok: false, error: "No autorizado." },

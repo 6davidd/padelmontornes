@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 
 type Court = { id: number; name: string };
+type MemberRole = "member" | "admin" | "superadmin";
 
 type BlockRow = {
   id: string;
@@ -73,7 +74,9 @@ export default function AdminBloqueosPage() {
         return;
       }
 
-      if (m.data.role !== "admin") {
+      const allowedRoles: MemberRole[] = ["admin", "superadmin"];
+
+      if (!allowedRoles.includes(m.data.role as MemberRole)) {
         router.push("/");
         return;
       }
@@ -193,7 +196,10 @@ export default function AdminBloqueosPage() {
 
         <div className="space-y-6">
           {slots.map((s: { start: string; end: string }) => (
-            <div key={s.start} className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden">
+            <div
+              key={s.start}
+              className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
+            >
               <div className="px-5 py-4 border-b border-gray-200">
                 <div className="font-semibold" style={{ color: CLUB_GREEN }}>
                   {s.start} – {s.end}
