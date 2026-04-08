@@ -219,8 +219,8 @@ export default function AdminBloqueosPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-          <div className="bg-white border border-gray-300 rounded-3xl p-6 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+          <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm">
             Cargando…
           </div>
         </div>
@@ -229,9 +229,9 @@ export default function AdminBloqueosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-36">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        <div className="bg-white border border-gray-300 rounded-3xl p-6 shadow-sm space-y-4">
+    <div className="min-h-screen bg-gray-50 pb-32">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+        <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="space-y-2">
               <div className="text-sm font-semibold text-gray-900">
@@ -241,7 +241,7 @@ export default function AdminBloqueosPage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
+                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
               />
             </label>
 
@@ -251,19 +251,19 @@ export default function AdminBloqueosPage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Motivo del bloqueo"
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
+                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
               />
             </label>
           </div>
 
           {msg && (
-            <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="border border-yellow-300 rounded-2xl p-3.5 bg-yellow-50">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           {visibleDates.map((dateISO) => {
             const slots = getSlotsForDate(dateISO);
             const sunday = isSunday(dateISO);
@@ -271,12 +271,12 @@ export default function AdminBloqueosPage() {
             return (
               <section
                 key={dateISO}
-                className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
+                className="bg-white border border-gray-200 rounded-[28px] shadow-sm overflow-hidden"
               >
                 <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1">
                     <h2
-                      className="text-lg font-semibold capitalize"
+                      className="text-xl font-bold capitalize"
                       style={{ color: CLUB_GREEN }}
                     >
                       {formatDateLong(dateISO)}
@@ -287,28 +287,28 @@ export default function AdminBloqueosPage() {
                   </div>
                 </div>
 
-                <div className="p-5 space-y-5">
+                <div className="p-4 space-y-4">
                   {sunday ? (
-                    <div className="rounded-3xl border border-gray-200 bg-gray-50 px-5 py-6 text-center text-gray-600">
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-5 text-center text-gray-600">
                       Club cerrado
                     </div>
                   ) : (
                     slots.map((s) => (
                       <div
                         key={`${dateISO}-${s.start}`}
-                        className="rounded-3xl border border-gray-200 overflow-hidden"
+                        className="rounded-[24px] border border-gray-200 overflow-hidden"
                       >
                         <div className="px-4 py-3 border-b border-gray-200 bg-white">
                           <div
-                            className="font-semibold"
+                            className="font-bold text-[17px]"
                             style={{ color: CLUB_GREEN }}
                           >
                             {s.start} – {s.end}
                           </div>
                         </div>
 
-                        <div className="p-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-3">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {courts.map((c) => {
                               const key = `${dateISO}-${s.start}-${c.id}`;
                               const b = blockMap.get(key);
@@ -324,7 +324,7 @@ export default function AdminBloqueosPage() {
                                   }
                                   disabled={isSaving}
                                   className={[
-                                    "text-left rounded-3xl border px-4 py-4 shadow-sm transition active:scale-[0.99]",
+                                    "text-left rounded-[22px] border px-4 py-3.5 transition active:scale-[0.99]",
                                     blocked
                                       ? "bg-red-50 border-red-200 hover:bg-red-100"
                                       : "bg-white border-gray-300 hover:bg-gray-50",
@@ -332,14 +332,14 @@ export default function AdminBloqueosPage() {
                                   ].join(" ")}
                                   title={blocked ? "Quitar bloqueo" : "Bloquear"}
                                 >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="font-semibold text-gray-900">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="font-bold text-gray-900 text-[15px]">
                                       {c.name}
                                     </div>
 
                                     <span
                                       className={[
-                                        "shrink-0 text-xs font-semibold rounded-full px-2.5 py-1 border",
+                                        "shrink-0 text-[11px] font-semibold rounded-full px-2.5 py-1 border",
                                         blocked
                                           ? "border-red-200 text-red-700 bg-white"
                                           : "border-gray-200 text-gray-700 bg-white",
@@ -349,7 +349,7 @@ export default function AdminBloqueosPage() {
                                     </span>
                                   </div>
 
-                                  <div className="mt-3 min-h-[44px]">
+                                  <div className="mt-2 min-h-[32px]">
                                     {blocked ? (
                                       <div className="text-sm text-red-800 leading-snug">
                                         {b?.reason || "Bloqueado"}
