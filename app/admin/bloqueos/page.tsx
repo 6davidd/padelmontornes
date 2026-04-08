@@ -235,7 +235,7 @@ export default function AdminBloqueosPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="space-y-2">
               <div className="text-sm font-semibold text-gray-900">
-                Día inicial
+                Día
               </div>
               <input
                 type="date"

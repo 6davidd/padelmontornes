@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/daily-club-summary",
-      "schedule": "0 20 * * *"
+      "schedule": "30 19 * * *"
     }
   ]
 }

@@ -304,51 +304,51 @@ export default function AdminContabilidadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
+    <div className="min-h-screen overflow-x-hidden bg-gray-50 pb-40">
+      <div className="mx-auto max-w-4xl px-4 py-6 space-y-6 sm:px-6 sm:py-8">
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
           <div className="flex flex-col gap-5">
             <div>
               <h1
-                className="text-3xl sm:text-4xl font-bold"
+                className="text-3xl font-bold sm:text-4xl"
                 style={{ color: CLUB_GREEN }}
               >
                 Contabilidad
               </h1>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="min-w-0">
+                <label className="mb-2 block text-sm font-semibold text-gray-900">
                   Mes
                 </label>
                 <input
                   type="month"
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
+                  className="block w-full min-w-0 max-w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-green-200"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
+              <div className="min-w-0">
+                <label className="mb-2 block text-sm font-semibold text-gray-900">
                   Buscar socio
                 </label>
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por nombre, alias o email…"
-                  className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
+                  className="block w-full min-w-0 max-w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-green-200"
                 />
               </div>
             </div>
 
             <div className="rounded-3xl border border-gray-200 bg-gray-50 p-5">
-              <div className="text-lg font-bold text-gray-900 capitalize">
+              <div className="text-lg font-bold capitalize text-gray-900">
                 {getMonthLabel(year, month)}
               </div>
 
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
                   <div className="text-sm text-gray-500">Socios activos</div>
                   <div className="mt-1 text-2xl font-bold text-gray-900">
@@ -374,24 +374,24 @@ export default function AdminContabilidadPage() {
           </div>
 
           {msg && (
-            <div className="mt-4 rounded-2xl p-4 bg-yellow-50 ring-1 ring-yellow-200">
+            <div className="mt-4 rounded-2xl bg-yellow-50 p-4 ring-1 ring-yellow-200">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
 
           {ok && (
-            <div className="mt-4 rounded-2xl p-4 bg-green-50 ring-1 ring-green-200">
+            <div className="mt-4 rounded-2xl bg-green-50 p-4 ring-1 ring-green-200">
               <p className="text-sm text-green-900">{ok}</p>
             </div>
           )}
         </div>
 
         {loading ? (
-          <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-5 text-gray-700">
+          <div className="rounded-3xl bg-white p-5 text-gray-700 shadow-sm ring-1 ring-black/5">
             Cargando contabilidad...
           </div>
         ) : filteredMembers.length === 0 ? (
-          <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 text-center text-gray-700">
+          <div className="rounded-3xl bg-white p-6 text-center text-gray-700 shadow-sm ring-1 ring-black/5">
             No hay socios para mostrar.
           </div>
         ) : (
@@ -407,7 +407,7 @@ export default function AdminContabilidadPage() {
               return (
                 <div
                   key={member.user_id}
-                  className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-5"
+                  className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5"
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
@@ -449,7 +449,7 @@ export default function AdminContabilidadPage() {
                         onClick={() => togglePayment(member)}
                         disabled={isSaving}
                         className={classNames(
-                          "w-full sm:w-auto rounded-2xl px-5 py-3 font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-70",
+                          "w-full rounded-2xl px-5 py-3 font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-70 sm:w-auto",
                           isPaid
                             ? "border border-yellow-200 bg-yellow-50 text-yellow-800 hover:bg-yellow-100"
                             : "text-white"
@@ -476,10 +476,10 @@ export default function AdminContabilidadPage() {
       </div>
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-4xl">
           <a
             href="/admin"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
+            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg transition active:scale-[0.99]"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Panel administrador

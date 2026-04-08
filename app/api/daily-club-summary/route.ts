@@ -96,6 +96,13 @@ function nameFirstSurname(full: string) {
   return `${parts[0]} ${parts[1]}`;
 }
 
+function parseEmailList(value: string | undefined) {
+  return (value ?? "")
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+}
+
 function buildWhatsappMessage(params: {
   targetDate: string;
   openMatches: OpenMatch[];
@@ -506,8 +513,8 @@ async function runDailySummary() {
 
   const openUrl = `${appUrl}/admin/whatsapp-summary/${token}`;
 
-  const to = process.env.DAILY_SUMMARY_TO;
-  if (!to) {
+  const to = parseEmailList(process.env.DAILY_SUMMARY_TO);
+  if (to.length === 0) {
     throw new Error("Falta configurar DAILY_SUMMARY_TO");
   }
 
