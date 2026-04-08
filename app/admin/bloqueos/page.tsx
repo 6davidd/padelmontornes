@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
@@ -27,9 +28,46 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function addDays(dateISO: string, days: number) {
+  const d = new Date(`${dateISO}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function isSaturday(dateISO: string) {
-  const d = new Date(dateISO + "T00:00:00");
+  const d = new Date(`${dateISO}T00:00:00`);
   return d.getDay() === 6;
+}
+
+function isSunday(dateISO: string) {
+  const d = new Date(`${dateISO}T00:00:00`);
+  return d.getDay() === 0;
+}
+
+function getSlotsForDate(dateISO: string) {
+  if (isSunday(dateISO)) return [];
+  return isSaturday(dateISO) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
+}
+
+function formatDateLong(dateISO: string) {
+  const d = new Date(`${dateISO}T00:00:00`);
+  return new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  }).format(d);
+}
+
+function formatDateShort(dateISO: string) {
+  const d = new Date(`${dateISO}T00:00:00`);
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(d);
 }
 
 const toHM = (t: string) => (t.length >= 5 ? t.slice(0, 5) : t);
@@ -37,16 +75,17 @@ const toHM = (t: string) => (t.length >= 5 ? t.slice(0, 5) : t);
 export default function AdminBloqueosPage() {
   const router = useRouter();
 
-  const [date, setDate] = useState(todayISO());
+  const [startDate, setStartDate] = useState(todayISO());
   const [reason, setReason] = useState("");
   const [courts, setCourts] = useState<Court[]>([]);
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
-  const slots = useMemo(() => {
-    return isSaturday(date) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-  }, [date]);
+  const visibleDates = useMemo(() => {
+    return [startDate, addDays(startDate, 1), addDays(startDate, 2)];
+  }, [startDate]);
 
   useEffect(() => {
     (async () => {
@@ -96,63 +135,91 @@ export default function AdminBloqueosPage() {
       });
   }, []);
 
-  async function loadDay() {
+  async function loadBlocks() {
     setMsg(null);
 
-    const r = await supabase
+    const { data, error } = await supabase
       .from("blocks")
       .select("id,date,slot_start,slot_end,court_id,reason")
-      .eq("date", date)
+      .in("date", visibleDates)
+      .order("date", { ascending: true })
       .order("slot_start", { ascending: true });
 
-    if (r.error) return setMsg(r.error.message);
-    setBlocks((r.data as BlockRow[]) ?? []);
+    if (error) {
+      setMsg(error.message);
+      return;
+    }
+
+    setBlocks((data as BlockRow[]) ?? []);
   }
 
   useEffect(() => {
-    if (!loading) loadDay();
+    if (!loading) {
+      loadBlocks();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, loading]);
+  }, [loading, startDate]);
 
   const blockMap = useMemo(() => {
     const m = new Map<string, BlockRow>();
+
     for (const b of blocks) {
-      const key = `${toHM(b.slot_start)}-${b.court_id}`;
+      const key = `${b.date}-${toHM(b.slot_start)}-${b.court_id}`;
       m.set(key, b);
     }
+
     return m;
   }, [blocks]);
 
-  async function toggleBlock(slotStart: string, slotEnd: string, courtId: number) {
+  async function toggleBlock(
+    dateISO: string,
+    slotStart: string,
+    slotEnd: string,
+    courtId: number
+  ) {
     setMsg(null);
 
-    const key = `${toHM(slotStart)}-${courtId}`;
+    const key = `${dateISO}-${toHM(slotStart)}-${courtId}`;
     const existing = blockMap.get(key);
+
+    setSavingKey(key);
 
     if (existing) {
       const del = await supabase.from("blocks").delete().eq("id", existing.id);
-      if (del.error) return setMsg(del.error.message);
-      await loadDay();
+
+      setSavingKey(null);
+
+      if (del.error) {
+        setMsg(del.error.message);
+        return;
+      }
+
+      await loadBlocks();
       return;
     }
 
     const ins = await supabase.from("blocks").insert({
-      date,
+      date: dateISO,
       slot_start: slotStart,
       slot_end: slotEnd,
       court_id: courtId,
-      reason: reason?.trim() || "Bloqueado",
+      reason: reason.trim() || "Bloqueado",
     });
 
-    if (ins.error) return setMsg(ins.error.message);
+    setSavingKey(null);
 
-    await loadDay();
+    if (ins.error) {
+      setMsg(ins.error.message);
+      return;
+    }
+
+    await loadBlocks();
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
           <div className="bg-white border border-gray-300 rounded-3xl p-6 shadow-sm">
             Cargando…
           </div>
@@ -162,16 +229,18 @@ export default function AdminBloqueosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="min-h-screen bg-gray-50 pb-36">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl p-6 shadow-sm space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="space-y-2">
-              <div className="text-sm font-semibold text-gray-900">Fecha</div>
+              <div className="text-sm font-semibold text-gray-900">
+                Día inicial
+              </div>
               <input
                 type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
                 className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
               />
             </label>
@@ -195,80 +264,126 @@ export default function AdminBloqueosPage() {
         </div>
 
         <div className="space-y-6">
-          {slots.map((s: { start: string; end: string }) => (
-            <div
-              key={s.start}
-              className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
-            >
-              <div className="px-5 py-4 border-b border-gray-200">
-                <div className="font-semibold" style={{ color: CLUB_GREEN }}>
-                  {s.start} – {s.end}
+          {visibleDates.map((dateISO) => {
+            const slots = getSlotsForDate(dateISO);
+            const sunday = isSunday(dateISO);
+
+            return (
+              <section
+                key={dateISO}
+                className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
+              >
+                <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <h2
+                      className="text-lg font-semibold capitalize"
+                      style={{ color: CLUB_GREEN }}
+                    >
+                      {formatDateLong(dateISO)}
+                    </h2>
+                    <div className="text-sm text-gray-600">
+                      {formatDateShort(dateISO)}
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {courts.map((c) => {
-                    const key = `${s.start}-${c.id}`;
-                    const b = blockMap.get(key);
-                    const blocked = !!b;
-
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => toggleBlock(s.start, s.end, c.id)}
-                        className={[
-                          "text-left rounded-3xl border px-5 py-4 shadow-sm transition active:scale-[0.99]",
-                          blocked
-                            ? "bg-red-50 border-red-200 hover:bg-red-100"
-                            : "bg-white border-gray-300 hover:bg-gray-50",
-                        ].join(" ")}
-                        title={blocked ? "Quitar bloqueo" : "Bloquear"}
+                <div className="p-5 space-y-5">
+                  {sunday ? (
+                    <div className="rounded-3xl border border-gray-200 bg-gray-50 px-5 py-6 text-center text-gray-600">
+                      Club cerrado
+                    </div>
+                  ) : (
+                    slots.map((s) => (
+                      <div
+                        key={`${dateISO}-${s.start}`}
+                        className="rounded-3xl border border-gray-200 overflow-hidden"
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="font-semibold text-gray-900">{c.name}</div>
-                          <span
-                            className={[
-                              "text-xs font-semibold rounded-full px-2.5 py-1 border",
-                              blocked
-                                ? "border-red-200 text-red-700 bg-white"
-                                : "border-gray-200 text-gray-700 bg-white",
-                            ].join(" ")}
+                        <div className="px-4 py-3 border-b border-gray-200 bg-white">
+                          <div
+                            className="font-semibold"
+                            style={{ color: CLUB_GREEN }}
                           >
-                            {blocked ? "Bloqueada" : "Libre"}
-                          </span>
+                            {s.start} – {s.end}
+                          </div>
                         </div>
 
-                        {blocked && (
-                          <div className="mt-2 text-sm text-red-800">
-                            {b?.reason || "Bloqueado"}
-                          </div>
-                        )}
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {courts.map((c) => {
+                              const key = `${dateISO}-${s.start}-${c.id}`;
+                              const b = blockMap.get(key);
+                              const blocked = !!b;
+                              const isSaving = savingKey === key;
 
-                        {!blocked && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            Tocar para bloquear
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() =>
+                                    toggleBlock(dateISO, s.start, s.end, c.id)
+                                  }
+                                  disabled={isSaving}
+                                  className={[
+                                    "text-left rounded-3xl border px-4 py-4 shadow-sm transition active:scale-[0.99]",
+                                    blocked
+                                      ? "bg-red-50 border-red-200 hover:bg-red-100"
+                                      : "bg-white border-gray-300 hover:bg-gray-50",
+                                    isSaving ? "opacity-60" : "",
+                                  ].join(" ")}
+                                  title={blocked ? "Quitar bloqueo" : "Bloquear"}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="font-semibold text-gray-900">
+                                      {c.name}
+                                    </div>
+
+                                    <span
+                                      className={[
+                                        "shrink-0 text-xs font-semibold rounded-full px-2.5 py-1 border",
+                                        blocked
+                                          ? "border-red-200 text-red-700 bg-white"
+                                          : "border-gray-200 text-gray-700 bg-white",
+                                      ].join(" ")}
+                                    >
+                                      {blocked ? "Bloqueada" : "Libre"}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-3 min-h-[44px]">
+                                    {blocked ? (
+                                      <div className="text-sm text-red-800 leading-snug">
+                                        {b?.reason || "Bloqueado"}
+                                      </div>
+                                    ) : (
+                                      <div className="text-sm text-gray-400 leading-snug">
+                                        Sin bloqueo
+                                      </div>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-              </div>
-            </div>
-          ))}
+              </section>
+            );
+          })}
         </div>
       </div>
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-3xl mx-auto">
-          <a
+        <div className="max-w-5xl mx-auto">
+          <Link
             href="/admin"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio
-          </a>
+          </Link>
         </div>
       </div>
     </div>

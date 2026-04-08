@@ -571,7 +571,9 @@ export default function AdminSociosPage() {
         ) : (
           <div className="space-y-4">
             {filteredMembers.map((member) => {
-              const displayName = getDisplayName(member);
+              const cleanAlias = member.alias?.trim() || "";
+              const hasAlias = cleanAlias.length > 0;
+              const titleName = hasAlias ? cleanAlias : member.full_name || "—";
               const isSaving = savingId === member.user_id;
               const isEditing = editingId === member.user_id;
 
@@ -584,26 +586,21 @@ export default function AdminSociosPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="text-lg font-bold text-gray-900">
-                          {displayName}
+                          {titleName}
                         </div>
                         <StatusBadge active={member.is_active} />
                         <RoleBadge role={member.role} />
                       </div>
 
                       <div className="mt-3 space-y-1 text-sm text-gray-600">
-                        <div>
-                          <span className="font-semibold text-gray-800">
-                            Nombre real:
-                          </span>{" "}
-                          {member.full_name || "—"}
-                        </div>
-
-                        <div>
-                          <span className="font-semibold text-gray-800">
-                            Alias:
-                          </span>{" "}
-                          {member.alias?.trim() || "—"}
-                        </div>
+                        {hasAlias && (
+                          <div>
+                            <span className="font-semibold text-gray-800">
+                              Nombre real:
+                            </span>{" "}
+                            {member.full_name || "—"}
+                          </div>
+                        )}
 
                         <div className="break-all">
                           <span className="font-semibold text-gray-800">

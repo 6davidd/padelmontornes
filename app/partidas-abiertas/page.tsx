@@ -369,7 +369,7 @@ export default function PartidasAbiertasPage() {
                         <div className="mt-3 flex flex-wrap gap-2">
                           <SoftBadge tone="gray">{courtName}</SoftBadge>
                           <SoftBadge tone="green">
-                            {match.playersCount}/4 jugadores
+                            {match.playersCount}/4
                           </SoftBadge>
                         </div>
 
