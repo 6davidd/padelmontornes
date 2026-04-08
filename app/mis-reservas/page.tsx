@@ -307,7 +307,7 @@ export default function MisReservasPage() {
                         <div className="mt-4">
                           <div className="text-sm font-semibold text-gray-700 mb-2">
                             {isOpen
-                              ? `Jugadores · abierta (${playersList.length}/4)`
+                              ? `Jugadores · (${playersList.length}/4)`
                               : "Jugadores · cerrada"}
                           </div>
 
