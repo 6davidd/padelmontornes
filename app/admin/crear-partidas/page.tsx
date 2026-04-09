@@ -97,15 +97,6 @@ function formatDateLong(dateISO: string) {
   }).format(d);
 }
 
-function formatDateShort(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
-}
-
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
 
 function classNames(...xs: Array<string | false | null | undefined>) {
@@ -192,7 +183,7 @@ export default function AdminCrearPartidasPage() {
   const [ok, setOk] = useState<string | null>(null);
 
   const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([""]);
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
@@ -245,10 +236,6 @@ export default function AdminCrearPartidasPage() {
     () => selectedPlayers.map((x) => x.trim()).filter(Boolean),
     [selectedPlayers]
   );
-
-  const hasDuplicatePlayers = useMemo(() => {
-    return new Set(selectedPlayerIds).size !== selectedPlayerIds.length;
-  }, [selectedPlayerIds]);
 
   const filteredMembers = useMemo(() => {
     const selectedSet = new Set(selectedPlayerIds);
@@ -437,43 +424,24 @@ export default function AdminCrearPartidasPage() {
     setMsg(null);
     setOk(null);
     setSelectedMatch(match);
-    setSelectedPlayers([""]);
+    setSelectedPlayers([]);
     setSearch("");
   }
 
   function closeCreateModal() {
     if (creating) return;
     setSelectedMatch(null);
-    setSelectedPlayers([""]);
+    setSelectedPlayers([]);
     setSearch("");
   }
 
-  function updatePlayer(index: number, userId: string) {
-    setSelectedPlayers((prev) => prev.map((item, i) => (i === index ? userId : item)));
-  }
-
   function removePlayer(index: number) {
-    setSelectedPlayers((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      return next.length > 0 ? next : [""];
-    });
-  }
-
-  function addPlayerField() {
-    if (selectedPlayers.length >= 4) return;
-    setSelectedPlayers((prev) => [...prev, ""]);
+    setSelectedPlayers((prev) => prev.filter((_, i) => i !== index));
   }
 
   function quickAddPlayer(userId: string) {
     setSelectedPlayers((prev) => {
-      if (prev.includes(userId)) return prev;
-
-      const firstEmptyIndex = prev.findIndex((x) => !x.trim());
-      if (firstEmptyIndex >= 0) {
-        return prev.map((x, i) => (i === firstEmptyIndex ? userId : x));
-      }
-
-      if (prev.length >= 4) return prev;
+      if (prev.includes(userId) || prev.length >= 4) return prev;
       return [...prev, userId];
     });
   }
@@ -501,11 +469,6 @@ export default function AdminCrearPartidasPage() {
 
     if (selectedPlayerIds.length === 0) {
       setMsg("Añade al menos un socio.");
-      return;
-    }
-
-    if (hasDuplicatePlayers) {
-      setMsg("No puedes repetir el mismo socio en la misma partida.");
       return;
     }
 
@@ -574,16 +537,11 @@ export default function AdminCrearPartidasPage() {
               >
                 Crear partidas
               </h1>
-
-              <p className="mt-2 text-gray-600">
-                Crea partidas para socios sin necesidad de que el coordinador se
-                meta dentro.
-              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="space-y-2">
+          <div>
+            <label className="space-y-2 block">
               <div className="text-sm font-semibold text-gray-900">Día</div>
               <input
                 type="date"
@@ -594,12 +552,6 @@ export default function AdminCrearPartidasPage() {
                 className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
               />
             </label>
-
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center">
-              <div className="text-sm text-gray-700">
-                Puedes crear partidas entre hoy y los próximos 7 días.
-              </div>
-            </div>
           </div>
 
           {isOutOfRange && (
@@ -653,14 +605,13 @@ export default function AdminCrearPartidasPage() {
           <div className="space-y-5">
             <section className="bg-white border border-gray-200 rounded-[28px] shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1">
+                <div className="flex items-end justify-between gap-1">
                   <h2
                     className="text-xl font-bold capitalize"
                     style={{ color: CLUB_GREEN }}
                   >
                     {formatDateLong(date)}
                   </h2>
-                  <div className="text-sm text-gray-600">{formatDateShort(date)}</div>
                 </div>
               </div>
 
@@ -790,10 +741,6 @@ export default function AdminCrearPartidasPage() {
           <div className="space-y-5">
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
               <div className="text-sm text-gray-700">
-                <span className="font-semibold text-gray-900">Fecha:</span>{" "}
-                {formatDateShort(selectedMatch.date)}
-              </div>
-              <div className="mt-1 text-sm text-gray-700">
                 <span className="font-semibold text-gray-900">Horario:</span>{" "}
                 {selectedMatch.slotStart} - {selectedMatch.slotEnd}
               </div>
@@ -811,90 +758,63 @@ export default function AdminCrearPartidasPage() {
                 </div>
               </div>
 
-              {selectedPlayers.map((value, index) => {
-                const selectedMember = activeMembers.find((m) => m.user_id === value);
-
-                return (
-                  <div
-                    key={`player-${index}`}
-                    className="rounded-2xl border border-gray-200 bg-white p-4"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <div className="min-w-0 flex-1">
-                        <label className="block text-sm font-semibold text-gray-900 mb-2">
-                          Jugador {index + 1}
-                        </label>
-
-                        <select
-                          value={value}
-                          onChange={(e) => updatePlayer(index, e.target.value)}
-                          className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
-                        >
-                          <option value="">Seleccionar socio</option>
-                          {activeMembers.map((member) => (
-                            <option key={member.user_id} value={member.user_id}>
-                              {getDisplayName(member)}
-                              {member.email ? ` · ${member.email}` : ""}
-                            </option>
-                          ))}
-                        </select>
-
-                        {selectedMember && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            {selectedMember.alias?.trim()
-                              ? `Nombre real: ${selectedMember.full_name}`
-                              : selectedMember.email || ""}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="sm:pt-7">
-                        <button
-                          type="button"
-                          onClick={() => removePlayer(index)}
-                          disabled={selectedPlayers.length === 1}
-                          className="w-full sm:w-auto rounded-2xl px-4 py-3 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 transition active:scale-[0.99] disabled:opacity-50"
-                        >
-                          Quitar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  type="button"
-                  onClick={addPlayerField}
-                  disabled={selectedPlayers.length >= 4}
-                  className="rounded-2xl px-5 py-3 bg-white text-gray-900 font-semibold ring-1 ring-black/5 hover:bg-gray-50 transition active:scale-[0.99] disabled:opacity-50"
-                >
-                  Añadir hueco
-                </button>
-
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                  {selectedPlayerIds.length === 0
-                    ? "Añade al menos un socio."
-                    : selectedPlayerIds.length === 4
-                    ? "La partida quedará cerrada."
-                    : `La partida quedará abierta con ${4 - selectedPlayerIds.length} plaza${
-                        4 - selectedPlayerIds.length === 1 ? "" : "s"
-                      } libre${4 - selectedPlayerIds.length === 1 ? "" : "s"}.`}
+              {selectedPlayerIds.length === 0 ? (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  Aún no has añadido ningún socio.
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedPlayerIds.map((userId, index) => {
+                    const selectedMember = activeMembers.find((m) => m.user_id === userId);
+                    if (!selectedMember) return null;
 
-              {hasDuplicatePlayers && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-                  No puedes repetir el mismo socio en la misma partida.
+                    return (
+                      <div
+                        key={userId}
+                        className="rounded-2xl border border-gray-200 bg-white p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-gray-900">
+                              Jugador {index + 1}: {getDisplayName(selectedMember)}
+                            </div>
+
+                            <div className="mt-1 text-sm text-gray-600">
+                              {selectedMember.alias?.trim()
+                                ? `${selectedMember.full_name}${
+                                    selectedMember.email ? ` · ${selectedMember.email}` : ""
+                                  }`
+                                : selectedMember.email || selectedMember.full_name}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removePlayer(index)}
+                            className="shrink-0 rounded-2xl px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 transition active:scale-[0.99]"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                {selectedPlayerIds.length === 0
+                  ? "Añade al menos un socio."
+                  : selectedPlayerIds.length === 4
+                  ? "La partida quedará cerrada."
+                  : `La partida quedará abierta con ${4 - selectedPlayerIds.length} plaza${
+                      4 - selectedPlayerIds.length === 1 ? "" : "s"
+                    } libre${4 - selectedPlayerIds.length === 1 ? "" : "s"}.`}
+              </div>
             </div>
 
             <div className="space-y-3">
-              <div className="text-base font-semibold text-gray-900">
-                Añadir rápido
-              </div>
+              <div className="text-base font-semibold text-gray-900">Añadir socio</div>
 
               <input
                 value={search}
@@ -904,7 +824,11 @@ export default function AdminCrearPartidasPage() {
               />
 
               <div className="max-h-56 overflow-y-auto space-y-2">
-                {filteredMembers.length === 0 ? (
+                {search.trim().length < 2 ? (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                    Escribe al menos 2 letras para buscar.
+                  </div>
+                ) : filteredMembers.length === 0 ? (
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
                     Sin resultados disponibles.
                   </div>
@@ -935,9 +859,7 @@ export default function AdminCrearPartidasPage() {
               <button
                 type="button"
                 onClick={createMatch}
-                disabled={
-                  creating || selectedPlayerIds.length === 0 || hasDuplicatePlayers
-                }
+                disabled={creating || selectedPlayerIds.length === 0}
                 className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-70"
                 style={{ backgroundColor: CLUB_GREEN }}
               >
