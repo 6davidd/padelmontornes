@@ -680,9 +680,9 @@ export default function AdminCrearPartidasPage() {
                                     ) : reservation ? (
                                       <div className="text-gray-600">
                                         {occupiedPlayers.length > 0 ? (
-                                          occupiedPlayers.map((player, index) => (
+                                          occupiedPlayers.map((player) => (
                                             <div key={player.userId}>
-                                              {index + 1}. {player.name}
+                                              🎾 {player.name}
                                             </div>
                                           ))
                                         ) : (
@@ -807,28 +807,26 @@ export default function AdminCrearPartidasPage() {
               />
 
               <div className="max-h-56 overflow-y-auto space-y-2">
-                {search.trim().length < 2 ? (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                    Escribe al menos 2 letras para buscar.
-                  </div>
-                ) : filteredMembers.length === 0 ? (
+                {search.trim().length >= 2 && filteredMembers.length === 0 ? (
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
                     Sin resultados disponibles.
                   </div>
                 ) : (
-                  filteredMembers.slice(0, 12).map((member) => (
-                    <button
-                      key={member.user_id}
-                      type="button"
-                      onClick={() => quickAddPlayer(member.user_id)}
-                      disabled={selectedPlayerIds.length >= 4}
-                      className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition disabled:opacity-50"
-                    >
-                      <div className="font-semibold text-gray-900">
-                        {getDisplayName(member)}
-                      </div>
-                    </button>
-                  ))
+                  filteredMembers
+                    .slice(0, search.trim().length >= 2 ? 12 : 0)
+                    .map((member) => (
+                      <button
+                        key={member.user_id}
+                        type="button"
+                        onClick={() => quickAddPlayer(member.user_id)}
+                        disabled={selectedPlayerIds.length >= 4}
+                        className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition disabled:opacity-50"
+                      >
+                        <div className="font-semibold text-gray-900">
+                          {getDisplayName(member)}
+                        </div>
+                      </button>
+                    ))
                 )}
               </div>
             </div>
