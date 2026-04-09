@@ -628,14 +628,6 @@ export default function ReservarPage() {
             </div>
           )}
 
-          {isSunday && (
-            <div className="mt-4 border border-red-200 rounded-2xl p-4 bg-red-50">
-              <p className="text-sm font-semibold text-red-800">
-                Domingo: club cerrado. No se puede reservar.
-              </p>
-            </div>
-          )}
-
           {msg && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm text-yellow-900">{msg}</p>
@@ -655,9 +647,9 @@ export default function ReservarPage() {
             </div>
           </div>
         ) : isSunday ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
-            <div className="text-lg font-bold text-gray-900">Club cerrado</div>
-            <div className="mt-2 text-sm text-gray-600">
+          <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
+            <div className="text-lg font-bold text-red-800">Club cerrado</div>
+            <div className="mt-2 text-sm text-red-700">
               Los domingos no se pueden hacer reservas.
             </div>
           </div>
@@ -716,7 +708,7 @@ export default function ReservarPage() {
                                     {c.name}
                                   </div>
 
-                                  <div className="mt-2">
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
                                     {blocked ? (
                                       <Badge tone="red">Bloqueada</Badge>
                                     ) : !res ? (
@@ -725,6 +717,12 @@ export default function ReservarPage() {
                                       <Badge tone="red">Ocupada · 4/4</Badge>
                                     ) : (
                                       <Badge tone="green">Abierta · {filled}/4</Badge>
+                                    )}
+
+                                    {alreadyIn && !blocked && res && (
+                                      <span className="text-sm font-semibold text-gray-700">
+                                        🎾 Apuntado
+                                      </span>
                                     )}
                                   </div>
 
@@ -746,7 +744,11 @@ export default function ReservarPage() {
                                       className="shrink-0 rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
                                       style={{ backgroundColor: CLUB_GREEN }}
                                     >
-                                      {expanded ? "Ocultar" : "Ver / Unirme"}
+                                      {expanded
+                                        ? "Ocultar"
+                                        : full
+                                        ? "Ver jugadores"
+                                        : "Ver / Unirme"}
                                     </button>
                                   ) : (
                                     <button
@@ -785,24 +787,17 @@ export default function ReservarPage() {
                                     </div>
                                   </div>
 
-                                  <div>
-                                    <button
-                                      onClick={() => joinMe(res.id)}
-                                      disabled={alreadyIn || full}
-                                      className={classNames(
-                                        "w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition",
-                                        (alreadyIn || full) &&
-                                          "opacity-60 cursor-not-allowed"
-                                      )}
-                                      style={{ backgroundColor: CLUB_GREEN }}
-                                    >
-                                      {alreadyIn
-                                        ? "Ya estás dentro"
-                                        : full
-                                        ? "Completa"
-                                        : "Unirme"}
-                                    </button>
-                                  </div>
+                                  {!alreadyIn && !full && (
+                                    <div>
+                                      <button
+                                        onClick={() => joinMe(res.id)}
+                                        className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition"
+                                        style={{ backgroundColor: CLUB_GREEN }}
+                                      >
+                                        Unirme
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
