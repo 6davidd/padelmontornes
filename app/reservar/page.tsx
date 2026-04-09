@@ -1,20 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabase";
-import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
-import { getDisplayName } from "../../../lib/display-name";
+import { supabase } from "../../lib/supabase";
+import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
+import { getDisplayName } from "../../lib/display-name";
 
 const CLUB_GREEN = "#0f5e2e";
 
-type MemberRole = "member" | "admin" | "superadmin";
-
-type Court = {
-  id: number;
-  name: string;
-};
+type Court = { id: number; name: string };
 
 type ReservationRow = {
   id: string;
@@ -34,8 +27,8 @@ type MemberRow = {
   user_id: string;
   full_name: string;
   alias?: string | null;
-  email?: string | null;
   is_active: boolean;
+  email?: string | null;
 };
 
 type BlockRow = {
@@ -45,14 +38,6 @@ type BlockRow = {
   slot_end: string;
   court_id: number;
   reason: string;
-};
-
-type SelectedMatch = {
-  date: string;
-  slotStart: string;
-  slotEnd: string;
-  courtId: number;
-  courtName: string;
 };
 
 function todayISO() {
@@ -77,27 +62,14 @@ function isSundayISO(dateISO: string) {
   return d.getDay() === 0;
 }
 
-function isSaturdayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 6;
-}
-
 function isDateWithin7Days(dateISO: string) {
   const min = todayISO();
   const max = addDaysISO(min, 7);
   return dateISO >= min && dateISO <= max;
 }
 
-function formatDateLong(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-  }).format(d);
-}
-
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
+const cap1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -144,7 +116,7 @@ function Modal({
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold text-gray-900">{title}</div>
           <button
@@ -160,44 +132,48 @@ function Modal({
   );
 }
 
-export default function AdminCrearPartidasPage() {
-  const router = useRouter();
-
+export default function ReservarPage() {
   const minDate = todayISO();
   const maxDate = addDaysISO(minDate, 7);
-
-  const [loadingPage, setLoadingPage] = useState(true);
-  const [loadingDay, setLoadingDay] = useState(false);
-  const [creating, setCreating] = useState(false);
 
   const [date, setDate] = useState(todayISO());
 
   const [courts, setCourts] = useState<Court[]>([]);
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
-  const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
+  const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
-  const [activeMembers, setActiveMembers] = useState<MemberRow[]>([]);
 
   const [msg, setMsg] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
-  const [search, setSearch] = useState("");
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [openResId, setOpenResId] = useState<string | null>(null);
+
+  const [addSeat, setAddSeat] = useState<number | null>(null);
+  const [addResId, setAddResId] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [suggestions, setSuggestions] = useState<
+    Array<{ user_id: string; label: string }>
+  >([]);
+  const [searching, setSearching] = useState(false);
 
   const isSunday = useMemo(() => isSundayISO(date), [date]);
   const isOutOfRange = useMemo(() => !isDateWithin7Days(date), [date]);
 
   const slotsToShow = useMemo(() => {
     if (isSunday || isOutOfRange) return [];
-    return isSaturdayISO(date) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
+    const d = new Date(`${date}T12:00:00`);
+    const day = d.getDay();
+    return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
   }, [date, isSunday, isOutOfRange]);
+
+  const openReservation = useMemo(() => {
+    if (!openResId) return null;
+    return reservations.find((r) => r.id === openResId) ?? null;
+  }, [openResId, reservations]);
 
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
-
     for (const p of players) {
       const arr = m.get(p.reservation_id) ?? [];
       arr.push({
@@ -207,12 +183,10 @@ export default function AdminCrearPartidasPage() {
       });
       m.set(p.reservation_id, arr);
     }
-
-    for (const [key, arr] of m.entries()) {
+    for (const [k, arr] of m.entries()) {
       arr.sort((a, b) => a.seat - b.seat);
-      m.set(key, arr);
+      m.set(k, arr);
     }
-
     return m;
   }, [players, membersMap]);
 
@@ -232,640 +206,793 @@ export default function AdminCrearPartidasPage() {
     return m;
   }, [blocks]);
 
-  const selectedPlayerIds = useMemo(
-    () => selectedPlayers.map((x) => x.trim()).filter(Boolean),
-    [selectedPlayers]
-  );
-
-  const filteredMembers = useMemo(() => {
-    const selectedSet = new Set(selectedPlayerIds);
-    const term = search.trim().toLocaleLowerCase("es-ES");
-
-    return activeMembers.filter((member) => {
-      if (selectedSet.has(member.user_id)) return false;
-
-      if (!term) return true;
-
-      const displayName = getDisplayName(member).toLocaleLowerCase("es-ES");
-      const fullName = (member.full_name ?? "").toLocaleLowerCase("es-ES");
-      const alias = (member.alias ?? "").toLocaleLowerCase("es-ES");
-      const email = (member.email ?? "").toLocaleLowerCase("es-ES");
-
-      return (
-        displayName.includes(term) ||
-        fullName.includes(term) ||
-        alias.includes(term) ||
-        email.includes(term)
-      );
-    });
-  }, [activeMembers, search, selectedPlayerIds]);
-
   useEffect(() => {
-    async function init() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const me = await supabase
-        .from("members")
-        .select("role,is_active")
-        .eq("user_id", user.id)
-        .single();
-
-      if (me.error || !me.data) {
-        router.push("/");
-        return;
-      }
-
-      const allowedRoles: MemberRole[] = ["admin", "superadmin"];
-
-      if (!me.data.is_active || !allowedRoles.includes(me.data.role as MemberRole)) {
-        router.push("/");
-        return;
-      }
-
-      const sessionRes = await supabase.auth.getSession();
-      setAccessToken(sessionRes.data.session?.access_token ?? null);
-
-      const [courtsRes, membersRes] = await Promise.all([
-        supabase.from("courts").select("id,name").order("id", { ascending: true }),
-        supabase
-          .from("members")
-          .select("user_id,full_name,alias,email,is_active")
-          .eq("is_active", true)
-          .order("full_name", { ascending: true }),
-      ]);
-
-      if (courtsRes.error) {
-        setMsg(courtsRes.error.message);
-      } else {
-        setCourts((courtsRes.data ?? []) as Court[]);
-      }
-
-      if (membersRes.error) {
-        setMsg(membersRes.error.message);
-      } else {
-        setActiveMembers((membersRes.data ?? []) as MemberRow[]);
-      }
-
-      setLoadingPage(false);
-    }
-
-    init();
-  }, [router]);
+    supabase
+      .from("courts")
+      .select("id,name")
+      .order("id", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) setMsg(error.message);
+        else setCourts(((data ?? []) as Court[]).slice(0, 3));
+      });
+  }, []);
 
   async function loadDay() {
     setMsg(null);
-    setLoadingDay(true);
+    setLoading(true);
 
     if (isSundayISO(date) || !isDateWithin7Days(date)) {
       setReservations([]);
-      setPlayers([]);
       setBlocks([]);
+      setPlayers([]);
       setMembersMap(new Map());
-      setLoadingDay(false);
+      setLoading(false);
       return;
     }
 
-    const reservationsRes = await supabase
+    const r = await supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
       .eq("date", date)
       .order("slot_start", { ascending: true })
       .order("court_id", { ascending: true });
 
-    if (reservationsRes.error) {
-      setMsg(reservationsRes.error.message);
-      setLoadingDay(false);
+    if (r.error) {
+      setMsg(r.error.message);
+      setLoading(false);
       return;
     }
 
-    const reservationRows = (reservationsRes.data ?? []) as ReservationRow[];
-    setReservations(reservationRows);
+    const resRows = (r.data ?? []) as ReservationRow[];
+    setReservations(resRows);
 
-    const blocksRes = await supabase
+    const b = await supabase
       .from("blocks")
       .select("id,date,slot_start,slot_end,court_id,reason")
       .eq("date", date)
       .order("slot_start", { ascending: true })
       .order("court_id", { ascending: true });
 
-    if (blocksRes.error) {
-      setMsg(blocksRes.error.message);
-      setLoadingDay(false);
+    if (b.error) {
+      setMsg(b.error.message);
+      setLoading(false);
       return;
     }
 
-    setBlocks((blocksRes.data ?? []) as BlockRow[]);
+    setBlocks((b.data ?? []) as BlockRow[]);
 
-    const reservationIds = reservationRows.map((x) => x.id);
-
-    if (reservationIds.length === 0) {
+    const ids = resRows.map((x) => x.id);
+    if (ids.length === 0) {
       setPlayers([]);
       setMembersMap(new Map());
-      setLoadingDay(false);
+      setLoading(false);
       return;
     }
 
-    const playersRes = await supabase
+    const p = await supabase
       .from("reservation_players")
       .select("reservation_id,seat,member_user_id")
-      .in("reservation_id", reservationIds);
+      .in("reservation_id", ids);
 
-    if (playersRes.error) {
-      setMsg(playersRes.error.message);
-      setLoadingDay(false);
+    if (p.error) {
+      setMsg(p.error.message);
+      setLoading(false);
       return;
     }
 
-    const playerRows = (playersRes.data ?? []) as PlayerRow[];
+    const playerRows = (p.data ?? []) as PlayerRow[];
     setPlayers(playerRows);
 
     const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
-
     if (userIds.length === 0) {
       setMembersMap(new Map());
-      setLoadingDay(false);
+      setLoading(false);
       return;
     }
 
-    const membersRes = await supabase
+    const m = await supabase
       .from("members")
-      .select("user_id,full_name,alias,email,is_active")
+      .select("user_id,full_name,alias,is_active,email")
       .in("user_id", userIds);
 
-    if (membersRes.error) {
-      setMsg(membersRes.error.message);
-      setLoadingDay(false);
+    if (m.error) {
+      setMsg(m.error.message);
+      setLoading(false);
       return;
     }
 
     const map = new Map<string, string>();
-    for (const row of (membersRes.data ?? []) as MemberRow[]) {
+    for (const row of (m.data ?? []) as MemberRow[]) {
       map.set(row.user_id, getDisplayName(row));
     }
     setMembersMap(map);
 
-    setLoadingDay(false);
+    setLoading(false);
   }
 
   useEffect(() => {
-    if (!loadingPage) {
-      loadDay();
-    }
+    loadDay();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, loadingPage]);
+  }, [date]);
 
-  function openCreateModal(match: SelectedMatch) {
-    setMsg(null);
-    setOk(null);
-    setSelectedMatch(match);
-    setSelectedPlayers([]);
-    setSearch("");
+  async function getUserIdOrMsg() {
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (!user) {
+      setMsg("No hay sesión. Vuelve a iniciar sesión.");
+      return null;
+    }
+    return user.id;
   }
 
-  function closeCreateModal() {
-    if (creating) return;
-    setSelectedMatch(null);
-    setSelectedPlayers([]);
-    setSearch("");
-  }
-
-  function removePlayer(index: number) {
-    setSelectedPlayers((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function quickAddPlayer(userId: string) {
-    setSelectedPlayers((prev) => {
-      if (prev.includes(userId) || prev.length >= 4) return prev;
-      return [...prev, userId];
-    });
-    setSearch("");
-  }
-
-  async function createMatch() {
-    if (!selectedMatch) return;
-
-    setMsg(null);
-    setOk(null);
-
-    if (!accessToken) {
-      setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
-      return;
-    }
-
-    if (!isDateWithin7Days(selectedMatch.date)) {
-      setMsg("Solo se puede crear con un máximo de 7 días de antelación.");
-      return;
-    }
-
-    if (isSundayISO(selectedMatch.date)) {
-      setMsg("Domingo cerrado: no se puede crear una partida.");
-      return;
-    }
-
-    if (selectedPlayerIds.length === 0) {
-      setMsg("Añade al menos un socio.");
-      return;
-    }
-
-    setCreating(true);
-
+  async function sendBookingCreatedEmail(params: {
+    to: string;
+    fullName?: string;
+    date: string;
+    slotStart: string;
+    slotEnd: string;
+    courtName: string;
+  }) {
     try {
-      const res = await fetch("/api/admin/create-match", {
+      await fetch("/api/send-booking-email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          date: selectedMatch.date,
-          courtId: selectedMatch.courtId,
-          slotStart: selectedMatch.slotStart,
-          slotEnd: selectedMatch.slotEnd,
-          playerIds: selectedPlayerIds,
+          type: "booking_created",
+          to: params.to,
+          fullName: params.fullName ?? "",
+          date: params.date,
+          slotStart: params.slotStart,
+          slotEnd: params.slotEnd,
+          courtName: params.courtName,
         }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok || !data?.ok) {
-        setMsg(data?.error || "No se ha podido crear la partida.");
-        setCreating(false);
-        return;
-      }
-
-      setOk(
-        selectedPlayerIds.length === 4
-          ? "Partida cerrada creada correctamente."
-          : "Partida abierta creada correctamente."
-      );
-
-      await loadDay();
-      setCreating(false);
-      closeCreateModal();
     } catch (error) {
-      setMsg(error instanceof Error ? error.message : "Error inesperado.");
-      setCreating(false);
+      console.error("Error enviando email de reserva:", error);
     }
   }
 
-  if (loadingPage) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-          <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm">
-            Cargando…
-          </div>
-        </div>
-      </div>
+  async function sendAddedToMatchEmail(params: {
+    to: string;
+    fullName?: string;
+    addedByName?: string;
+    date: string;
+    slotStart: string;
+    slotEnd: string;
+    courtName: string;
+  }) {
+    try {
+      await fetch("/api/send-booking-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "added_to_match",
+          to: params.to,
+          fullName: params.fullName ?? "",
+          addedByName: params.addedByName ?? "",
+          date: params.date,
+          slotStart: params.slotStart,
+          slotEnd: params.slotEnd,
+          courtName: params.courtName,
+        }),
+      });
+    } catch (error) {
+      console.error("Error enviando email de añadido a partida:", error);
+    }
+  }
+
+  async function sendMatchCompletedEmail(params: {
+    to: string;
+    fullName?: string;
+    date: string;
+    slotStart: string;
+    slotEnd: string;
+    courtName: string;
+    playersCount: number;
+    players: string[];
+  }) {
+    try {
+      await fetch("/api/send-booking-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "match_completed",
+          to: params.to,
+          fullName: params.fullName ?? "",
+          date: params.date,
+          slotStart: params.slotStart,
+          slotEnd: params.slotEnd,
+          courtName: params.courtName,
+          playersCount: params.playersCount,
+          players: params.players,
+        }),
+      });
+    } catch (error) {
+      console.error("Error enviando email de partida completa:", error);
+    }
+  }
+
+  async function notifyMatchCompleted(resId: string) {
+    const reservation = reservations.find((r) => r.id === resId);
+    if (!reservation) return;
+
+    const playersRes = await supabase
+      .from("reservation_players")
+      .select("reservation_id,seat,member_user_id")
+      .eq("reservation_id", resId);
+
+    if (playersRes.error || !playersRes.data) return;
+
+    const playerRows = playersRes.data as PlayerRow[];
+    if (playerRows.length !== 4) return;
+
+    const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
+    if (userIds.length === 0) return;
+
+    const membersRes = await supabase
+      .from("members")
+      .select("user_id,full_name,alias,is_active,email")
+      .in("user_id", userIds);
+
+    if (membersRes.error || !membersRes.data) return;
+
+    const members = (membersRes.data as MemberRow[]).sort((a, b) => {
+      const seatA =
+        playerRows.find((p) => p.member_user_id === a.user_id)?.seat ?? 999;
+      const seatB =
+        playerRows.find((p) => p.member_user_id === b.user_id)?.seat ?? 999;
+      return seatA - seatB;
+    });
+
+    const playerNames = members.map((member) => getDisplayName(member));
+
+    const courtName =
+      courts.find((c) => c.id === reservation.court_id)?.name ??
+      `Pista ${reservation.court_id}`;
+
+    for (const member of members) {
+      if (!member.email) continue;
+
+      await sendMatchCompletedEmail({
+        to: member.email,
+        fullName: getDisplayName(member),
+        date: reservation.date,
+        slotStart: toHM(reservation.slot_start),
+        slotEnd: toHM(reservation.slot_end),
+        courtName,
+        playersCount: 4,
+        players: playerNames,
+      });
+    }
+  }
+
+  async function createOrOpen(slotStart: string, slotEnd: string, courtId: number) {
+    setMsg(null);
+
+    if (!isDateWithin7Days(date)) {
+      setMsg("Solo se puede reservar con un máximo de 7 días de antelación.");
+      return;
+    }
+
+    if (isSundayISO(date)) {
+      setMsg("Domingo cerrado: no se puede reservar.");
+      return;
+    }
+
+    const block = blockByKey.get(`${slotStart}-${courtId}`);
+    if (block) {
+      setMsg("Esta pista está bloqueada en ese horario.");
+      return;
+    }
+
+    const existing = reservationByKey.get(`${slotStart}-${courtId}`);
+    if (existing) {
+      setOpenResId(existing.id);
+      return;
+    }
+
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+
+    if (!user) {
+      setMsg("No hay sesión. Vuelve a iniciar sesión.");
+      return;
+    }
+
+    const userId = user.id;
+    const userEmail = user.email ?? "";
+
+    const ins = await supabase
+      .from("reservations")
+      .insert({
+        date,
+        slot_start: slotStart,
+        slot_end: slotEnd,
+        court_id: courtId,
+        member_user_id: userId,
+        status: "active",
+      })
+      .select("id")
+      .single();
+
+    if (ins.error) {
+      const msg = ins.error.message ?? "";
+      if (
+        msg.toLowerCase().includes("duplicate key") ||
+        msg.toLowerCase().includes("uq_reservation_unique")
+      ) {
+        await loadDay();
+        const nowExisting = reservationByKey.get(`${slotStart}-${courtId}`);
+        if (nowExisting) setOpenResId(nowExisting.id);
+        return;
+      }
+      setMsg(ins.error.message);
+      return;
+    }
+
+    const createdReservationId = ins.data.id as string;
+
+    const playerIns = await supabase.from("reservation_players").insert({
+      reservation_id: createdReservationId,
+      seat: 1,
+      member_user_id: userId,
+    });
+
+    if (playerIns.error) {
+      setMsg(playerIns.error.message);
+      await loadDay();
+      setOpenResId(createdReservationId);
+      return;
+    }
+
+    const courtName =
+      courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
+
+    if (userEmail) {
+      const memberRes = await supabase
+        .from("members")
+        .select("full_name,alias")
+        .eq("user_id", userId)
+        .single();
+
+      const memberName =
+        !memberRes.error && memberRes.data
+          ? getDisplayName(memberRes.data)
+          : membersMap.get(userId) ?? "";
+
+      await sendBookingCreatedEmail({
+        to: userEmail,
+        fullName: memberName,
+        date,
+        slotStart,
+        slotEnd,
+        courtName,
+      });
+    }
+
+    await loadDay();
+    setOpenResId(createdReservationId);
+  }
+
+  async function joinSeat(resId: string, seat: number, memberUserId: string) {
+    setMsg(null);
+
+    const ins = await supabase.from("reservation_players").insert({
+      reservation_id: resId,
+      seat,
+      member_user_id: memberUserId,
+    });
+
+    if (ins.error) {
+      setMsg(ins.error.message);
+      return false;
+    }
+
+    await loadDay();
+    await notifyMatchCompleted(resId);
+    return true;
+  }
+
+  async function joinMe(resId: string) {
+    const userId = await getUserIdOrMsg();
+    if (!userId) return;
+
+    const alreadyIn = (playersByReservation.get(resId) ?? []).some(
+      (x) => x.userId === userId
     );
+    if (alreadyIn) {
+      setMsg("Ya estás apuntado en esta partida.");
+      return;
+    }
+
+    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
+    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+    if (!freeSeat) {
+      setMsg("Esta partida ya está completa.");
+      return;
+    }
+    await joinSeat(resId, freeSeat, userId);
+  }
+
+  async function openAddSocio(resId: string) {
+    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
+    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+    if (!freeSeat) {
+      setMsg("Esta partida ya está completa.");
+      return;
+    }
+
+    setAddResId(resId);
+    setAddSeat(freeSeat);
+    setQ("");
+    setSuggestions([]);
+  }
+
+  useEffect(() => {
+    let alive = true;
+
+    async function run() {
+      if (!addResId || !addSeat) return;
+      const term = q.trim();
+      if (term.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+
+      setSearching(true);
+      const res = await supabase
+        .from("members")
+        .select("user_id,full_name,alias,is_active,email")
+        .eq("is_active", true)
+        .or(`full_name.ilike.%${term}%,alias.ilike.%${term}%`)
+        .limit(8);
+
+      if (!alive) return;
+
+      setSearching(false);
+      if (res.error) {
+        setMsg(res.error.message);
+        setSuggestions([]);
+        return;
+      }
+
+      const list = ((res.data ?? []) as MemberRow[]).map((m) => ({
+        user_id: m.user_id,
+        label: getDisplayName(m),
+      }));
+      setSuggestions(list);
+    }
+
+    run();
+    return () => {
+      alive = false;
+    };
+  }, [q, addResId, addSeat]);
+
+  async function addSocio(userId: string) {
+    if (!addResId || !addSeat) return;
+
+    const reservation = reservations.find((r) => r.id === addResId);
+    if (!reservation) {
+      setMsg("No se ha encontrado la partida.");
+      return;
+    }
+
+    const alreadyIn = (playersByReservation.get(addResId) ?? []).some(
+      (x) => x.userId === userId
+    );
+    if (alreadyIn) {
+      setMsg("Ese socio ya está apuntado en esta partida.");
+      return;
+    }
+
+    const ok = await joinSeat(addResId, addSeat, userId);
+    if (!ok) return;
+
+    const memberRes = await supabase
+      .from("members")
+      .select("user_id,full_name,alias,is_active,email")
+      .eq("user_id", userId)
+      .single();
+
+    if (!memberRes.error && memberRes.data) {
+      const member = memberRes.data as MemberRow;
+      const courtName =
+        courts.find((c) => c.id === reservation.court_id)?.name ??
+        `Pista ${reservation.court_id}`;
+
+      const { data } = await supabase.auth.getUser();
+      const currentUser = data.user;
+
+      let addedByName = "";
+
+      if (currentUser?.id) {
+        const addedByRes = await supabase
+          .from("members")
+          .select("full_name,alias")
+          .eq("user_id", currentUser.id)
+          .single();
+
+        if (!addedByRes.error && addedByRes.data) {
+          addedByName = getDisplayName(addedByRes.data);
+        }
+      }
+
+      if (member.email) {
+        await sendAddedToMatchEmail({
+          to: member.email,
+          fullName: getDisplayName(member),
+          addedByName,
+          date: reservation.date,
+          slotStart: toHM(reservation.slot_start),
+          slotEnd: toHM(reservation.slot_end),
+          courtName,
+        });
+      }
+    }
+
+    setAddResId(null);
+    setAddSeat(null);
+    setQ("");
+    setSuggestions([]);
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-        <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1
-                className="text-3xl sm:text-4xl font-bold"
-                style={{ color: CLUB_GREEN }}
-              >
-                Crear partidas
-              </h1>
-            </div>
-          </div>
-
-          <div>
-            <label className="space-y-2 block">
-              <div className="text-sm font-semibold text-gray-900">Día</div>
-              <input
-                type="date"
-                value={date}
-                min={minDate}
-                max={maxDate}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
-              />
-            </label>
+    <div className="min-h-screen bg-gray-50 pb-40">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
+          <div className="flex items-center gap-4">
+            <div className="text-sm font-semibold text-gray-900">Fecha</div>
+            <input
+              type="date"
+              value={date}
+              min={minDate}
+              max={maxDate}
+              onChange={(e) => setDate(e.target.value)}
+              className="ml-auto w-[170px] sm:w-[190px] rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
+            />
           </div>
 
           {isOutOfRange && (
-            <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm font-semibold text-yellow-900">
-                Solo se puede crear con un máximo de 7 días de antelación.
+                Solo se puede reservar con un máximo de 7 días de antelación.
               </p>
             </div>
           )}
 
           {isSunday && (
-            <div className="border border-red-200 rounded-2xl p-4 bg-red-50">
+            <div className="mt-4 border border-red-200 rounded-2xl p-4 bg-red-50">
               <p className="text-sm font-semibold text-red-800">
-                Domingo: club cerrado. No se pueden crear partidas.
+                Domingo: club cerrado. No se puede reservar.
               </p>
             </div>
           )}
 
           {msg && (
-            <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm text-yellow-900">{msg}</p>
-            </div>
-          )}
-
-          {ok && (
-            <div className="border border-green-200 rounded-2xl p-4 bg-green-50">
-              <p className="text-sm text-green-900">{ok}</p>
             </div>
           )}
         </div>
 
-        {loadingDay ? (
-          <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm">
+        {loading ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
             Cargando…
           </div>
         ) : isOutOfRange ? (
-          <div className="bg-white border border-gray-200 rounded-[28px] p-6 shadow-sm text-center">
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
             <div className="text-lg font-bold text-gray-900">Fecha no disponible</div>
             <div className="mt-2 text-sm text-gray-600">
-              Solo se puede crear entre hoy y los próximos 7 días.
+              Solo se puede reservar entre hoy y los próximos 7 días.
             </div>
           </div>
         ) : isSunday ? (
-          <div className="bg-white border border-gray-200 rounded-[28px] p-6 shadow-sm text-center">
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
             <div className="text-lg font-bold text-gray-900">Club cerrado</div>
             <div className="mt-2 text-sm text-gray-600">
-              Los domingos no se pueden crear partidas.
+              Los domingos no se pueden hacer reservas.
             </div>
           </div>
         ) : (
-          <div className="space-y-5">
-            <section className="bg-white border border-gray-200 rounded-[28px] shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex items-end justify-between gap-1">
-                  <h2
-                    className="text-xl font-bold capitalize"
-                    style={{ color: CLUB_GREEN }}
-                  >
-                    {formatDateLong(date)}
-                  </h2>
-                </div>
-              </div>
-
-              <div className="p-4 space-y-4">
-                {slotsToShow.map((slot) => (
-                  <div
-                    key={slot.start}
-                    className="rounded-[24px] border border-gray-200 overflow-hidden"
-                  >
-                    <div className="px-4 py-3 border-b border-gray-200 bg-white">
-                      <div
-                        className="font-bold text-[17px]"
-                        style={{ color: CLUB_GREEN }}
-                      >
-                        {slot.start} – {slot.end}
-                      </div>
+          <div className="space-y-6">
+            {slotsToShow.map((s) => {
+              const slotLabel = `${s.start} – ${s.end}`;
+              return (
+                <div
+                  key={s.start}
+                  className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
+                >
+                  <div className="px-5 py-4 border-b border-gray-200">
+                    <div className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
+                      {slotLabel}
                     </div>
+                  </div>
 
-                    <div className="p-3">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {courts.map((court) => {
-                          const key = `${slot.start}-${court.id}`;
-                          const reservation = reservationByKey.get(key);
-                          const block = blockByKey.get(key);
-                          const blocked = !!block;
-                          const occupiedPlayers = reservation
-                            ? playersByReservation.get(reservation.id) ?? []
-                            : [];
+                  <div className="p-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {courts.map((c) => {
+                        const key = `${s.start}-${c.id}`;
+                        const res = reservationByKey.get(key);
+                        const block = blockByKey.get(key);
+                        const blocked = !!block;
+                        const filled = res ? (playersByReservation.get(res.id) ?? []).length : 0;
 
-                          return (
-                            <div
-                              key={court.id}
-                              className={classNames(
-                                "rounded-[22px] border px-4 py-3.5 shadow-sm",
-                                blocked
-                                  ? "bg-red-50 border-red-200"
-                                  : reservation
-                                  ? "bg-white border-gray-300"
-                                  : "bg-green-50 border-gray-300"
-                              )}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="font-bold text-gray-900 text-[15px]">
-                                    {court.name}
-                                  </div>
+                        return (
+                          <div
+                            key={c.id}
+                            className={classNames(
+                              "rounded-3xl border shadow-sm p-4 sm:p-5",
+                              blocked
+                                ? "bg-red-50 border-red-200"
+                                : res
+                                ? "bg-white border-gray-300"
+                                : "bg-green-50 border-gray-300"
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-lg font-bold text-gray-900">{c.name}</div>
 
-                                  <div className="mt-2">
-                                    {blocked ? (
-                                      <Badge tone="red">Bloqueada</Badge>
-                                    ) : reservation ? (
-                                      <Badge tone="neutral">
-                                        Ocupada · {occupiedPlayers.length}/4
-                                      </Badge>
-                                    ) : (
-                                      <Badge tone="green">Libre</Badge>
-                                    )}
-                                  </div>
-
-                                  <div className="mt-3 min-h-[40px] text-sm leading-snug">
-                                    {blocked ? (
-                                      <div className="text-red-800">
-                                        {block?.reason || "Bloqueado"}
-                                      </div>
-                                    ) : reservation ? (
-                                      <div className="text-gray-600">
-                                        {occupiedPlayers.length > 0 ? (
-                                          occupiedPlayers.map((player) => (
-                                            <div key={player.userId}>
-                                              🎾 {player.name}
-                                            </div>
-                                          ))
-                                        ) : (
-                                          <div>Partida ya creada</div>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <div className="text-green-800">
-                                        Lista para crear partida
-                                      </div>
-                                    )}
-                                  </div>
+                                <div className="mt-2">
+                                  {blocked ? (
+                                    <Badge tone="red">Bloqueada</Badge>
+                                  ) : res ? (
+                                    <Badge tone="neutral">{filled}/4</Badge>
+                                  ) : (
+                                    <Badge tone="green">Libre</Badge>
+                                  )}
                                 </div>
 
-                                {!blocked && !reservation && (
+                                {blocked && (
+                                  <div className="mt-3 text-sm font-medium text-red-700">
+                                    {block?.reason || "Bloqueado"}
+                                  </div>
+                                )}
+                              </div>
+
+                              {!blocked &&
+                                (res ? (
                                   <button
-                                    type="button"
-                                    onClick={() =>
-                                      openCreateModal({
-                                        date,
-                                        slotStart: slot.start,
-                                        slotEnd: slot.end,
-                                        courtId: court.id,
-                                        courtName: court.name,
-                                      })
-                                    }
+                                    onClick={() => setOpenResId(res.id)}
                                     className="shrink-0 rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                    style={{ backgroundColor: CLUB_GREEN }}
+                                  >
+                                    Ver / Unirme
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => createOrOpen(s.start, s.end, c.id)}
+                                    className="shrink-0 rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
                                     style={{ backgroundColor: CLUB_GREEN }}
                                   >
                                     Crear
                                   </button>
-                                )}
-                              </div>
+                                ))}
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
-              </div>
-            </section>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
       <Modal
-        open={!!selectedMatch}
-        onClose={closeCreateModal}
+        open={!!openResId && !!openReservation}
+        onClose={() => setOpenResId(null)}
         title={
-          selectedMatch
-            ? `${selectedMatch.courtName} · ${selectedMatch.slotStart}-${selectedMatch.slotEnd}`
-            : "Crear partida"
+          openReservation
+            ? `${cap1(openReservation.date)} · ${toHM(openReservation.slot_start)}–${toHM(
+                openReservation.slot_end
+              )} · Pista ${openReservation.court_id}`
+            : "Partida"
         }
       >
-        {selectedMatch && (
+        {openReservation && (
           <div className="space-y-5">
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="text-sm text-gray-700">
-                <span className="font-semibold text-gray-900">Horario:</span>{" "}
-                {selectedMatch.slotStart} - {selectedMatch.slotEnd}
-              </div>
-              <div className="mt-1 text-sm text-gray-700">
-                <span className="font-semibold text-gray-900">Pista:</span>{" "}
-                {selectedMatch.courtName}
-              </div>
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((seat) => {
+                const arr = playersByReservation.get(openReservation.id) ?? [];
+                const occ = arr.find((x) => x.seat === seat);
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-base font-semibold text-gray-900">Jugadores</div>
-                <div className="text-sm text-gray-500">
-                  {selectedPlayerIds.length}/4 seleccionados
-                </div>
-              </div>
-
-              {selectedPlayerIds.length === 0 ? (
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                  Aún no has añadido ningún socio.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {selectedPlayerIds.map((userId, index) => {
-                    const selectedMember = activeMembers.find((m) => m.user_id === userId);
-                    if (!selectedMember) return null;
-
-                    return (
-                      <div
-                        key={userId}
-                        className="rounded-2xl border border-gray-200 bg-white p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="font-semibold text-gray-900">
-                              Jugador {index + 1}: {getDisplayName(selectedMember)}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removePlayer(index)}
-                            className="shrink-0 rounded-2xl px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 transition active:scale-[0.99]"
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="text-base font-semibold text-gray-900">Añadir socio</div>
-
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, alias o email…"
-                className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
-              />
-
-              <div className="max-h-56 overflow-y-auto space-y-2">
-                {search.trim().length < 2 ? (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                    Escribe al menos 2 letras para buscar.
+                return (
+                  <div
+                    key={seat}
+                    className={classNames(
+                      "rounded-2xl border border-gray-300 p-4 shadow-sm",
+                      occ ? "bg-white" : "bg-gray-50"
+                    )}
+                  >
+                    <div className="text-base font-semibold text-gray-900">
+                      {occ ? occ.name : "Libre"}
+                    </div>
                   </div>
-                ) : filteredMembers.length === 0 ? (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                    Sin resultados disponibles.
-                  </div>
-                ) : (
-                  filteredMembers.slice(0, 12).map((member) => (
-                    <button
-                      key={member.user_id}
-                      type="button"
-                      onClick={() => quickAddPlayer(member.user_id)}
-                      disabled={selectedPlayerIds.length >= 4}
-                      className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition disabled:opacity-50"
-                    >
-                      <div className="font-semibold text-gray-900">
-                        {getDisplayName(member)}
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
+                );
+              })}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <button
-                type="button"
-                onClick={createMatch}
-                disabled={creating || selectedPlayerIds.length === 0}
-                className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-70"
+                onClick={() => joinMe(openReservation.id)}
+                className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
                 style={{ backgroundColor: CLUB_GREEN }}
               >
-                {creating ? "Creando..." : "Crear partida"}
+                Unirme
               </button>
 
               <button
-                type="button"
-                onClick={closeCreateModal}
-                disabled={creating}
-                className="rounded-2xl px-5 py-3 bg-white text-gray-900 font-semibold ring-1 ring-black/5 hover:bg-gray-50 transition active:scale-[0.99] disabled:opacity-70"
+                onClick={() => openAddSocio(openReservation.id)}
+                className="rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
               >
-                Cancelar
+                Añadir socio
               </button>
             </div>
           </div>
         )}
       </Modal>
 
+      <Modal
+        open={!!addResId && !!addSeat}
+        onClose={() => {
+          setAddResId(null);
+          setAddSeat(null);
+          setQ("");
+          setSuggestions([]);
+        }}
+        title="Añadir socio"
+      >
+        <div className="space-y-4">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar por nombre o alias…"
+            className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
+          />
+
+          {q.trim().length < 2 ? null : searching ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              Buscando…
+            </div>
+          ) : suggestions.length === 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              Sin resultados.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {suggestions.map((s) => (
+                <button
+                  key={s.user_id}
+                  onClick={() => addSocio(s.user_id)}
+                  className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
+                >
+                  <div className="font-semibold text-gray-900">{s.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-5xl mx-auto">
-          <Link
-            href="/admin"
+        <div className="max-w-3xl mx-auto">
+          <a
+            href="/"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
-            Panel administrador
-          </Link>
+            Inicio
+          </a>
         </div>
       </div>
     </div>
