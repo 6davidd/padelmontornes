@@ -103,7 +103,6 @@ function getRelativeDayLabel(dateISO: string) {
 }
 
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
-const cap1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -178,7 +177,8 @@ export default function ReservarPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [openResId, setOpenResId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [expandedResId, setExpandedResId] = useState<string | null>(null);
 
   const [addSeat, setAddSeat] = useState<number | null>(null);
   const [addResId, setAddResId] = useState<string | null>(null);
@@ -198,11 +198,6 @@ export default function ReservarPage() {
     const day = d.getDay();
     return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
   }, [date, isSunday, isOutOfRange]);
-
-  const openReservation = useMemo(() => {
-    if (!openResId) return null;
-    return reservations.find((r) => r.id === openResId) ?? null;
-  }, [openResId, reservations]);
 
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
@@ -239,6 +234,12 @@ export default function ReservarPage() {
   }, [blocks]);
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
     supabase
       .from("courts")
       .select("id,name")
@@ -258,6 +259,7 @@ export default function ReservarPage() {
       setBlocks([]);
       setPlayers([]);
       setMembersMap(new Map());
+      setExpandedResId(null);
       setLoading(false);
       return;
     }
@@ -297,6 +299,7 @@ export default function ReservarPage() {
     if (ids.length === 0) {
       setPlayers([]);
       setMembersMap(new Map());
+      setExpandedResId(null);
       setLoading(false);
       return;
     }
@@ -525,7 +528,7 @@ export default function ReservarPage() {
 
     const existing = reservationByKey.get(`${slotStart}-${courtId}`);
     if (existing) {
-      setOpenResId(existing.id);
+      setExpandedResId((prev) => (prev === existing.id ? null : existing.id));
       return;
     }
 
@@ -554,14 +557,14 @@ export default function ReservarPage() {
       .single();
 
     if (ins.error) {
-      const msg = ins.error.message ?? "";
+      const errMsg = ins.error.message ?? "";
       if (
-        msg.toLowerCase().includes("duplicate key") ||
-        msg.toLowerCase().includes("uq_reservation_unique")
+        errMsg.toLowerCase().includes("duplicate key") ||
+        errMsg.toLowerCase().includes("uq_reservation_unique")
       ) {
         await loadDay();
         const nowExisting = reservationByKey.get(`${slotStart}-${courtId}`);
-        if (nowExisting) setOpenResId(nowExisting.id);
+        if (nowExisting) setExpandedResId(nowExisting.id);
         return;
       }
       setMsg(ins.error.message);
@@ -579,7 +582,7 @@ export default function ReservarPage() {
     if (playerIns.error) {
       setMsg(playerIns.error.message);
       await loadDay();
-      setOpenResId(createdReservationId);
+      setExpandedResId(createdReservationId);
       return;
     }
 
@@ -609,7 +612,7 @@ export default function ReservarPage() {
     }
 
     await loadDay();
-    setOpenResId(createdReservationId);
+    setExpandedResId(createdReservationId);
   }
 
   async function joinSeat(resId: string, seat: number, memberUserId: string) {
@@ -628,6 +631,7 @@ export default function ReservarPage() {
 
     await loadDay();
     await notifyMatchCompleted(resId);
+    setExpandedResId(resId);
     return true;
   }
 
@@ -649,6 +653,7 @@ export default function ReservarPage() {
       setMsg("Esta partida ya está completa.");
       return;
     }
+
     await joinSeat(resId, freeSeat, userId);
   }
 
@@ -773,6 +778,7 @@ export default function ReservarPage() {
     setAddSeat(null);
     setQ("");
     setSuggestions([]);
+    setExpandedResId(addResId);
   }
 
   return (
@@ -858,6 +864,7 @@ export default function ReservarPage() {
           <div className="space-y-6">
             {slotsToShow.map((s) => {
               const slotLabel = `${s.start} – ${s.end}`;
+
               return (
                 <div
                   key={s.start}
@@ -870,65 +877,177 @@ export default function ReservarPage() {
                   </div>
 
                   <div className="p-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       {courts.map((c) => {
                         const key = `${s.start}-${c.id}`;
                         const res = reservationByKey.get(key);
                         const block = blockByKey.get(key);
                         const blocked = !!block;
-                        const filled = res ? (playersByReservation.get(res.id) ?? []).length : 0;
+                        const reservationPlayers = res
+                          ? playersByReservation.get(res.id) ?? []
+                          : [];
+                        const filled = reservationPlayers.length;
+                        const expanded = !!res && expandedResId === res.id;
+                        const alreadyIn = !!res &&
+                          !!currentUserId &&
+                          reservationPlayers.some((p) => p.userId === currentUserId);
+                        const full = filled >= 4;
 
                         return (
                           <div
                             key={c.id}
                             className={classNames(
-                              "rounded-3xl border shadow-sm p-4 sm:p-5",
+                              "rounded-3xl border shadow-sm transition overflow-hidden",
                               blocked
                                 ? "bg-red-50 border-red-200"
                                 : res
-                                ? "bg-white border-gray-300"
+                                ? expanded
+                                  ? "bg-white border-gray-300"
+                                  : "bg-white border-gray-300"
                                 : "bg-green-50 border-gray-300"
                             )}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-lg font-bold text-gray-900">{c.name}</div>
+                            <div className="p-4 sm:p-5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-lg font-bold text-gray-900">
+                                    {c.name}
+                                  </div>
 
-                                <div className="mt-2">
-                                  {blocked ? (
-                                    <Badge tone="red">Bloqueada</Badge>
-                                  ) : res ? (
-                                    <Badge tone="neutral">{filled}/4</Badge>
-                                  ) : (
-                                    <Badge tone="green">Libre</Badge>
+                                  <div className="mt-2">
+                                    {blocked ? (
+                                      <Badge tone="red">Bloqueada</Badge>
+                                    ) : res ? (
+                                      <Badge tone="neutral">Ocupada · {filled}/4</Badge>
+                                    ) : (
+                                      <Badge tone="green">Libre</Badge>
+                                    )}
+                                  </div>
+
+                                  {blocked && (
+                                    <div className="mt-3 text-sm font-medium text-red-700">
+                                      {block?.reason || "Bloqueado"}
+                                    </div>
                                   )}
                                 </div>
 
-                                {blocked && (
-                                  <div className="mt-3 text-sm font-medium text-red-700">
-                                    {block?.reason || "Bloqueado"}
-                                  </div>
-                                )}
+                                {!blocked &&
+                                  (res ? (
+                                    <button
+                                      onClick={() =>
+                                        setExpandedResId((prev) =>
+                                          prev === res.id ? null : res.id
+                                        )
+                                      }
+                                      className="shrink-0 rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                      style={{ backgroundColor: CLUB_GREEN }}
+                                    >
+                                      {expanded ? "Ocultar" : "Ver / Unirme"}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => createOrOpen(s.start, s.end, c.id)}
+                                      className="shrink-0 rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                      style={{ backgroundColor: CLUB_GREEN }}
+                                    >
+                                      Crear
+                                    </button>
+                                  ))}
                               </div>
 
-                              {!blocked &&
-                                (res ? (
-                                  <button
-                                    onClick={() => setOpenResId(res.id)}
-                                    className="shrink-0 rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                                    style={{ backgroundColor: CLUB_GREEN }}
-                                  >
-                                    Ver / Unirme
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => createOrOpen(s.start, s.end, c.id)}
-                                    className="shrink-0 rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                                    style={{ backgroundColor: CLUB_GREEN }}
-                                  >
-                                    Crear
-                                  </button>
-                                ))}
+                              {!blocked && res && expanded && (
+                                <div className="mt-4 border-t border-gray-200 pt-4 space-y-4">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {[1, 2, 3, 4].map((seat) => {
+                                      const occ = reservationPlayers.find(
+                                        (x) => x.seat === seat
+                                      );
+
+                                      return (
+                                        <div
+                                          key={seat}
+                                          className={classNames(
+                                            "rounded-2xl border px-4 py-3",
+                                            occ
+                                              ? "border-gray-300 bg-white"
+                                              : "border-green-200 bg-green-50"
+                                          )}
+                                        >
+                                          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Hueco {seat}
+                                          </div>
+                                          <div className="mt-1 text-base font-semibold text-gray-900">
+                                            {occ ? occ.name : "Libre"}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+                                    <div className="text-sm font-semibold text-gray-900">
+                                      Jugadores
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                      {reservationPlayers.length > 0 ? (
+                                        reservationPlayers.map((player) => (
+                                          <div
+                                            key={`${res.id}-${player.seat}-${player.userId}`}
+                                            className="flex items-center gap-2 text-[15px] text-gray-800"
+                                          >
+                                            <span className="text-lg leading-none">🎾</span>
+                                            <span>{player.name}</span>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <div className="text-sm text-gray-600">
+                                          Aún no hay jugadores.
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <button
+                                      onClick={() => joinMe(res.id)}
+                                      disabled={alreadyIn || full}
+                                      className={classNames(
+                                        "rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition",
+                                        (alreadyIn || full) &&
+                                          "opacity-60 cursor-not-allowed"
+                                      )}
+                                      style={{ backgroundColor: CLUB_GREEN }}
+                                    >
+                                      {alreadyIn
+                                        ? "Ya estás dentro"
+                                        : full
+                                        ? "Completa"
+                                        : "Unirme"}
+                                    </button>
+
+                                    <button
+                                      onClick={() => openAddSocio(res.id)}
+                                      disabled={full}
+                                      className={classNames(
+                                        "rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm transition",
+                                        full
+                                          ? "opacity-60 cursor-not-allowed"
+                                          : "hover:bg-gray-50 active:scale-[0.99]"
+                                      )}
+                                    >
+                                      Añadir socio
+                                    </button>
+
+                                    <button
+                                      onClick={() => setExpandedResId(null)}
+                                      className="rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-700 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
+                                    >
+                                      Ocultar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -941,60 +1060,6 @@ export default function ReservarPage() {
           </div>
         )}
       </div>
-
-      <Modal
-        open={!!openResId && !!openReservation}
-        onClose={() => setOpenResId(null)}
-        title={
-          openReservation
-            ? `${cap1(openReservation.date)} · ${toHM(openReservation.slot_start)}–${toHM(
-                openReservation.slot_end
-              )} · Pista ${openReservation.court_id}`
-            : "Partida"
-        }
-      >
-        {openReservation && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map((seat) => {
-                const arr = playersByReservation.get(openReservation.id) ?? [];
-                const occ = arr.find((x) => x.seat === seat);
-
-                return (
-                  <div
-                    key={seat}
-                    className={classNames(
-                      "rounded-2xl border border-gray-300 p-4 shadow-sm",
-                      occ ? "bg-white" : "bg-gray-50"
-                    )}
-                  >
-                    <div className="text-base font-semibold text-gray-900">
-                      {occ ? occ.name : "Libre"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => joinMe(openReservation.id)}
-                className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                style={{ backgroundColor: CLUB_GREEN }}
-              >
-                Unirme
-              </button>
-
-              <button
-                onClick={() => openAddSocio(openReservation.id)}
-                className="rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
-              >
-                Añadir socio
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
 
       <Modal
         open={!!addResId && !!addSeat}
