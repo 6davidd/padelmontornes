@@ -118,9 +118,6 @@ function emailShell(params: {
                 <tr>
                   <td style="background: ${CARD_BG}; border: 1px solid ${BORDER}; border-radius: 24px; overflow: hidden;">
                     <div style="background: ${CLUB_GREEN}; padding: 22px 24px;">
-                      <div style="font-size: 13px; color: rgba(255,255,255,0.85); font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;">
-                        Reserva de pádel
-                      </div>
                       <div style="margin-top: 8px; font-size: 28px; line-height: 1.2; font-weight: 800; color: #ffffff;">
                         ${esc(title)}
                       </div>
