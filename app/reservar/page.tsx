@@ -68,36 +68,29 @@ function isDateWithin7Days(dateISO: string) {
   return dateISO >= min && dateISO <= max;
 }
 
-const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
-
-function classNames(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(" ");
-}
-
-function formatDateLong(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(d);
+function getVisibleDays() {
+  const base = todayISO();
+  return Array.from({ length: 8 }, (_, i) => addDaysISO(base, i));
 }
 
 function formatDayChip(dateISO: string) {
   const d = new Date(`${dateISO}T12:00:00`);
   const weekday = new Intl.DateTimeFormat("es-ES", {
     weekday: "short",
-  }).format(d);
+  })
+    .format(d)
+    .replace(".", "");
   const day = new Intl.DateTimeFormat("es-ES", {
     day: "2-digit",
   }).format(d);
 
-  return `${weekday.replace(".", "")} ${day}`;
+  return `${weekday} ${day}`;
 }
 
 function getRelativeDayLabel(dateISO: string) {
   const today = todayISO();
   const tomorrow = addDaysISO(today, 1);
+
   if (dateISO === today) return "Hoy";
   if (dateISO === tomorrow) return "Mañana";
 
@@ -109,9 +102,11 @@ function getRelativeDayLabel(dateISO: string) {
   return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
-function buildVisibleDays() {
-  const base = todayISO();
-  return Array.from({ length: 8 }, (_, i) => addDaysISO(base, i));
+const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
+const cap1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+function classNames(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
 }
 
 function Badge({
@@ -124,7 +119,7 @@ function Badge({
   return (
     <span
       className={classNames(
-        "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold border",
+        "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold border",
         tone === "green" && "bg-green-50 text-green-800 border-green-200",
         tone === "red" && "bg-red-50 text-red-800 border-red-200",
         tone === "neutral" && "bg-gray-50 text-gray-700 border-gray-200"
@@ -151,7 +146,7 @@ function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
-        className="absolute inset-0 bg-black/35"
+        className="absolute inset-0 bg-black/30"
         onClick={onClose}
         aria-label="Cerrar"
       />
@@ -172,9 +167,6 @@ function Modal({
 }
 
 export default function ReservarPage() {
-  const minDate = todayISO();
-  const maxDate = addDaysISO(minDate, 7);
-
   const [date, setDate] = useState(todayISO());
 
   const [courts, setCourts] = useState<Court[]>([]);
@@ -196,13 +188,9 @@ export default function ReservarPage() {
   >([]);
   const [searching, setSearching] = useState(false);
 
-  const [creatingKey, setCreatingKey] = useState<string | null>(null);
-  const [joiningResId, setJoiningResId] = useState<string | null>(null);
-  const [addingMemberId, setAddingMemberId] = useState<string | null>(null);
-
+  const visibleDays = useMemo(() => getVisibleDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
   const isOutOfRange = useMemo(() => !isDateWithin7Days(date), [date]);
-  const visibleDays = useMemo(() => buildVisibleDays(), []);
 
   const slotsToShow = useMemo(() => {
     if (isSunday || isOutOfRange) return [];
@@ -218,7 +206,6 @@ export default function ReservarPage() {
 
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
-
     for (const p of players) {
       const arr = m.get(p.reservation_id) ?? [];
       arr.push({
@@ -228,12 +215,10 @@ export default function ReservarPage() {
       });
       m.set(p.reservation_id, arr);
     }
-
     for (const [k, arr] of m.entries()) {
       arr.sort((a, b) => a.seat - b.seat);
       m.set(k, arr);
     }
-
     return m;
   }, [players, membersMap]);
 
@@ -252,47 +237,6 @@ export default function ReservarPage() {
     }
     return m;
   }, [blocks]);
-
-  const dayStats = useMemo(() => {
-    let free = 0;
-    let blocked = 0;
-    let open = 0;
-    let full = 0;
-
-    for (const s of slotsToShow) {
-      for (const c of courts) {
-        const key = `${s.start}-${c.id}`;
-        const block = blockByKey.get(key);
-        const res = reservationByKey.get(key);
-
-        if (block) {
-          blocked += 1;
-          continue;
-        }
-
-        if (!res) {
-          free += 1;
-          continue;
-        }
-
-        const count = (playersByReservation.get(res.id) ?? []).length;
-        if (count >= 4) full += 1;
-        else open += 1;
-      }
-    }
-
-    return { free, blocked, open, full };
-  }, [slotsToShow, courts, blockByKey, reservationByKey, playersByReservation]);
-
-  const openReservationPlayers = useMemo(() => {
-    if (!openReservation) return [];
-    return playersByReservation.get(openReservation.id) ?? [];
-  }, [openReservation, playersByReservation]);
-
-  const currentUserInOpenReservation = useMemo(() => {
-    if (!openReservation) return false;
-    return openReservationPlayers.some((p) => p.userId);
-  }, [openReservation, openReservationPlayers]);
 
   useEffect(() => {
     supabase
@@ -403,13 +347,9 @@ export default function ReservarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
-  async function getCurrentUser() {
-    const { data } = await supabase.auth.getUser();
-    return data.user ?? null;
-  }
-
   async function getUserIdOrMsg() {
-    const user = await getCurrentUser();
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
     if (!user) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
       return null;
@@ -564,133 +504,112 @@ export default function ReservarPage() {
     }
   }
 
-  async function findExistingReservationId(
-    slotStart: string,
-    courtId: number
-  ): Promise<string | null> {
-    const res = await supabase
-      .from("reservations_public")
-      .select("id")
-      .eq("date", date)
-      .eq("slot_start", slotStart)
-      .eq("court_id", courtId)
-      .maybeSingle();
-
-    if (res.error || !res.data) return null;
-    return res.data.id as string;
-  }
-
   async function createOrOpen(slotStart: string, slotEnd: string, courtId: number) {
     setMsg(null);
-    const key = `${slotStart}-${courtId}`;
-    setCreatingKey(key);
 
-    try {
-      if (!isDateWithin7Days(date)) {
-        setMsg("Solo se puede reservar con un máximo de 7 días de antelación.");
-        return;
-      }
+    if (!isDateWithin7Days(date)) {
+      setMsg("Solo se puede reservar con un máximo de 7 días de antelación.");
+      return;
+    }
 
-      if (isSundayISO(date)) {
-        setMsg("Domingo cerrado: no se puede reservar.");
-        return;
-      }
+    if (isSundayISO(date)) {
+      setMsg("Domingo cerrado: no se puede reservar.");
+      return;
+    }
 
-      const block = blockByKey.get(`${slotStart}-${courtId}`);
-      if (block) {
-        setMsg("Esta pista está bloqueada en ese horario.");
-        return;
-      }
+    const block = blockByKey.get(`${slotStart}-${courtId}`);
+    if (block) {
+      setMsg("Esta pista está bloqueada en ese horario.");
+      return;
+    }
 
-      const existing = reservationByKey.get(`${slotStart}-${courtId}`);
-      if (existing) {
-        setOpenResId(existing.id);
-        return;
-      }
+    const existing = reservationByKey.get(`${slotStart}-${courtId}`);
+    if (existing) {
+      setOpenResId(existing.id);
+      return;
+    }
 
-      const user = await getCurrentUser();
-      if (!user) {
-        setMsg("No hay sesión. Vuelve a iniciar sesión.");
-        return;
-      }
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
 
-      const userId = user.id;
-      const userEmail = user.email ?? "";
+    if (!user) {
+      setMsg("No hay sesión. Vuelve a iniciar sesión.");
+      return;
+    }
 
-      const ins = await supabase
-        .from("reservations")
-        .insert({
-          date,
-          slot_start: slotStart,
-          slot_end: slotEnd,
-          court_id: courtId,
-          member_user_id: userId,
-          status: "active",
-        })
-        .select("id")
-        .single();
+    const userId = user.id;
+    const userEmail = user.email ?? "";
 
-      if (ins.error) {
-        const errorMsg = ins.error.message ?? "";
-        if (
-          errorMsg.toLowerCase().includes("duplicate key") ||
-          errorMsg.toLowerCase().includes("uq_reservation_unique")
-        ) {
-          const existingId = await findExistingReservationId(slotStart, courtId);
-          await loadDay();
-          if (existingId) setOpenResId(existingId);
-          return;
-        }
-
-        setMsg(ins.error.message);
-        return;
-      }
-
-      const createdReservationId = ins.data.id as string;
-
-      const playerIns = await supabase.from("reservation_players").insert({
-        reservation_id: createdReservationId,
-        seat: 1,
+    const ins = await supabase
+      .from("reservations")
+      .insert({
+        date,
+        slot_start: slotStart,
+        slot_end: slotEnd,
+        court_id: courtId,
         member_user_id: userId,
-      });
+        status: "active",
+      })
+      .select("id")
+      .single();
 
-      if (playerIns.error) {
-        setMsg(playerIns.error.message);
+    if (ins.error) {
+      const msg = ins.error.message ?? "";
+      if (
+        msg.toLowerCase().includes("duplicate key") ||
+        msg.toLowerCase().includes("uq_reservation_unique")
+      ) {
         await loadDay();
-        setOpenResId(createdReservationId);
+        const nowExisting = reservationByKey.get(`${slotStart}-${courtId}`);
+        if (nowExisting) setOpenResId(nowExisting.id);
         return;
       }
+      setMsg(ins.error.message);
+      return;
+    }
 
-      const courtName =
-        courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
+    const createdReservationId = ins.data.id as string;
 
-      if (userEmail) {
-        const memberRes = await supabase
-          .from("members")
-          .select("full_name,alias")
-          .eq("user_id", userId)
-          .single();
+    const playerIns = await supabase.from("reservation_players").insert({
+      reservation_id: createdReservationId,
+      seat: 1,
+      member_user_id: userId,
+    });
 
-        const memberName =
-          !memberRes.error && memberRes.data
-            ? getDisplayName(memberRes.data)
-            : membersMap.get(userId) ?? "";
-
-        await sendBookingCreatedEmail({
-          to: userEmail,
-          fullName: memberName,
-          date,
-          slotStart,
-          slotEnd,
-          courtName,
-        });
-      }
-
+    if (playerIns.error) {
+      setMsg(playerIns.error.message);
       await loadDay();
       setOpenResId(createdReservationId);
-    } finally {
-      setCreatingKey(null);
+      return;
     }
+
+    const courtName =
+      courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
+
+    if (userEmail) {
+      const memberRes = await supabase
+        .from("members")
+        .select("full_name,alias")
+        .eq("user_id", userId)
+        .single();
+
+      const memberName =
+        !memberRes.error && memberRes.data
+          ? getDisplayName(memberRes.data)
+          : membersMap.get(userId) ?? "";
+
+      await sendBookingCreatedEmail({
+        to: userEmail,
+        fullName: memberName,
+        date,
+        slotStart,
+        slotEnd,
+        courtName,
+      });
+    }
+
+    await loadDay();
+    setOpenResId(createdReservationId);
   }
 
   async function joinSeat(resId: string, seat: number, memberUserId: string) {
@@ -713,41 +632,29 @@ export default function ReservarPage() {
   }
 
   async function joinMe(resId: string) {
-    setJoiningResId(resId);
+    const userId = await getUserIdOrMsg();
+    if (!userId) return;
 
-    try {
-      const userId = await getUserIdOrMsg();
-      if (!userId) return;
-
-      const alreadyIn = (playersByReservation.get(resId) ?? []).some(
-        (x) => x.userId === userId
-      );
-      if (alreadyIn) {
-        setMsg("Ya estás apuntado en esta partida.");
-        return;
-      }
-
-      const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
-      const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
-
-      if (!freeSeat) {
-        setMsg("Esta partida ya está completa.");
-        return;
-      }
-
-      const ok = await joinSeat(resId, freeSeat, userId);
-      if (ok) {
-        setOpenResId(resId);
-      }
-    } finally {
-      setJoiningResId(null);
+    const alreadyIn = (playersByReservation.get(resId) ?? []).some(
+      (x) => x.userId === userId
+    );
+    if (alreadyIn) {
+      setMsg("Ya estás apuntado en esta partida.");
+      return;
     }
+
+    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
+    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+    if (!freeSeat) {
+      setMsg("Esta partida ya está completa.");
+      return;
+    }
+    await joinSeat(resId, freeSeat, userId);
   }
 
   async function openAddSocio(resId: string) {
     const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
     const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
-
     if (!freeSeat) {
       setMsg("Esta partida ya está completa.");
       return;
@@ -764,7 +671,6 @@ export default function ReservarPage() {
 
     async function run() {
       if (!addResId || !addSeat) return;
-
       const term = q.trim();
       if (term.length < 2) {
         setSuggestions([]);
@@ -772,7 +678,6 @@ export default function ReservarPage() {
       }
 
       setSearching(true);
-
       const res = await supabase
         .from("members")
         .select("user_id,full_name,alias,is_active,email")
@@ -783,185 +688,133 @@ export default function ReservarPage() {
       if (!alive) return;
 
       setSearching(false);
-
       if (res.error) {
         setMsg(res.error.message);
         setSuggestions([]);
         return;
       }
 
-      const existingUsers = new Set(
-        (playersByReservation.get(addResId) ?? []).map((p) => p.userId)
-      );
-
-      const list = ((res.data ?? []) as MemberRow[])
-        .filter((m) => !existingUsers.has(m.user_id))
-        .map((m) => ({
-          user_id: m.user_id,
-          label: getDisplayName(m),
-        }));
-
+      const list = ((res.data ?? []) as MemberRow[]).map((m) => ({
+        user_id: m.user_id,
+        label: getDisplayName(m),
+      }));
       setSuggestions(list);
     }
 
     run();
-
     return () => {
       alive = false;
     };
-  }, [q, addResId, addSeat, playersByReservation]);
+  }, [q, addResId, addSeat]);
 
   async function addSocio(userId: string) {
     if (!addResId || !addSeat) return;
 
-    setAddingMemberId(userId);
-
-    try {
-      const reservation = reservations.find((r) => r.id === addResId);
-      if (!reservation) {
-        setMsg("No se ha encontrado la partida.");
-        return;
-      }
-
-      const alreadyIn = (playersByReservation.get(addResId) ?? []).some(
-        (x) => x.userId === userId
-      );
-      if (alreadyIn) {
-        setMsg("Ese socio ya está apuntado en esta partida.");
-        return;
-      }
-
-      const ok = await joinSeat(addResId, addSeat, userId);
-      if (!ok) return;
-
-      const memberRes = await supabase
-        .from("members")
-        .select("user_id,full_name,alias,is_active,email")
-        .eq("user_id", userId)
-        .single();
-
-      if (!memberRes.error && memberRes.data) {
-        const member = memberRes.data as MemberRow;
-        const courtName =
-          courts.find((c) => c.id === reservation.court_id)?.name ??
-          `Pista ${reservation.court_id}`;
-
-        const currentUser = await getCurrentUser();
-        let addedByName = "";
-
-        if (currentUser?.id) {
-          const addedByRes = await supabase
-            .from("members")
-            .select("full_name,alias")
-            .eq("user_id", currentUser.id)
-            .single();
-
-          if (!addedByRes.error && addedByRes.data) {
-            addedByName = getDisplayName(addedByRes.data);
-          }
-        }
-
-        if (member.email) {
-          await sendAddedToMatchEmail({
-            to: member.email,
-            fullName: getDisplayName(member),
-            addedByName,
-            date: reservation.date,
-            slotStart: toHM(reservation.slot_start),
-            slotEnd: toHM(reservation.slot_end),
-            courtName,
-          });
-        }
-      }
-
-      setAddResId(null);
-      setAddSeat(null);
-      setQ("");
-      setSuggestions([]);
-      setOpenResId(addResId);
-    } finally {
-      setAddingMemberId(null);
+    const reservation = reservations.find((r) => r.id === addResId);
+    if (!reservation) {
+      setMsg("No se ha encontrado la partida.");
+      return;
     }
+
+    const alreadyIn = (playersByReservation.get(addResId) ?? []).some(
+      (x) => x.userId === userId
+    );
+    if (alreadyIn) {
+      setMsg("Ese socio ya está apuntado en esta partida.");
+      return;
+    }
+
+    const ok = await joinSeat(addResId, addSeat, userId);
+    if (!ok) return;
+
+    const memberRes = await supabase
+      .from("members")
+      .select("user_id,full_name,alias,is_active,email")
+      .eq("user_id", userId)
+      .single();
+
+    if (!memberRes.error && memberRes.data) {
+      const member = memberRes.data as MemberRow;
+      const courtName =
+        courts.find((c) => c.id === reservation.court_id)?.name ??
+        `Pista ${reservation.court_id}`;
+
+      const { data } = await supabase.auth.getUser();
+      const currentUser = data.user;
+
+      let addedByName = "";
+
+      if (currentUser?.id) {
+        const addedByRes = await supabase
+          .from("members")
+          .select("full_name,alias")
+          .eq("user_id", currentUser.id)
+          .single();
+
+        if (!addedByRes.error && addedByRes.data) {
+          addedByName = getDisplayName(addedByRes.data);
+        }
+      }
+
+      if (member.email) {
+        await sendAddedToMatchEmail({
+          to: member.email,
+          fullName: getDisplayName(member),
+          addedByName,
+          date: reservation.date,
+          slotStart: toHM(reservation.slot_start),
+          slotEnd: toHM(reservation.slot_end),
+          courtName,
+        });
+      }
+    }
+
+    setAddResId(null);
+    setAddSeat(null);
+    setQ("");
+    setSuggestions([]);
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5">
-        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-gray-500">Reservas</div>
-              <div className="text-xl font-bold text-gray-900">
-                {getRelativeDayLabel(date)}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-gray-900">Fecha</div>
+
+            <div className="overflow-x-auto -mx-1 px-1">
+              <div className="flex gap-2 min-w-max">
+                {visibleDays.map((day) => {
+                  const selected = day === date;
+                  const sunday = isSundayISO(day);
+
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => setDate(day)}
+                      className={classNames(
+                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                        selected
+                          ? "text-white border-transparent"
+                          : sunday
+                          ? "bg-red-50 border-red-200 text-red-800"
+                          : "bg-white border-gray-300 text-gray-900"
+                      )}
+                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
+                    >
+                      <div className="text-xs font-semibold">
+                        {getRelativeDayLabel(day)}
+                      </div>
+                      <div className="text-sm">{formatDayChip(day)}</div>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="text-sm text-gray-600 capitalize">
-                {formatDateLong(date)}
-              </div>
-            </div>
-
-            <input
-              type="date"
-              value={date}
-              min={minDate}
-              max={maxDate}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-[156px] sm:w-[190px] rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
-            />
-          </div>
-
-          <div className="overflow-x-auto -mx-1 px-1">
-            <div className="flex gap-2 min-w-max">
-              {visibleDays.map((day) => {
-                const selected = day === date;
-                const sunday = isSundayISO(day);
-
-                return (
-                  <button
-                    key={day}
-                    onClick={() => setDate(day)}
-                    className={classNames(
-                      "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
-                      selected
-                        ? "text-white border-transparent"
-                        : sunday
-                        ? "bg-red-50 border-red-200 text-red-800"
-                        : "bg-white border-gray-300 text-gray-900"
-                    )}
-                    style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
-                  >
-                    <div className="text-xs font-semibold">
-                      {getRelativeDayLabel(day)}
-                    </div>
-                    <div className="text-sm">{formatDayChip(day)}</div>
-                  </button>
-                );
-              })}
             </div>
           </div>
-
-          {!isOutOfRange && !isSunday && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <div className="text-xs font-semibold text-gray-500">Libres</div>
-                <div className="text-lg font-bold text-gray-900">{dayStats.free}</div>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <div className="text-xs font-semibold text-gray-500">Abiertas</div>
-                <div className="text-lg font-bold text-gray-900">{dayStats.open}</div>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <div className="text-xs font-semibold text-gray-500">Completas</div>
-                <div className="text-lg font-bold text-gray-900">{dayStats.full}</div>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <div className="text-xs font-semibold text-gray-500">Bloqueadas</div>
-                <div className="text-lg font-bold text-gray-900">{dayStats.blocked}</div>
-              </div>
-            </div>
-          )}
 
           {isOutOfRange && (
-            <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm font-semibold text-yellow-900">
                 Solo se puede reservar con un máximo de 7 días de antelación.
               </p>
@@ -969,7 +822,7 @@ export default function ReservarPage() {
           )}
 
           {isSunday && (
-            <div className="border border-red-200 rounded-2xl p-4 bg-red-50">
+            <div className="mt-4 border border-red-200 rounded-2xl p-4 bg-red-50">
               <p className="text-sm font-semibold text-red-800">
                 Domingo: club cerrado. No se puede reservar.
               </p>
@@ -977,7 +830,7 @@ export default function ReservarPage() {
           )}
 
           {msg && (
-            <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
@@ -1002,140 +855,81 @@ export default function ReservarPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {slotsToShow.map((s) => {
               const slotLabel = `${s.start} – ${s.end}`;
-
               return (
                 <div
                   key={s.start}
                   className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
                 >
-                  <div className="px-4 sm:px-5 py-3 border-b border-gray-200 bg-gray-50/70">
-                    <div className="text-base sm:text-lg font-bold" style={{ color: CLUB_GREEN }}>
+                  <div className="px-5 py-4 border-b border-gray-200">
+                    <div className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
                       {slotLabel}
                     </div>
                   </div>
 
-                  <div className="p-4 sm:p-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {courts.map((c) => {
                         const key = `${s.start}-${c.id}`;
                         const res = reservationByKey.get(key);
                         const block = blockByKey.get(key);
                         const blocked = !!block;
-                        const playersList = res ? playersByReservation.get(res.id) ?? [] : [];
-                        const filled = playersList.length;
-                        const isFull = filled >= 4;
-                        const isCreating = creatingKey === key;
-
-                        const actionLabel = blocked
-                          ? ""
-                          : !res
-                          ? isCreating
-                            ? "Reservando..."
-                            : "Reservar"
-                          : isFull
-                          ? "Completa"
-                          : "Ver partida";
+                        const filled = res ? (playersByReservation.get(res.id) ?? []).length : 0;
 
                         return (
                           <div
                             key={c.id}
                             className={classNames(
-                              "rounded-3xl border shadow-sm p-4",
+                              "rounded-3xl border shadow-sm p-4 sm:p-5",
                               blocked
                                 ? "bg-red-50 border-red-200"
-                                : !res
-                                ? "bg-green-50 border-green-200"
-                                : "bg-white border-gray-300"
+                                : res
+                                ? "bg-white border-gray-300"
+                                : "bg-green-50 border-gray-300"
                             )}
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="text-base font-bold text-gray-900">
-                                    {c.name}
-                                  </div>
+                              <div className="min-w-0">
+                                <div className="text-lg font-bold text-gray-900">{c.name}</div>
 
+                                <div className="mt-2">
                                   {blocked ? (
                                     <Badge tone="red">Bloqueada</Badge>
-                                  ) : !res ? (
-                                    <Badge tone="green">Libre</Badge>
-                                  ) : isFull ? (
-                                    <Badge tone="neutral">4/4</Badge>
-                                  ) : (
+                                  ) : res ? (
                                     <Badge tone="neutral">{filled}/4</Badge>
+                                  ) : (
+                                    <Badge tone="green">Libre</Badge>
                                   )}
                                 </div>
 
-                                {blocked ? (
+                                {blocked && (
                                   <div className="mt-3 text-sm font-medium text-red-700">
                                     {block?.reason || "Bloqueado"}
                                   </div>
-                                ) : !res ? (
-                                  <div className="mt-3 text-sm text-green-800">
-                                    Sin jugadores todavía.
-                                  </div>
-                                ) : (
-                                  <div className="mt-3 space-y-1">
-                                    {[1, 2, 3, 4].map((seat) => {
-                                      const occ = playersList.find((x) => x.seat === seat);
-
-                                      return (
-                                        <div
-                                          key={seat}
-                                          className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
-                                        >
-                                          <span className="font-medium text-gray-500">
-                                            {seat}
-                                          </span>
-                                          <span
-                                            className={classNames(
-                                              "truncate ml-3",
-                                              occ
-                                                ? "font-semibold text-gray-900"
-                                                : "text-gray-500"
-                                            )}
-                                          >
-                                            {occ ? occ.name : "Libre"}
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
                                 )}
                               </div>
-                            </div>
 
-                            {!blocked && (
-                              <div className="mt-4">
-                                {res ? (
+                              {!blocked &&
+                                (res ? (
                                   <button
-                                    onClick={() => !isFull && setOpenResId(res.id)}
-                                    disabled={isFull}
-                                    className={classNames(
-                                      "w-full rounded-2xl px-4 py-3 font-semibold shadow-sm transition",
-                                      isFull
-                                        ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-                                        : "text-white hover:brightness-[0.97] active:scale-[0.99]"
-                                    )}
-                                    style={!isFull ? { backgroundColor: CLUB_GREEN } : undefined}
+                                    onClick={() => setOpenResId(res.id)}
+                                    className="shrink-0 rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                    style={{ backgroundColor: CLUB_GREEN }}
                                   >
-                                    {actionLabel}
+                                    Ver / Unirme
                                   </button>
                                 ) : (
                                   <button
                                     onClick={() => createOrOpen(s.start, s.end, c.id)}
-                                    disabled={isCreating}
-                                    className="w-full rounded-2xl px-4 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition disabled:opacity-70"
+                                    className="shrink-0 rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
                                     style={{ backgroundColor: CLUB_GREEN }}
                                   >
-                                    {actionLabel}
+                                    Crear
                                   </button>
-                                )}
-                              </div>
-                            )}
+                                ))}
+                            </div>
                           </div>
                         );
                       })}
@@ -1153,39 +947,28 @@ export default function ReservarPage() {
         onClose={() => setOpenResId(null)}
         title={
           openReservation
-            ? `${formatDateLong(openReservation.date)} · ${toHM(
-                openReservation.slot_start
-              )}–${toHM(openReservation.slot_end)}`
+            ? `${cap1(openReservation.date)} · ${toHM(openReservation.slot_start)}–${toHM(
+                openReservation.slot_end
+              )} · Pista ${openReservation.court_id}`
             : "Partida"
         }
       >
         {openReservation && (
           <div className="space-y-5">
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="text-sm font-semibold text-gray-500">Pista</div>
-              <div className="text-base font-bold text-gray-900">
-                {courts.find((c) => c.id === openReservation.court_id)?.name ??
-                  `Pista ${openReservation.court_id}`}
-              </div>
-              <div className="mt-2 text-sm text-gray-600">
-                {openReservationPlayers.length} de 4 jugadores
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {[1, 2, 3, 4].map((seat) => {
-                const occ = openReservationPlayers.find((x) => x.seat === seat);
+                const arr = playersByReservation.get(openReservation.id) ?? [];
+                const occ = arr.find((x) => x.seat === seat);
 
                 return (
                   <div
                     key={seat}
                     className={classNames(
-                      "rounded-2xl border p-4 shadow-sm",
-                      occ ? "bg-white border-gray-300" : "bg-gray-50 border-gray-200"
+                      "rounded-2xl border border-gray-300 p-4 shadow-sm",
+                      occ ? "bg-white" : "bg-gray-50"
                     )}
                   >
-                    <div className="text-xs font-semibold text-gray-500">Jugador {seat}</div>
-                    <div className="mt-1 text-base font-semibold text-gray-900">
+                    <div className="text-base font-semibold text-gray-900">
                       {occ ? occ.name : "Libre"}
                     </div>
                   </div>
@@ -1193,23 +976,18 @@ export default function ReservarPage() {
               })}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => joinMe(openReservation.id)}
-                disabled={
-                  joiningResId === openReservation.id ||
-                  openReservationPlayers.length >= 4
-                }
-                className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition disabled:opacity-70"
+                className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
                 style={{ backgroundColor: CLUB_GREEN }}
               >
-                {joiningResId === openReservation.id ? "Uniéndome..." : "Unirme"}
+                Unirme
               </button>
 
               <button
                 onClick={() => openAddSocio(openReservation.id)}
-                disabled={openReservationPlayers.length >= 4}
-                className="rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition disabled:opacity-50"
+                className="rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
               >
                 Añadir socio
               </button>
@@ -1236,11 +1014,7 @@ export default function ReservarPage() {
             className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
           />
 
-          {q.trim().length < 2 ? (
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-              Escribe al menos 2 letras.
-            </div>
-          ) : searching ? (
+          {q.trim().length < 2 ? null : searching ? (
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
               Buscando…
             </div>
@@ -1254,12 +1028,9 @@ export default function ReservarPage() {
                 <button
                   key={s.user_id}
                   onClick={() => addSocio(s.user_id)}
-                  disabled={addingMemberId === s.user_id}
-                  className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition disabled:opacity-70"
+                  className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
                 >
-                  <div className="font-semibold text-gray-900">
-                    {addingMemberId === s.user_id ? "Añadiendo..." : s.label}
-                  </div>
+                  <div className="font-semibold text-gray-900">{s.label}</div>
                 </button>
               ))}
             </div>
