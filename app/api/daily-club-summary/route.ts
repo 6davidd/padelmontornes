@@ -26,6 +26,7 @@ type PlayerRow = {
 type MemberRow = {
   user_id: string;
   full_name: string;
+  alias?: string | null;
   email?: string | null;
   is_active?: boolean;
 };
@@ -94,6 +95,16 @@ function nameFirstSurname(full: string) {
   const parts = full.trim().split(/\s+/).filter(Boolean);
   if (parts.length <= 1) return parts[0] ?? "";
   return `${parts[0]} ${parts[1]}`;
+}
+
+function getMemberDisplayName(member: Pick<MemberRow, "alias" | "full_name">) {
+  const alias = member.alias?.trim();
+  if (alias) return alias;
+
+  const fullName = member.full_name?.trim();
+  if (fullName) return fullName;
+
+  return "Socio";
 }
 
 function parseEmailList(value: string | undefined) {
@@ -296,7 +307,7 @@ async function sendClosedMatchReminders(params: {
 
       const memberRes = await supabase
         .from("members")
-        .select("user_id,full_name,email")
+        .select("user_id,full_name,alias,email")
         .eq("user_id", player.userId)
         .single();
 
@@ -402,7 +413,7 @@ async function runDailySummary() {
   if (userIds.length > 0) {
     const membersRes = await supabase
       .from("members")
-      .select("user_id,full_name,email,is_active")
+      .select("user_id,full_name,alias,email,is_active")
       .in("user_id", userIds);
 
     if (membersRes.error) {
@@ -410,7 +421,7 @@ async function runDailySummary() {
     }
 
     for (const row of (membersRes.data ?? []) as MemberRow[]) {
-      membersMap.set(row.user_id, nameFirstSurname(row.full_name));
+      membersMap.set(row.user_id, getMemberDisplayName(row));
     }
   }
 

@@ -99,6 +99,7 @@ export default function AdminPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-4">
+          <TileLink href="/admin/crear-partidas" title="Crear partidas" />
           <TileLink href="/admin/bloqueos" title="Bloquear pistas" />
           <TileLink href="/admin/socios" title="Socios" />
           {isSuperadmin && (
