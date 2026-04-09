@@ -444,6 +444,7 @@ export default function AdminCrearPartidasPage() {
       if (prev.includes(userId) || prev.length >= 4) return prev;
       return [...prev, userId];
     });
+    setSearch("");
   }
 
   async function createMatch() {
@@ -778,14 +779,6 @@ export default function AdminCrearPartidasPage() {
                             <div className="font-semibold text-gray-900">
                               Jugador {index + 1}: {getDisplayName(selectedMember)}
                             </div>
-
-                            <div className="mt-1 text-sm text-gray-600">
-                              {selectedMember.alias?.trim()
-                                ? `${selectedMember.full_name}${
-                                    selectedMember.email ? ` · ${selectedMember.email}` : ""
-                                  }`
-                                : selectedMember.email || selectedMember.full_name}
-                            </div>
                           </div>
 
                           <button
@@ -801,16 +794,6 @@ export default function AdminCrearPartidasPage() {
                   })}
                 </div>
               )}
-
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                {selectedPlayerIds.length === 0
-                  ? "Añade al menos un socio."
-                  : selectedPlayerIds.length === 4
-                  ? "La partida quedará cerrada."
-                  : `La partida quedará abierta con ${4 - selectedPlayerIds.length} plaza${
-                      4 - selectedPlayerIds.length === 1 ? "" : "s"
-                    } libre${4 - selectedPlayerIds.length === 1 ? "" : "s"}.`}
-              </div>
             </div>
 
             <div className="space-y-3">
@@ -843,11 +826,6 @@ export default function AdminCrearPartidasPage() {
                     >
                       <div className="font-semibold text-gray-900">
                         {getDisplayName(member)}
-                      </div>
-                      <div className="mt-1 text-sm text-gray-600">
-                        {member.alias?.trim()
-                          ? `${member.full_name}${member.email ? ` · ${member.email}` : ""}`
-                          : member.email || member.full_name}
                       </div>
                     </button>
                   ))
