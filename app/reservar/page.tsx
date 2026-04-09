@@ -129,42 +129,6 @@ function Badge({
   );
 }
 
-function Modal({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        className="absolute inset-0 bg-black/30"
-        onClick={onClose}
-        aria-label="Cerrar"
-      />
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-lg font-semibold text-gray-900">{title}</div>
-          <button
-            onClick={onClose}
-            className="text-sm font-semibold text-gray-700 hover:text-gray-900"
-          >
-            Cerrar
-          </button>
-        </div>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 export default function ReservarPage() {
   const [date, setDate] = useState(todayISO());
 
@@ -179,14 +143,6 @@ export default function ReservarPage() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [expandedResId, setExpandedResId] = useState<string | null>(null);
-
-  const [addSeat, setAddSeat] = useState<number | null>(null);
-  const [addResId, setAddResId] = useState<string | null>(null);
-  const [q, setQ] = useState("");
-  const [suggestions, setSuggestions] = useState<
-    Array<{ user_id: string; label: string }>
-  >([]);
-  const [searching, setSearching] = useState(false);
 
   const visibleDays = useMemo(() => getVisibleDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
@@ -386,37 +342,6 @@ export default function ReservarPage() {
       });
     } catch (error) {
       console.error("Error enviando email de reserva:", error);
-    }
-  }
-
-  async function sendAddedToMatchEmail(params: {
-    to: string;
-    fullName?: string;
-    addedByName?: string;
-    date: string;
-    slotStart: string;
-    slotEnd: string;
-    courtName: string;
-  }) {
-    try {
-      await fetch("/api/send-booking-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "added_to_match",
-          to: params.to,
-          fullName: params.fullName ?? "",
-          addedByName: params.addedByName ?? "",
-          date: params.date,
-          slotStart: params.slotStart,
-          slotEnd: params.slotEnd,
-          courtName: params.courtName,
-        }),
-      });
-    } catch (error) {
-      console.error("Error enviando email de añadido a partida:", error);
     }
   }
 
@@ -657,130 +582,6 @@ export default function ReservarPage() {
     await joinSeat(resId, freeSeat, userId);
   }
 
-  async function openAddSocio(resId: string) {
-    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
-    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
-    if (!freeSeat) {
-      setMsg("Esta partida ya está completa.");
-      return;
-    }
-
-    setAddResId(resId);
-    setAddSeat(freeSeat);
-    setQ("");
-    setSuggestions([]);
-  }
-
-  useEffect(() => {
-    let alive = true;
-
-    async function run() {
-      if (!addResId || !addSeat) return;
-      const term = q.trim();
-      if (term.length < 2) {
-        setSuggestions([]);
-        return;
-      }
-
-      setSearching(true);
-      const res = await supabase
-        .from("members")
-        .select("user_id,full_name,alias,is_active,email")
-        .eq("is_active", true)
-        .or(`full_name.ilike.%${term}%,alias.ilike.%${term}%`)
-        .limit(8);
-
-      if (!alive) return;
-
-      setSearching(false);
-      if (res.error) {
-        setMsg(res.error.message);
-        setSuggestions([]);
-        return;
-      }
-
-      const list = ((res.data ?? []) as MemberRow[]).map((m) => ({
-        user_id: m.user_id,
-        label: getDisplayName(m),
-      }));
-      setSuggestions(list);
-    }
-
-    run();
-    return () => {
-      alive = false;
-    };
-  }, [q, addResId, addSeat]);
-
-  async function addSocio(userId: string) {
-    if (!addResId || !addSeat) return;
-
-    const reservation = reservations.find((r) => r.id === addResId);
-    if (!reservation) {
-      setMsg("No se ha encontrado la partida.");
-      return;
-    }
-
-    const alreadyIn = (playersByReservation.get(addResId) ?? []).some(
-      (x) => x.userId === userId
-    );
-    if (alreadyIn) {
-      setMsg("Ese socio ya está apuntado en esta partida.");
-      return;
-    }
-
-    const ok = await joinSeat(addResId, addSeat, userId);
-    if (!ok) return;
-
-    const memberRes = await supabase
-      .from("members")
-      .select("user_id,full_name,alias,is_active,email")
-      .eq("user_id", userId)
-      .single();
-
-    if (!memberRes.error && memberRes.data) {
-      const member = memberRes.data as MemberRow;
-      const courtName =
-        courts.find((c) => c.id === reservation.court_id)?.name ??
-        `Pista ${reservation.court_id}`;
-
-      const { data } = await supabase.auth.getUser();
-      const currentUser = data.user;
-
-      let addedByName = "";
-
-      if (currentUser?.id) {
-        const addedByRes = await supabase
-          .from("members")
-          .select("full_name,alias")
-          .eq("user_id", currentUser.id)
-          .single();
-
-        if (!addedByRes.error && addedByRes.data) {
-          addedByName = getDisplayName(addedByRes.data);
-        }
-      }
-
-      if (member.email) {
-        await sendAddedToMatchEmail({
-          to: member.email,
-          fullName: getDisplayName(member),
-          addedByName,
-          date: reservation.date,
-          slotStart: toHM(reservation.slot_start),
-          slotEnd: toHM(reservation.slot_end),
-          courtName,
-        });
-      }
-    }
-
-    setAddResId(null);
-    setAddSeat(null);
-    setQ("");
-    setSuggestions([]);
-    setExpandedResId(addResId);
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
@@ -888,7 +689,8 @@ export default function ReservarPage() {
                           : [];
                         const filled = reservationPlayers.length;
                         const expanded = !!res && expandedResId === res.id;
-                        const alreadyIn = !!res &&
+                        const alreadyIn =
+                          !!res &&
                           !!currentUserId &&
                           reservationPlayers.some((p) => p.userId === currentUserId);
                         const full = filled >= 4;
@@ -900,11 +702,11 @@ export default function ReservarPage() {
                               "rounded-3xl border shadow-sm transition overflow-hidden",
                               blocked
                                 ? "bg-red-50 border-red-200"
-                                : res
-                                ? expanded
-                                  ? "bg-white border-gray-300"
-                                  : "bg-white border-gray-300"
-                                : "bg-green-50 border-gray-300"
+                                : full
+                                ? "bg-red-50 border-red-200"
+                                : !res
+                                ? "bg-green-50 border-gray-300"
+                                : "bg-white border-gray-300"
                             )}
                           >
                             <div className="p-4 sm:p-5">
@@ -917,10 +719,12 @@ export default function ReservarPage() {
                                   <div className="mt-2">
                                     {blocked ? (
                                       <Badge tone="red">Bloqueada</Badge>
-                                    ) : res ? (
-                                      <Badge tone="neutral">Ocupada · {filled}/4</Badge>
-                                    ) : (
+                                    ) : !res ? (
                                       <Badge tone="green">Libre</Badge>
+                                    ) : full ? (
+                                      <Badge tone="red">Ocupada · 4/4</Badge>
+                                    ) : (
+                                      <Badge tone="green">Abierta · {filled}/4</Badge>
                                     )}
                                   </div>
 
@@ -957,33 +761,6 @@ export default function ReservarPage() {
 
                               {!blocked && res && expanded && (
                                 <div className="mt-4 border-t border-gray-200 pt-4 space-y-4">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {[1, 2, 3, 4].map((seat) => {
-                                      const occ = reservationPlayers.find(
-                                        (x) => x.seat === seat
-                                      );
-
-                                      return (
-                                        <div
-                                          key={seat}
-                                          className={classNames(
-                                            "rounded-2xl border px-4 py-3",
-                                            occ
-                                              ? "border-gray-300 bg-white"
-                                              : "border-green-200 bg-green-50"
-                                          )}
-                                        >
-                                          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            Hueco {seat}
-                                          </div>
-                                          <div className="mt-1 text-base font-semibold text-gray-900">
-                                            {occ ? occ.name : "Libre"}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-
                                   <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
                                     <div className="text-sm font-semibold text-gray-900">
                                       Jugadores
@@ -1008,12 +785,12 @@ export default function ReservarPage() {
                                     </div>
                                   </div>
 
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <div>
                                     <button
                                       onClick={() => joinMe(res.id)}
                                       disabled={alreadyIn || full}
                                       className={classNames(
-                                        "rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition",
+                                        "w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition",
                                         (alreadyIn || full) &&
                                           "opacity-60 cursor-not-allowed"
                                       )}
@@ -1024,26 +801,6 @@ export default function ReservarPage() {
                                         : full
                                         ? "Completa"
                                         : "Unirme"}
-                                    </button>
-
-                                    <button
-                                      onClick={() => openAddSocio(res.id)}
-                                      disabled={full}
-                                      className={classNames(
-                                        "rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm transition",
-                                        full
-                                          ? "opacity-60 cursor-not-allowed"
-                                          : "hover:bg-gray-50 active:scale-[0.99]"
-                                      )}
-                                    >
-                                      Añadir socio
-                                    </button>
-
-                                    <button
-                                      onClick={() => setExpandedResId(null)}
-                                      className="rounded-2xl px-5 py-3 border border-gray-300 bg-white font-semibold text-gray-700 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
-                                    >
-                                      Ocultar
                                     </button>
                                   </div>
                                 </div>
@@ -1060,48 +817,6 @@ export default function ReservarPage() {
           </div>
         )}
       </div>
-
-      <Modal
-        open={!!addResId && !!addSeat}
-        onClose={() => {
-          setAddResId(null);
-          setAddSeat(null);
-          setQ("");
-          setSuggestions([]);
-        }}
-        title="Añadir socio"
-      >
-        <div className="space-y-4">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nombre o alias…"
-            className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
-          />
-
-          {q.trim().length < 2 ? null : searching ? (
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-              Buscando…
-            </div>
-          ) : suggestions.length === 0 ? (
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-              Sin resultados.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {suggestions.map((s) => (
-                <button
-                  key={s.user_id}
-                  onClick={() => addSocio(s.user_id)}
-                  className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
-                >
-                  <div className="font-semibold text-gray-900">{s.label}</div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </Modal>
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-3xl mx-auto">
