@@ -747,7 +747,7 @@ export default function ReservarPage() {
                                       {expanded
                                         ? "Ocultar"
                                         : full
-                                        ? "Ver jugadores"
+                                        ? "Ver"
                                         : "Ver / Unirme"}
                                     </button>
                                   ) : (
