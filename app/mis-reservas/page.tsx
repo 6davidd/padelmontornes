@@ -51,6 +51,31 @@ function weekdayES(dateStr: string) {
   return d.toLocaleDateString("es-ES", { weekday: "long" });
 }
 
+function classNames(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "green" | "red";
+}) {
+  return (
+    <span
+      className={classNames(
+        "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold border",
+        tone === "green" && "bg-green-50 text-green-800 border-green-200",
+        tone === "red" && "bg-red-50 text-red-800 border-red-200",
+        tone === "neutral" && "bg-gray-50 text-gray-700 border-gray-200"
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
 export default function MisReservasPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -229,21 +254,19 @@ export default function MisReservasPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         {msg && (
-          <div className="mt-3 border border-yellow-300 rounded-2xl p-3 bg-yellow-50">
-            <p className="text-sm">{msg}</p>
+          <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <p className="text-sm text-yellow-900">{msg}</p>
           </div>
         )}
-      </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-6">
         {loading ? (
-          <div className="border border-gray-300 rounded-3xl p-4 bg-gray-50 text-gray-700">
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
             Cargando…
           </div>
         ) : items.length === 0 ? (
-          <div className="border border-gray-300 rounded-3xl p-6 text-center bg-gray-50">
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
             <p className="text-gray-700 font-semibold">No tienes reservas activas.</p>
             <a
               href="/reservar"
@@ -254,14 +277,14 @@ export default function MisReservasPage() {
             </a>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {grouped.map(([date, list]) => (
               <div key={date} className="space-y-3">
                 <div className="text-sm font-semibold text-gray-700">
                   {capitalizeFirst(weekdayES(date))} · {formatDateES(date)}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {list.map((r) => {
                     const playersList = playersByReservation.get(r.reservation_id) ?? [];
                     const freeSpots = Math.max(0, 4 - playersList.length);
@@ -270,66 +293,78 @@ export default function MisReservasPage() {
                     return (
                       <div
                         key={r.reservation_id}
-                        className="border border-gray-300 rounded-3xl p-4 bg-white shadow-sm"
+                        className={classNames(
+                          "rounded-3xl border shadow-sm overflow-hidden",
+                          isOpen
+                            ? "bg-green-50 border-green-200"
+                            : "bg-red-50 border-red-200"
+                        )}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="font-semibold text-gray-900">
-                              {toHM(r.slot_start)}–{toHM(r.slot_end)}
+                        <div className="p-4 sm:p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-lg font-bold text-gray-900">
+                                {toHM(r.slot_start)} – {toHM(r.slot_end)}
+                              </div>
+
+                              <div className="text-sm text-gray-700 mt-1">
+                                Pista {r.court_id}
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                {isOpen ? (
+                                  <Badge tone="green">
+                                    Abierta · {playersList.length}/4
+                                  </Badge>
+                                ) : (
+                                  <Badge tone="red">Cerrada · 4/4</Badge>
+                                )}
+                              </div>
                             </div>
 
-                            <div className="text-sm text-gray-600 mt-1">
-                              Pista {r.court_id}
-                            </div>
-
-                            <div className="mt-3">
-                              <span
-                                className={
-                                  isOpen
-                                    ? "inline-flex items-center rounded-full bg-green-50 border border-green-200 px-3 py-1 text-sm font-semibold text-green-800"
-                                    : "inline-flex items-center rounded-full bg-red-50 border border-red-200 px-3 py-1 text-sm font-semibold text-red-800"
-                                }
-                              >
-                                {isOpen ? "Abierta" : "Cerrada"}
-                              </span>
-                            </div>
+                            <button
+                              className="rounded-2xl px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-900 active:scale-[0.99] transition shadow-sm"
+                              onClick={() => leave(r.reservation_id)}
+                              title="Salir de la partida"
+                            >
+                              Salir
+                            </button>
                           </div>
 
-                          <button
-                            className="rounded-2xl px-4 py-2 border border-gray-300 font-semibold text-gray-900 active:scale-[0.99] transition"
-                            onClick={() => leave(r.reservation_id)}
-                            title="Salir de la partida"
+                          <div
+                            className={classNames(
+                              "mt-4 rounded-2xl border px-4 py-4",
+                              isOpen
+                                ? "border-green-200 bg-white/70"
+                                : "border-red-200 bg-white/70"
+                            )}
                           >
-                            Salir
-                          </button>
-                        </div>
+                            <div className="text-sm font-semibold text-gray-900">
+                              Jugadores
+                            </div>
 
-                        <div className="mt-4">
-                          <div className="text-sm font-semibold text-gray-700 mb-2">
-                            {isOpen
-                              ? `Jugadores · (${playersList.length}/4)`
-                              : "Jugadores · 4/4"}
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            {playersList.map((p) => (
-                              <span
-                                key={`${r.reservation_id}-${p.userId}`}
-                                className="inline-flex items-center rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-sm text-gray-700"
-                              >
-                                {p.name}
-                              </span>
-                            ))}
-
-                            {isOpen &&
-                              Array.from({ length: freeSpots }).map((_, i) => (
-                                <span
-                                  key={`free-${r.reservation_id}-${i}`}
-                                  className="inline-flex items-center rounded-full bg-green-50 border border-green-200 px-3 py-1 text-sm text-green-800"
+                            <div className="mt-3 space-y-2">
+                              {playersList.map((p) => (
+                                <div
+                                  key={`${r.reservation_id}-${p.userId}`}
+                                  className="flex items-center gap-2 text-[15px] text-gray-800"
                                 >
-                                  Libre
-                                </span>
+                                  <span className="text-lg leading-none">🎾</span>
+                                  <span>{p.name}</span>
+                                </div>
                               ))}
+
+                              {isOpen &&
+                                Array.from({ length: freeSpots }).map((_, i) => (
+                                  <div
+                                    key={`free-${r.reservation_id}-${i}`}
+                                    className="flex items-center gap-2 text-[15px] text-green-800"
+                                  >
+                                    <span className="text-lg leading-none">🎾</span>
+                                    <span>Libre</span>
+                                  </div>
+                                ))}
+                            </div>
                           </div>
                         </div>
                       </div>

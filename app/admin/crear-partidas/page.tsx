@@ -704,10 +704,6 @@ export default function AdminCrearPartidasPage() {
 
                                   {!blocked && reservation && (
                                     <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
-                                      <div className="text-sm font-semibold text-gray-900">
-                                        Jugadores
-                                      </div>
-
                                       <div className="mt-3 space-y-2">
                                         {occupiedPlayers.length > 0 ? (
                                           occupiedPlayers.map((player) => (
