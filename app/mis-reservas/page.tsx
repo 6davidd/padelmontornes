@@ -51,6 +51,39 @@ function weekdayES(dateStr: string) {
   return d.toLocaleDateString("es-ES", { weekday: "long" });
 }
 
+function formatDayChip(dateISO: string) {
+  const d = new Date(`${dateISO}T12:00:00`);
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "short",
+  })
+    .format(d)
+    .replace(".", "");
+  const day = new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+  }).format(d);
+
+  return `${weekday} ${day}`;
+}
+
+function getRelativeDayLabel(dateISO: string) {
+  const today = todayISO();
+  const tomorrow = new Date(`${today}T12:00:00`);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowISO = `${tomorrow.getFullYear()}-${String(
+    tomorrow.getMonth() + 1
+  ).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+
+  if (dateISO === today) return "Hoy";
+  if (dateISO === tomorrowISO) return "Mañana";
+
+  const d = new Date(`${dateISO}T12:00:00`);
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+  }).format(d);
+
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
+}
+
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -76,6 +109,8 @@ function Badge({
   );
 }
 
+type ViewMode = "open" | string;
+
 export default function MisReservasPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -83,6 +118,7 @@ export default function MisReservasPage() {
 
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedChip, setSelectedChip] = useState<ViewMode>("open");
 
   async function load() {
     setMsg(null);
@@ -198,16 +234,6 @@ export default function MisReservasPage() {
     load();
   }, []);
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, Item[]>();
-    for (const it of items) {
-      const arr = map.get(it.date) ?? [];
-      arr.push(it);
-      map.set(it.date, arr);
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [items]);
-
   const playersByReservation = useMemo(() => {
     const map = new Map<
       string,
@@ -232,6 +258,56 @@ export default function MisReservasPage() {
     return map;
   }, [players, membersMap]);
 
+  const enrichedItems = useMemo(() => {
+    return items.map((item) => {
+      const playersList = playersByReservation.get(item.reservation_id) ?? [];
+      const isOpen = playersList.length < 4;
+
+      return {
+        ...item,
+        playersList,
+        isOpen,
+      };
+    });
+  }, [items, playersByReservation]);
+
+  const openItems = useMemo(() => {
+    return enrichedItems.filter((item) => item.isOpen);
+  }, [enrichedItems]);
+
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, typeof enrichedItems>();
+
+    for (const it of enrichedItems) {
+      const arr = map.get(it.date) ?? [];
+      arr.push(it);
+      map.set(it.date, arr);
+    }
+
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [enrichedItems]);
+
+  const dayChips = useMemo(() => {
+    return groupedByDate.map(([date]) => date);
+  }, [groupedByDate]);
+
+  const visibleSections = useMemo(() => {
+    if (selectedChip === "open") {
+      const map = new Map<string, typeof openItems>();
+
+      for (const it of openItems) {
+        const arr = map.get(it.date) ?? [];
+        arr.push(it);
+        map.set(it.date, arr);
+      }
+
+      return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    }
+
+    const match = groupedByDate.find(([date]) => date === selectedChip);
+    return match ? [match] : [];
+  }, [selectedChip, openItems, groupedByDate]);
+
   async function leave(reservationId: string) {
     setMsg(null);
 
@@ -255,11 +331,62 @@ export default function MisReservasPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        {msg && (
-          <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
-            <p className="text-sm text-yellow-900">{msg}</p>
+        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-gray-900">Ver</div>
+
+            <div className="overflow-x-auto -mx-1 px-1">
+              <div className="flex gap-2 min-w-max">
+                <button
+                  onClick={() => setSelectedChip("open")}
+                  className={classNames(
+                    "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[108px]",
+                    selectedChip === "open"
+                      ? "text-white border-transparent"
+                      : "bg-white border-gray-300 text-gray-900"
+                  )}
+                  style={
+                    selectedChip === "open"
+                      ? { backgroundColor: CLUB_GREEN }
+                      : undefined
+                  }
+                >
+                  <div className="text-xs font-semibold">Estado</div>
+                  <div className="text-sm">Abiertas</div>
+                </button>
+
+                {dayChips.map((day) => {
+                  const selected = day === selectedChip;
+
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedChip(day)}
+                      className={classNames(
+                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                        selected
+                          ? "text-white border-transparent"
+                          : "bg-white border-gray-300 text-gray-900"
+                      )}
+                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
+                    >
+                      <div className="text-xs font-semibold">
+                        {getRelativeDayLabel(day)}
+                      </div>
+                      <div className="text-sm">{formatDayChip(day)}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        )}
+
+          {msg && (
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+              <p className="text-sm text-yellow-900">{msg}</p>
+            </div>
+          )}
+        </div>
 
         {loading ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
@@ -276,9 +403,21 @@ export default function MisReservasPage() {
               Ir a reservar
             </a>
           </div>
+        ) : selectedChip === "open" && openItems.length === 0 ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
+            <p className="text-gray-700 font-semibold">
+              No tienes partidas abiertas.
+            </p>
+          </div>
+        ) : visibleSections.length === 0 ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
+            <p className="text-gray-700 font-semibold">
+              No hay partidas para este día.
+            </p>
+          </div>
         ) : (
           <div className="space-y-6">
-            {grouped.map(([date, list]) => (
+            {visibleSections.map(([date, list]) => (
               <div key={date} className="space-y-3">
                 <div className="text-sm font-semibold text-gray-700">
                   {capitalizeFirst(weekdayES(date))} · {formatDateES(date)}
@@ -286,9 +425,7 @@ export default function MisReservasPage() {
 
                 <div className="space-y-4">
                   {list.map((r) => {
-                    const playersList = playersByReservation.get(r.reservation_id) ?? [];
-                    const freeSpots = Math.max(0, 4 - playersList.length);
-                    const isOpen = freeSpots > 0;
+                    const isOpen = r.isOpen;
 
                     return (
                       <div
@@ -314,7 +451,7 @@ export default function MisReservasPage() {
                               <div className="mt-3 flex flex-wrap items-center gap-2">
                                 {isOpen ? (
                                   <Badge tone="green">
-                                    Abierta · {playersList.length}/4
+                                    Abierta · {r.playersList.length}/4
                                   </Badge>
                                 ) : (
                                   <Badge tone="red">Cerrada · 4/4</Badge>
@@ -339,12 +476,9 @@ export default function MisReservasPage() {
                                 : "border-red-200 bg-white/70"
                             )}
                           >
-                            <div className="text-sm font-semibold text-gray-900">
-                              Jugadores
-                            </div>
 
                             <div className="mt-3 space-y-2">
-                              {playersList.map((p) => (
+                              {r.playersList.map((p) => (
                                 <div
                                   key={`${r.reservation_id}-${p.userId}`}
                                   className="flex items-center gap-2 text-[15px] text-gray-800"
@@ -353,17 +487,6 @@ export default function MisReservasPage() {
                                   <span>{p.name}</span>
                                 </div>
                               ))}
-
-                              {isOpen &&
-                                Array.from({ length: freeSpots }).map((_, i) => (
-                                  <div
-                                    key={`free-${r.reservation_id}-${i}`}
-                                    className="flex items-center gap-2 text-[15px] text-green-800"
-                                  >
-                                    <span className="text-lg leading-none">🎾</span>
-                                    <span>Libre</span>
-                                  </div>
-                                ))}
                             </div>
                           </div>
                         </div>
