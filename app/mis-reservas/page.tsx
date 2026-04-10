@@ -109,7 +109,7 @@ function Badge({
   );
 }
 
-type ViewMode = "open" | string;
+type ViewMode = "all" | string;
 
 export default function MisReservasPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -118,7 +118,7 @@ export default function MisReservasPage() {
 
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedChip, setSelectedChip] = useState<ViewMode>("open");
+  const [selectedChip, setSelectedChip] = useState<ViewMode>("all");
 
   async function load() {
     setMsg(null);
@@ -271,10 +271,6 @@ export default function MisReservasPage() {
     });
   }, [items, playersByReservation]);
 
-  const openItems = useMemo(() => {
-    return enrichedItems.filter((item) => item.isOpen);
-  }, [enrichedItems]);
-
   const groupedByDate = useMemo(() => {
     const map = new Map<string, typeof enrichedItems>();
 
@@ -288,25 +284,22 @@ export default function MisReservasPage() {
   }, [enrichedItems]);
 
   const dayChips = useMemo(() => {
-    return groupedByDate.map(([date]) => date);
+    return groupedByDate.map(([date, list]) => ({
+      date,
+      count: list.length,
+    }));
   }, [groupedByDate]);
 
+  const totalCount = enrichedItems.length;
+
   const visibleSections = useMemo(() => {
-    if (selectedChip === "open") {
-      const map = new Map<string, typeof openItems>();
-
-      for (const it of openItems) {
-        const arr = map.get(it.date) ?? [];
-        arr.push(it);
-        map.set(it.date, arr);
-      }
-
-      return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    if (selectedChip === "all") {
+      return groupedByDate;
     }
 
     const match = groupedByDate.find(([date]) => date === selectedChip);
     return match ? [match] : [];
-  }, [selectedChip, openItems, groupedByDate]);
+  }, [selectedChip, groupedByDate]);
 
   async function leave(reservationId: string) {
     setMsg(null);
@@ -338,32 +331,32 @@ export default function MisReservasPage() {
             <div className="overflow-x-auto -mx-1 px-1">
               <div className="flex gap-2 min-w-max">
                 <button
-                  onClick={() => setSelectedChip("open")}
+                  onClick={() => setSelectedChip("all")}
                   className={classNames(
                     "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[108px]",
-                    selectedChip === "open"
+                    selectedChip === "all"
                       ? "text-white border-transparent"
                       : "bg-white border-gray-300 text-gray-900"
                   )}
                   style={
-                    selectedChip === "open"
+                    selectedChip === "all"
                       ? { backgroundColor: CLUB_GREEN }
                       : undefined
                   }
                 >
-                  <div className="text-xs font-semibold">Estado</div>
-                  <div className="text-sm">Abiertas</div>
+                  <div className="text-xs font-semibold">Todas</div>
+                  <div className="text-sm">({totalCount})</div>
                 </button>
 
-                {dayChips.map((day) => {
-                  const selected = day === selectedChip;
+                {dayChips.map(({ date, count }) => {
+                  const selected = date === selectedChip;
 
                   return (
                     <button
-                      key={day}
-                      onClick={() => setSelectedChip(day)}
+                      key={date}
+                      onClick={() => setSelectedChip(date)}
                       className={classNames(
-                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[100px]",
                         selected
                           ? "text-white border-transparent"
                           : "bg-white border-gray-300 text-gray-900"
@@ -371,9 +364,12 @@ export default function MisReservasPage() {
                       style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
                     >
                       <div className="text-xs font-semibold">
-                        {getRelativeDayLabel(day)}
+                        {getRelativeDayLabel(date)}
                       </div>
-                      <div className="text-sm">{formatDayChip(day)}</div>
+                      <div className="text-sm flex items-center gap-1">
+                        <span>{formatDayChip(date)}</span>
+                        <span className="text-xs opacity-90">({count})</span>
+                      </div>
                     </button>
                   );
                 })}
@@ -402,12 +398,6 @@ export default function MisReservasPage() {
             >
               Ir a reservar
             </a>
-          </div>
-        ) : selectedChip === "open" && openItems.length === 0 ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
-            <p className="text-gray-700 font-semibold">
-              No tienes partidas abiertas.
-            </p>
           </div>
         ) : visibleSections.length === 0 ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
@@ -470,14 +460,13 @@ export default function MisReservasPage() {
 
                           <div
                             className={classNames(
-                              "mt-4 rounded-2xl border px-4 py-4",
+                              "mt-4 rounded-2xl border px-4 py-3",
                               isOpen
                                 ? "border-green-200 bg-white/70"
                                 : "border-red-200 bg-white/70"
                             )}
                           >
-
-                            <div className="mt-3 space-y-2">
+                            <div className="space-y-2">
                               {r.playersList.map((p) => (
                                 <div
                                   key={`${r.reservation_id}-${p.userId}`}

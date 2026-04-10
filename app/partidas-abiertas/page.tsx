@@ -518,7 +518,7 @@ export default function PartidasAbiertasPage() {
 
                                 <div className="mt-4 border-t border-gray-200 pt-4">
                                   <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
-                                    <div className="mt-3 space-y-2">
+                                    <div className="space-y-2">
                                       {match.playersList.map((player) => (
                                         <div
                                           key={`${match.id}-${player.seat}-${player.userId}`}

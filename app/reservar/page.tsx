@@ -994,7 +994,7 @@ export default function ReservarPage() {
                               {!blocked && res && expanded && (
                                 <div className="mt-4 border-t border-gray-200 pt-4 space-y-4">
                                   <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
-                                    <div className="mt-3 space-y-2">
+                                    <div className="space-y-2">
                                       {reservationPlayers.length > 0 ? (
                                         reservationPlayers.map((player) => (
                                           <div
