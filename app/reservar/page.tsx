@@ -129,6 +129,42 @@ function Badge({
   );
 }
 
+function Modal({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        className="absolute inset-0 bg-black/30"
+        onClick={onClose}
+        aria-label="Cerrar"
+      />
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-lg font-semibold text-gray-900">{title}</div>
+          <button
+            onClick={onClose}
+            className="text-sm font-semibold text-gray-700 hover:text-gray-900"
+          >
+            Cerrar
+          </button>
+        </div>
+        <div className="mt-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function ReservarPage() {
   const [date, setDate] = useState(todayISO());
 
@@ -143,6 +179,14 @@ export default function ReservarPage() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [expandedResId, setExpandedResId] = useState<string | null>(null);
+
+  const [addSeat, setAddSeat] = useState<number | null>(null);
+  const [addResId, setAddResId] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [suggestions, setSuggestions] = useState<
+    Array<{ user_id: string; label: string }>
+  >([]);
+  const [searching, setSearching] = useState(false);
 
   const visibleDays = useMemo(() => getVisibleDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
@@ -205,6 +249,16 @@ export default function ReservarPage() {
         else setCourts(((data ?? []) as Court[]).slice(0, 3));
       });
   }, []);
+
+  async function restoreScrollAfter(action: () => Promise<void>) {
+    const y = window.scrollY;
+    await action();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: y, behavior: "auto" });
+      });
+    });
+  }
 
   async function loadDay() {
     setMsg(null);
@@ -345,6 +399,37 @@ export default function ReservarPage() {
     }
   }
 
+  async function sendAddedToMatchEmail(params: {
+    to: string;
+    fullName?: string;
+    addedByName?: string;
+    date: string;
+    slotStart: string;
+    slotEnd: string;
+    courtName: string;
+  }) {
+    try {
+      await fetch("/api/send-booking-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "added_to_match",
+          to: params.to,
+          fullName: params.fullName ?? "",
+          addedByName: params.addedByName ?? "",
+          date: params.date,
+          slotStart: params.slotStart,
+          slotEnd: params.slotEnd,
+          courtName: params.courtName,
+        }),
+      });
+    } catch (error) {
+      console.error("Error enviando email de añadido a partida:", error);
+    }
+  }
+
   async function sendMatchCompletedEmail(params: {
     to: string;
     fullName?: string;
@@ -468,96 +553,105 @@ export default function ReservarPage() {
     const userId = user.id;
     const userEmail = user.email ?? "";
 
-    const ins = await supabase
-      .from("reservations")
-      .insert({
-        date,
-        slot_start: slotStart,
-        slot_end: slotEnd,
-        court_id: courtId,
-        member_user_id: userId,
-        status: "active",
-      })
-      .select("id")
-      .single();
-
-    if (ins.error) {
-      const errMsg = ins.error.message ?? "";
-      if (
-        errMsg.toLowerCase().includes("duplicate key") ||
-        errMsg.toLowerCase().includes("uq_reservation_unique")
-      ) {
-        await loadDay();
-        const nowExisting = reservationByKey.get(`${slotStart}-${courtId}`);
-        if (nowExisting) setExpandedResId(nowExisting.id);
-        return;
-      }
-      setMsg(ins.error.message);
-      return;
-    }
-
-    const createdReservationId = ins.data.id as string;
-
-    const playerIns = await supabase.from("reservation_players").insert({
-      reservation_id: createdReservationId,
-      seat: 1,
-      member_user_id: userId,
-    });
-
-    if (playerIns.error) {
-      setMsg(playerIns.error.message);
-      await loadDay();
-      setExpandedResId(createdReservationId);
-      return;
-    }
-
-    const courtName =
-      courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
-
-    if (userEmail) {
-      const memberRes = await supabase
-        .from("members")
-        .select("full_name,alias")
-        .eq("user_id", userId)
+    await restoreScrollAfter(async () => {
+      const ins = await supabase
+        .from("reservations")
+        .insert({
+          date,
+          slot_start: slotStart,
+          slot_end: slotEnd,
+          court_id: courtId,
+          member_user_id: userId,
+          status: "active",
+        })
+        .select("id")
         .single();
 
-      const memberName =
-        !memberRes.error && memberRes.data
-          ? getDisplayName(memberRes.data)
-          : membersMap.get(userId) ?? "";
+      if (ins.error) {
+        const errMsg = ins.error.message ?? "";
+        if (
+          errMsg.toLowerCase().includes("duplicate key") ||
+          errMsg.toLowerCase().includes("uq_reservation_unique")
+        ) {
+          await loadDay();
+          const nowExisting = reservationByKey.get(`${slotStart}-${courtId}`);
+          if (nowExisting) setExpandedResId(nowExisting.id);
+          return;
+        }
+        setMsg(ins.error.message);
+        return;
+      }
 
-      await sendBookingCreatedEmail({
-        to: userEmail,
-        fullName: memberName,
-        date,
-        slotStart,
-        slotEnd,
-        courtName,
+      const createdReservationId = ins.data.id as string;
+
+      const playerIns = await supabase.from("reservation_players").insert({
+        reservation_id: createdReservationId,
+        seat: 1,
+        member_user_id: userId,
       });
-    }
 
-    await loadDay();
-    setExpandedResId(createdReservationId);
+      if (playerIns.error) {
+        setMsg(playerIns.error.message);
+        await loadDay();
+        setExpandedResId(createdReservationId);
+        return;
+      }
+
+      const courtName =
+        courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
+
+      if (userEmail) {
+        const memberRes = await supabase
+          .from("members")
+          .select("full_name,alias")
+          .eq("user_id", userId)
+          .single();
+
+        const memberName =
+          !memberRes.error && memberRes.data
+            ? getDisplayName(memberRes.data)
+            : membersMap.get(userId) ?? "";
+
+        await sendBookingCreatedEmail({
+          to: userEmail,
+          fullName: memberName,
+          date,
+          slotStart,
+          slotEnd,
+          courtName,
+        });
+      }
+
+      await loadDay();
+      setExpandedResId(createdReservationId);
+    });
   }
 
   async function joinSeat(resId: string, seat: number, memberUserId: string) {
     setMsg(null);
 
-    const ins = await supabase.from("reservation_players").insert({
-      reservation_id: resId,
-      seat,
-      member_user_id: memberUserId,
+    let ok = false;
+
+    await restoreScrollAfter(async () => {
+      const ins = await supabase.from("reservation_players").insert({
+        reservation_id: resId,
+        seat,
+        member_user_id: memberUserId,
+      });
+
+      if (ins.error) {
+        setMsg(ins.error.message);
+        ok = false;
+        return;
+      }
+
+      await loadDay();
+      await notifyMatchCompleted(resId);
+      setExpandedResId(resId);
+      ok = true;
     });
 
-    if (ins.error) {
-      setMsg(ins.error.message);
-      return false;
-    }
-
-    await loadDay();
-    await notifyMatchCompleted(resId);
-    setExpandedResId(resId);
-    return true;
+    return ok;
   }
 
   async function joinMe(resId: string) {
@@ -580,6 +674,142 @@ export default function ReservarPage() {
     }
 
     await joinSeat(resId, freeSeat, userId);
+  }
+
+  async function openAddSocio(resId: string) {
+    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
+    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+    if (!freeSeat) {
+      setMsg("Esta partida ya está completa.");
+      return;
+    }
+
+    setAddResId(resId);
+    setAddSeat(freeSeat);
+    setQ("");
+    setSuggestions([]);
+  }
+
+  useEffect(() => {
+    let alive = true;
+
+    async function run() {
+      if (!addResId || !addSeat) return;
+
+      const term = q.trim();
+      if (term.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+
+      setSearching(true);
+
+      const res = await supabase
+        .from("members")
+        .select("user_id,full_name,alias,is_active,email")
+        .eq("is_active", true)
+        .or(`full_name.ilike.%${term}%,alias.ilike.%${term}%`)
+        .limit(8);
+
+      if (!alive) return;
+
+      setSearching(false);
+
+      if (res.error) {
+        setMsg(res.error.message);
+        setSuggestions([]);
+        return;
+      }
+
+      const blockedUserIds = new Set(
+        addResId
+          ? (playersByReservation.get(addResId) ?? []).map((player) => player.userId)
+          : []
+      );
+
+      const list = ((res.data ?? []) as MemberRow[])
+        .filter((m) => !blockedUserIds.has(m.user_id))
+        .map((m) => ({
+          user_id: m.user_id,
+          label: getDisplayName(m),
+        }));
+
+      setSuggestions(list);
+    }
+
+    run();
+    return () => {
+      alive = false;
+    };
+  }, [q, addResId, addSeat, playersByReservation]);
+
+  async function addSocio(userId: string) {
+    if (!addResId || !addSeat) return;
+
+    const reservation = reservations.find((r) => r.id === addResId);
+    if (!reservation) {
+      setMsg("No se ha encontrado la partida.");
+      return;
+    }
+
+    const alreadyIn = (playersByReservation.get(addResId) ?? []).some(
+      (x) => x.userId === userId
+    );
+    if (alreadyIn) {
+      setMsg("Ese socio ya está apuntado en esta partida.");
+      return;
+    }
+
+    const ok = await joinSeat(addResId, addSeat, userId);
+    if (!ok) return;
+
+    const memberRes = await supabase
+      .from("members")
+      .select("user_id,full_name,alias,is_active,email")
+      .eq("user_id", userId)
+      .single();
+
+    if (!memberRes.error && memberRes.data) {
+      const member = memberRes.data as MemberRow;
+      const courtName =
+        courts.find((c) => c.id === reservation.court_id)?.name ??
+        `Pista ${reservation.court_id}`;
+
+      const { data } = await supabase.auth.getUser();
+      const currentUser = data.user;
+
+      let addedByName = "";
+
+      if (currentUser?.id) {
+        const addedByRes = await supabase
+          .from("members")
+          .select("full_name,alias")
+          .eq("user_id", currentUser.id)
+          .single();
+
+        if (!addedByRes.error && addedByRes.data) {
+          addedByName = getDisplayName(addedByRes.data);
+        }
+      }
+
+      if (member.email) {
+        await sendAddedToMatchEmail({
+          to: member.email,
+          fullName: getDisplayName(member),
+          addedByName,
+          date: reservation.date,
+          slotStart: toHM(reservation.slot_start),
+          slotEnd: toHM(reservation.slot_end),
+          courtName,
+        });
+      }
+    }
+
+    setAddResId(null);
+    setAddSeat(null);
+    setQ("");
+    setSuggestions([]);
+    setExpandedResId(addResId);
   }
 
   return (
@@ -693,7 +923,7 @@ export default function ReservarPage() {
                             className={classNames(
                               "rounded-3xl border shadow-sm transition overflow-hidden",
                               blocked
-                                ? "bg-red-50 border-red-200"
+                                ? "bg-white border-red-200"
                                 : full
                                 ? "bg-red-50 border-red-200"
                                 : !res
@@ -710,7 +940,7 @@ export default function ReservarPage() {
 
                                   <div className="mt-2 flex flex-wrap items-center gap-2">
                                     {blocked ? (
-                                      <Badge tone="red">Bloqueada</Badge>
+                                      <Badge tone="red">🔒 Bloqueada</Badge>
                                     ) : !res ? (
                                       <Badge tone="green">Libre</Badge>
                                     ) : full ? (
@@ -718,47 +948,52 @@ export default function ReservarPage() {
                                     ) : (
                                       <Badge tone="green">Abierta · {filled}/4</Badge>
                                     )}
-
-                                    {alreadyIn && !blocked && res && (
-                                      <span className="text-sm font-semibold text-gray-700">
-                                        🎾 Apuntado
-                                      </span>
-                                    )}
                                   </div>
 
                                   {blocked && (
-                                    <div className="mt-3 text-sm font-medium text-red-700">
+                                    <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                                       {block?.reason || "Bloqueado"}
                                     </div>
                                   )}
                                 </div>
 
-                                {!blocked &&
-                                  (res ? (
-                                    <button
-                                      onClick={() =>
-                                        setExpandedResId((prev) =>
-                                          prev === res.id ? null : res.id
-                                        )
-                                      }
-                                      className="shrink-0 rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                                      style={{ backgroundColor: CLUB_GREEN }}
+                                <div className="shrink-0 flex items-center gap-2">
+                                  {alreadyIn && !blocked && res && (
+                                    <span
+                                      title="Estás apuntado"
+                                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-green-200 bg-green-50 text-lg"
                                     >
-                                      {expanded
-                                        ? "Ocultar"
-                                        : full
-                                        ? "Ver"
-                                        : "Ver / Unirme"}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => createOrOpen(s.start, s.end, c.id)}
-                                      className="shrink-0 rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                                      style={{ backgroundColor: CLUB_GREEN }}
-                                    >
-                                      Crear
-                                    </button>
-                                  ))}
+                                      🎾
+                                    </span>
+                                  )}
+
+                                  {!blocked &&
+                                    (res ? (
+                                      <button
+                                        onClick={() =>
+                                          setExpandedResId((prev) =>
+                                            prev === res.id ? null : res.id
+                                          )
+                                        }
+                                        className="rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                        style={{ backgroundColor: CLUB_GREEN }}
+                                      >
+                                        {expanded
+                                          ? "Ocultar"
+                                          : full || alreadyIn
+                                          ? "Ver"
+                                          : "Ver / Unirme"}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => createOrOpen(s.start, s.end, c.id)}
+                                        className="rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                        style={{ backgroundColor: CLUB_GREEN }}
+                                      >
+                                        Crear
+                                      </button>
+                                    ))}
+                                </div>
                               </div>
 
                               {!blocked && res && expanded && (
@@ -787,15 +1022,25 @@ export default function ReservarPage() {
                                     </div>
                                   </div>
 
-                                  {!alreadyIn && !full && (
+                                  {!full && (
                                     <div>
-                                      <button
-                                        onClick={() => joinMe(res.id)}
-                                        className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition"
-                                        style={{ backgroundColor: CLUB_GREEN }}
-                                      >
-                                        Unirme
-                                      </button>
+                                      {alreadyIn ? (
+                                        <button
+                                          onClick={() => openAddSocio(res.id)}
+                                          className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition"
+                                          style={{ backgroundColor: CLUB_GREEN }}
+                                        >
+                                          Añadir socio
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => joinMe(res.id)}
+                                          className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition"
+                                          style={{ backgroundColor: CLUB_GREEN }}
+                                        >
+                                          Unirme
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -812,6 +1057,48 @@ export default function ReservarPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={!!addResId && !!addSeat}
+        onClose={() => {
+          setAddResId(null);
+          setAddSeat(null);
+          setQ("");
+          setSuggestions([]);
+        }}
+        title="Añadir socio"
+      >
+        <div className="space-y-4">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar por nombre o alias…"
+            className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
+          />
+
+          {q.trim().length < 2 ? null : searching ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              Buscando…
+            </div>
+          ) : suggestions.length === 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              Sin resultados.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {suggestions.map((s) => (
+                <button
+                  key={s.user_id}
+                  onClick={() => addSocio(s.user_id)}
+                  className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition"
+                >
+                  <div className="font-semibold text-gray-900">{s.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-3xl mx-auto">
