@@ -922,9 +922,7 @@ export default function ReservarPage() {
                             key={c.id}
                             className={classNames(
                               "rounded-3xl border shadow-sm transition overflow-hidden",
-                              blocked
-                                ? "bg-white border-red-200"
-                                : full
+                              blocked || full
                                 ? "bg-red-50 border-red-200"
                                 : !res
                                 ? "bg-green-50 border-gray-300"
@@ -951,7 +949,7 @@ export default function ReservarPage() {
                                   </div>
 
                                   {blocked && (
-                                    <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-100 px-3 py-2 text-sm font-medium text-red-700">
                                       {block?.reason || "Bloqueado"}
                                     </div>
                                   )}
@@ -959,10 +957,7 @@ export default function ReservarPage() {
 
                                 <div className="shrink-0 flex items-center gap-2">
                                   {alreadyIn && !blocked && res && (
-                                    <span
-                                      title="Estás apuntado"
-                                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-green-200 bg-green-50 text-lg"
-                                    >
+                                    <span title="Estás apuntado" className="text-3xl leading-none">
                                       🎾
                                     </span>
                                   )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -36,6 +37,62 @@ function toHM(t: string) {
   return t?.length >= 5 ? t.slice(0, 5) : t;
 }
 
+function todayISO() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function addDaysISO(baseISO: string, days: number) {
+  const d = new Date(`${baseISO}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function isSundayISO(dateISO: string) {
+  const d = new Date(`${dateISO}T12:00:00`);
+  return d.getDay() === 0;
+}
+
+function getVisibleDays() {
+  const base = todayISO();
+  return Array.from({ length: 8 }, (_, i) => addDaysISO(base, i));
+}
+
+function formatDayChip(dateISO: string) {
+  const d = new Date(`${dateISO}T12:00:00`);
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "short",
+  })
+    .format(d)
+    .replace(".", "");
+  const day = new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+  }).format(d);
+
+  return `${weekday} ${day}`;
+}
+
+function getRelativeDayLabel(dateISO: string) {
+  const today = todayISO();
+  const tomorrow = addDaysISO(today, 1);
+
+  if (dateISO === today) return "Hoy";
+  if (dateISO === tomorrow) return "Mañana";
+
+  const d = new Date(`${dateISO}T12:00:00`);
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+  }).format(d);
+
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
+}
+
 function formatDatePretty(iso: string) {
   const d = new Date(`${iso}T12:00:00`);
   return d
@@ -45,14 +102,6 @@ function formatDatePretty(iso: string) {
       month: "2-digit",
     })
     .replace(",", "");
-}
-
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
 }
 
 function slotIsStillOpen(r: ReservationRow) {
@@ -65,20 +114,19 @@ function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
-function SoftBadge({
+function Badge({
   children,
-  tone = "gray",
+  tone = "neutral",
 }: {
   children: React.ReactNode;
-  tone?: "gray" | "green";
+  tone?: "neutral" | "green";
 }) {
   return (
     <span
       className={classNames(
-        "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold",
-        tone === "green"
-          ? "bg-green-50 text-green-800 border-green-200"
-          : "bg-gray-50 text-gray-700 border-gray-200"
+        "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold border",
+        tone === "green" && "bg-green-50 text-green-800 border-green-200",
+        tone === "neutral" && "bg-gray-50 text-gray-700 border-gray-200"
       )}
     >
       {children}
@@ -123,6 +171,8 @@ function Modal({
 }
 
 export default function PartidasAbiertasPage() {
+  const [date, setDate] = useState(todayISO());
+
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
@@ -131,6 +181,17 @@ export default function PartidasAbiertasPage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [openResId, setOpenResId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const visibleDays = useMemo(() => getVisibleDays(), []);
+  const isSunday = useMemo(() => isSundayISO(date), [date]);
+
+  const slotsToShow = useMemo(() => {
+    if (isSunday) return [];
+    const d = new Date(`${date}T12:00:00`);
+    const day = d.getDay();
+    return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
+  }, [date, isSunday]);
 
   const openReservation = useMemo(() => {
     if (!openResId) return null;
@@ -167,12 +228,35 @@ export default function PartidasAbiertasPage() {
       })
       .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
       .filter(slotIsStillOpen)
+      .filter((r) => r.date === date)
       .sort((a, b) => {
         const ad = new Date(`${a.date}T${toHM(a.slot_start)}:00`).getTime();
         const bd = new Date(`${b.date}T${toHM(b.slot_start)}:00`).getTime();
-        return ad - bd;
+        if (ad !== bd) return ad - bd;
+        return a.court_id - b.court_id;
       });
-  }, [reservations, playersByReservation]);
+  }, [reservations, playersByReservation, date]);
+
+  const totalOpenMatchesAllVisibleDays = useMemo(() => {
+    const visibleSet = new Set(visibleDays);
+    return reservations
+      .map((r) => {
+        const arr = playersByReservation.get(r.id) ?? [];
+        return {
+          ...r,
+          playersCount: arr.length,
+        };
+      })
+      .filter((r) => visibleSet.has(r.date))
+      .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
+      .filter(slotIsStillOpen).length;
+  }, [reservations, playersByReservation, visibleDays]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null);
+    });
+  }, []);
 
   useEffect(() => {
     loadOpenMatches();
@@ -183,13 +267,16 @@ export default function PartidasAbiertasPage() {
     setLoading(true);
 
     const today = todayISO();
+    const until = addDaysISO(today, 7);
 
     const r = await supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
       .gte("date", today)
+      .lte("date", until)
       .order("date", { ascending: true })
-      .order("slot_start", { ascending: true });
+      .order("slot_start", { ascending: true })
+      .order("court_id", { ascending: true });
 
     if (r.error) {
       setMsg(r.error.message);
@@ -276,21 +363,33 @@ export default function PartidasAbiertasPage() {
     return user.id;
   }
 
+  async function restoreScrollAfter(action: () => Promise<void>) {
+    const y = window.scrollY;
+    await action();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: y, behavior: "auto" });
+      });
+    });
+  }
+
   async function joinSeat(resId: string, seat: number, memberUserId: string) {
     setMsg(null);
 
-    const ins = await supabase.from("reservation_players").insert({
-      reservation_id: resId,
-      seat,
-      member_user_id: memberUserId,
+    await restoreScrollAfter(async () => {
+      const ins = await supabase.from("reservation_players").insert({
+        reservation_id: resId,
+        seat,
+        member_user_id: memberUserId,
+      });
+
+      if (ins.error) {
+        setMsg(ins.error.message);
+        return;
+      }
+
+      await loadOpenMatches();
     });
-
-    if (ins.error) {
-      setMsg(ins.error.message);
-      return;
-    }
-
-    await loadOpenMatches();
   }
 
   async function joinMe(resId: string) {
@@ -320,86 +419,177 @@ export default function PartidasAbiertasPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6">
+        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
                 Partidas abiertas
-              </h1>
+              </div>
             </div>
 
             <div className="rounded-full bg-green-50 border border-green-200 px-3 py-1 text-sm font-semibold text-green-800 min-w-[38px] text-center">
-              {openMatches.length}
+              {totalOpenMatchesAllVisibleDays}
             </div>
           </div>
 
-          {msg && (
-            <div className="mt-4 rounded-2xl p-4 bg-yellow-50 ring-1 ring-yellow-200">
-              <p className="text-sm text-yellow-900">{msg}</p>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="mt-4 rounded-2xl bg-gray-50 ring-1 ring-black/5 p-4 text-sm text-gray-700">
-              Cargando partidas...
-            </div>
-          ) : openMatches.length === 0 ? (
-            <div className="mt-4 rounded-2xl bg-gray-50 ring-1 ring-black/5 p-4 text-sm text-gray-700">
-              Ahora mismo no hay partidas abiertas.
-            </div>
-          ) : (
-            <div className="mt-5 space-y-4">
-              {openMatches.map((match) => {
-                const courtName =
-                  courtsMap.get(match.court_id) ?? `Pista ${match.court_id}`;
+          <div className="mt-4 overflow-x-auto -mx-1 px-1">
+            <div className="flex gap-2 min-w-max">
+              {visibleDays.map((day) => {
+                const selected = day === date;
+                const sunday = isSundayISO(day);
 
                 return (
                   <button
-                    key={match.id}
-                    onClick={() => setOpenResId(match.id)}
-                    className="w-full text-left group block rounded-3xl bg-white border border-gray-200 shadow-sm px-5 py-5 hover:shadow-md hover:border-gray-300 transition active:scale-[0.99]"
+                    key={day}
+                    onClick={() => setDate(day)}
+                    className={classNames(
+                      "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                      selected
+                        ? "text-white border-transparent"
+                        : sunday
+                        ? "bg-red-50 border-red-200 text-red-800"
+                        : "bg-white border-gray-300 text-gray-900"
+                    )}
+                    style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-lg sm:text-xl font-bold text-gray-900">
-                          {formatDatePretty(match.date)} · {toHM(match.slot_start)} -{" "}
-                          {toHM(match.slot_end)}
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <SoftBadge tone="gray">{courtName}</SoftBadge>
-                          <SoftBadge tone="green">
-                            {match.playersCount}/4
-                          </SoftBadge>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {match.playersList.map((p) => (
-                            <span
-                              key={`${match.id}-${p.userId}`}
-                              className="inline-flex items-center rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-sm text-gray-700"
-                            >
-                              {p.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="shrink-0 self-center">
-                        <div
-                          className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm group-hover:brightness-[0.97] transition"
-                          style={{ backgroundColor: CLUB_GREEN }}
-                        >
-                          Ver
-                        </div>
-                      </div>
+                    <div className="text-xs font-semibold">
+                      {getRelativeDayLabel(day)}
                     </div>
+                    <div className="text-sm">{formatDayChip(day)}</div>
                   </button>
                 );
               })}
             </div>
+          </div>
+
+          {msg && (
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+              <p className="text-sm text-yellow-900">{msg}</p>
+            </div>
           )}
         </div>
+
+        {loading ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
+            Cargando…
+          </div>
+        ) : isSunday ? (
+          <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
+            <div className="text-lg font-bold text-red-800">Club cerrado</div>
+            <div className="mt-2 text-sm text-red-700">
+              Los domingos no hay partidas abiertas.
+            </div>
+          </div>
+        ) : openMatches.length === 0 ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
+            <div className="text-lg font-bold text-gray-900">
+              No hay partidas abiertas
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              No hay ninguna partida abierta para {formatDatePretty(date)}.
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {slotsToShow
+              .filter((slot) =>
+                openMatches.some(
+                  (match) =>
+                    toHM(match.slot_start) === toHM(slot.start) &&
+                    toHM(match.slot_end) === toHM(slot.end)
+                )
+              )
+              .map((slot) => {
+                const matchesInSlot = openMatches.filter(
+                  (match) =>
+                    toHM(match.slot_start) === toHM(slot.start) &&
+                    toHM(match.slot_end) === toHM(slot.end)
+                );
+
+                return (
+                  <div
+                    key={slot.start}
+                    className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
+                  >
+                    <div className="px-5 py-4 border-b border-gray-200">
+                      <div className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
+                        {slot.start} – {slot.end}
+                      </div>
+                    </div>
+
+                    <div className="p-5">
+                      <div className="grid grid-cols-1 gap-4">
+                        {matchesInSlot.map((match) => {
+                          const courtName =
+                            courtsMap.get(match.court_id) ?? `Pista ${match.court_id}`;
+
+                          const alreadyIn =
+                            !!currentUserId &&
+                            match.playersList.some((p) => p.userId === currentUserId);
+
+                          return (
+                            <div
+                              key={match.id}
+                              className="rounded-3xl border border-gray-300 bg-white shadow-sm overflow-hidden"
+                            >
+                              <div className="p-4 sm:p-5">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-lg font-bold text-gray-900">
+                                      {courtName}
+                                    </div>
+
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      <Badge tone="neutral">
+                                        {formatDatePretty(match.date)}
+                                      </Badge>
+                                      <Badge tone="green">
+                                        {match.playersCount}/4
+                                      </Badge>
+                                    </div>
+
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {match.playersList.map((p) => (
+                                        <span
+                                          key={`${match.id}-${p.userId}`}
+                                          className="inline-flex items-center rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-sm text-gray-700"
+                                        >
+                                          {p.name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="shrink-0 flex items-center gap-2">
+                                    {alreadyIn && (
+                                      <span
+                                        title="Estás apuntado"
+                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-green-200 bg-green-50 text-lg"
+                                      >
+                                        🎾
+                                      </span>
+                                    )}
+
+                                    <button
+                                      onClick={() => setOpenResId(match.id)}
+                                      className="rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                      style={{ backgroundColor: CLUB_GREEN }}
+                                    >
+                                      Ver
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </div>
 
       <Modal
@@ -439,13 +629,22 @@ export default function PartidasAbiertasPage() {
               })}
             </div>
 
-            <button
-              onClick={() => joinMe(openReservation.id)}
-              className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-              style={{ backgroundColor: CLUB_GREEN }}
-            >
-              Unirme
-            </button>
+            {currentUserId &&
+            (playersByReservation.get(openReservation.id) ?? []).some(
+              (x) => x.userId === currentUserId
+            ) ? (
+              <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800 text-center">
+                Ya estás apuntado en esta partida
+              </div>
+            ) : (
+              <button
+                onClick={() => joinMe(openReservation.id)}
+                className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                style={{ backgroundColor: CLUB_GREEN }}
+              >
+                Unirme
+              </button>
+            )}
           </div>
         )}
       </Modal>
