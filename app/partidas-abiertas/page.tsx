@@ -500,7 +500,7 @@ export default function PartidasAbiertasPage() {
 
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
                                       <Badge tone="green">
-                                        Abierta · {match.playersCount}/4
+                                        {match.playersCount}/4
                                       </Badge>
                                     </div>
                                   </div>

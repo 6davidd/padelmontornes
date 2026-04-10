@@ -88,13 +88,38 @@ function isDateWithin7Days(dateISO: string) {
   return dateISO >= min && dateISO <= max;
 }
 
-function formatDateLong(dateISO: string) {
+function getVisibleDays() {
+  const base = todayISO();
+  return Array.from({ length: 8 }, (_, i) => addDaysISO(base, i));
+}
+
+function formatDayChip(dateISO: string) {
   const d = new Date(`${dateISO}T12:00:00`);
-  return new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "short",
+  })
+    .format(d)
+    .replace(".", "");
+  const day = new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
   }).format(d);
+
+  return `${weekday} ${day}`;
+}
+
+function getRelativeDayLabel(dateISO: string) {
+  const today = todayISO();
+  const tomorrow = addDaysISO(today, 1);
+
+  if (dateISO === today) return "Hoy";
+  if (dateISO === tomorrow) return "Mañana";
+
+  const d = new Date(`${dateISO}T12:00:00`);
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+  }).format(d);
+
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
@@ -163,9 +188,6 @@ function Modal({
 export default function AdminCrearPartidasPage() {
   const router = useRouter();
 
-  const minDate = todayISO();
-  const maxDate = addDaysISO(minDate, 7);
-
   const [loadingPage, setLoadingPage] = useState(true);
   const [loadingDay, setLoadingDay] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -187,6 +209,7 @@ export default function AdminCrearPartidasPage() {
   const [search, setSearch] = useState("");
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
+  const visibleDays = useMemo(() => getVisibleDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
   const isOutOfRange = useMemo(() => !isDateWithin7Days(date), [date]);
 
@@ -243,7 +266,6 @@ export default function AdminCrearPartidasPage() {
 
     return activeMembers.filter((member) => {
       if (selectedSet.has(member.user_id)) return false;
-
       if (!term) return true;
 
       const displayName = getDisplayName(member).toLocaleLowerCase("es-ES");
@@ -517,8 +539,8 @@ export default function AdminCrearPartidasPage() {
   if (loadingPage) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-          <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5">
             Cargando…
           </div>
         </div>
@@ -528,35 +550,44 @@ export default function AdminCrearPartidasPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-        <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1
-                className="text-3xl sm:text-4xl font-bold"
-                style={{ color: CLUB_GREEN }}
-              >
-                Crear partidas
-              </h1>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-gray-900">Día</div>
+
+            <div className="overflow-x-auto -mx-1 px-1">
+              <div className="flex gap-2 min-w-max">
+                {visibleDays.map((day) => {
+                  const selected = day === date;
+                  const sunday = isSundayISO(day);
+
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => setDate(day)}
+                      className={classNames(
+                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                        selected
+                          ? "text-white border-transparent"
+                          : sunday
+                          ? "bg-red-50 border-red-200 text-red-800"
+                          : "bg-white border-gray-300 text-gray-900"
+                      )}
+                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
+                    >
+                      <div className="text-xs font-semibold">
+                        {getRelativeDayLabel(day)}
+                      </div>
+                      <div className="text-sm">{formatDayChip(day)}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="space-y-2 block">
-              <div className="text-sm font-semibold text-gray-900">Día</div>
-              <input
-                type="date"
-                value={date}
-                min={minDate}
-                max={maxDate}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
-              />
-            </label>
-          </div>
-
           {isOutOfRange && (
-            <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm font-semibold text-yellow-900">
                 Solo se puede crear con un máximo de 7 días de antelación.
               </p>
@@ -564,7 +595,7 @@ export default function AdminCrearPartidasPage() {
           )}
 
           {isSunday && (
-            <div className="border border-red-200 rounded-2xl p-4 bg-red-50">
+            <div className="mt-4 border border-red-200 rounded-2xl p-4 bg-red-50">
               <p className="text-sm font-semibold text-red-800">
                 Domingo: club cerrado. No se pueden crear partidas.
               </p>
@@ -572,159 +603,162 @@ export default function AdminCrearPartidasPage() {
           )}
 
           {msg && (
-            <div className="border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
 
           {ok && (
-            <div className="border border-green-200 rounded-2xl p-4 bg-green-50">
+            <div className="mt-4 border border-green-200 rounded-2xl p-4 bg-green-50">
               <p className="text-sm text-green-900">{ok}</p>
             </div>
           )}
         </div>
 
         {loadingDay ? (
-          <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm">
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
             Cargando…
           </div>
         ) : isOutOfRange ? (
-          <div className="bg-white border border-gray-200 rounded-[28px] p-6 shadow-sm text-center">
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
             <div className="text-lg font-bold text-gray-900">Fecha no disponible</div>
             <div className="mt-2 text-sm text-gray-600">
               Solo se puede crear entre hoy y los próximos 7 días.
             </div>
           </div>
         ) : isSunday ? (
-          <div className="bg-white border border-gray-200 rounded-[28px] p-6 shadow-sm text-center">
-            <div className="text-lg font-bold text-gray-900">Club cerrado</div>
-            <div className="mt-2 text-sm text-gray-600">
+          <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
+            <div className="text-lg font-bold text-red-800">Club cerrado</div>
+            <div className="mt-2 text-sm text-red-700">
               Los domingos no se pueden crear partidas.
             </div>
           </div>
         ) : (
-          <div className="space-y-5">
-            <section className="bg-white border border-gray-200 rounded-[28px] shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex items-end justify-between gap-1">
-                  <h2
-                    className="text-xl font-bold capitalize"
-                    style={{ color: CLUB_GREEN }}
-                  >
-                    {formatDateLong(date)}
-                  </h2>
-                </div>
-              </div>
+          <div className="space-y-6">
+            {slotsToShow.map((slot) => {
+              const slotLabel = `${slot.start} – ${slot.end}`;
 
-              <div className="p-4 space-y-4">
-                {slotsToShow.map((slot) => (
-                  <div
-                    key={slot.start}
-                    className="rounded-[24px] border border-gray-200 overflow-hidden"
-                  >
-                    <div className="px-4 py-3 border-b border-gray-200 bg-white">
-                      <div
-                        className="font-bold text-[17px]"
-                        style={{ color: CLUB_GREEN }}
-                      >
-                        {slot.start} – {slot.end}
-                      </div>
+              return (
+                <div
+                  key={slot.start}
+                  className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
+                >
+                  <div className="px-5 py-4 border-b border-gray-200">
+                    <div className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
+                      {slotLabel}
                     </div>
+                  </div>
 
-                    <div className="p-3">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {courts.map((court) => {
-                          const key = `${slot.start}-${court.id}`;
-                          const reservation = reservationByKey.get(key);
-                          const block = blockByKey.get(key);
-                          const blocked = !!block;
-                          const occupiedPlayers = reservation
-                            ? playersByReservation.get(reservation.id) ?? []
-                            : [];
+                  <div className="p-5">
+                    <div className="grid grid-cols-1 gap-4">
+                      {courts.map((court) => {
+                        const key = `${slot.start}-${court.id}`;
+                        const reservation = reservationByKey.get(key);
+                        const block = blockByKey.get(key);
+                        const blocked = !!block;
+                        const occupiedPlayers = reservation
+                          ? playersByReservation.get(reservation.id) ?? []
+                          : [];
+                        const full = occupiedPlayers.length >= 4;
 
-                          return (
-                            <div
-                              key={court.id}
-                              className={classNames(
-                                "rounded-[22px] border px-4 py-3.5 shadow-sm",
-                                blocked
-                                  ? "bg-red-50 border-red-200"
-                                  : reservation
-                                  ? "bg-white border-gray-300"
-                                  : "bg-green-50 border-gray-300"
-                              )}
-                            >
+                        return (
+                          <div
+                            key={court.id}
+                            className={classNames(
+                              "rounded-3xl border shadow-sm transition overflow-hidden",
+                              blocked || full
+                                ? "bg-red-50 border-red-200"
+                                : !reservation
+                                ? "bg-green-50 border-gray-300"
+                                : "bg-white border-gray-300"
+                            )}
+                          >
+                            <div className="p-4 sm:p-5">
                               <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="font-bold text-gray-900 text-[15px]">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-lg font-bold text-gray-900">
                                     {court.name}
                                   </div>
 
-                                  <div className="mt-2">
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
                                     {blocked ? (
-                                      <Badge tone="red">Bloqueada</Badge>
-                                    ) : reservation ? (
-                                      <Badge tone="neutral">
-                                        Ocupada · {occupiedPlayers.length}/4
+                                      <Badge tone="red">🔒 Bloqueada</Badge>
+                                    ) : !reservation ? (
+                                      <Badge tone="green">Libre</Badge>
+                                    ) : full ? (
+                                      <Badge tone="red">
+                                        Cerrada · {occupiedPlayers.length}/4
                                       </Badge>
                                     ) : (
-                                      <Badge tone="green">Libre</Badge>
+                                      <Badge tone="green">
+                                        Abierta · {occupiedPlayers.length}/4
+                                      </Badge>
                                     )}
                                   </div>
 
-                                  <div className="mt-3 min-h-[40px] text-sm leading-snug">
-                                    {blocked ? (
-                                      <div className="text-red-800">
-                                        {block?.reason || "Bloqueado"}
+                                  {blocked && (
+                                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-100 px-3 py-2 text-sm font-medium text-red-700">
+                                      {block?.reason || "Bloqueado"}
+                                    </div>
+                                  )}
+
+                                  {!blocked && reservation && (
+                                    <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+                                      <div className="text-sm font-semibold text-gray-900">
+                                        Jugadores
                                       </div>
-                                    ) : reservation ? (
-                                      <div className="text-gray-600">
+
+                                      <div className="mt-3 space-y-2">
                                         {occupiedPlayers.length > 0 ? (
                                           occupiedPlayers.map((player) => (
-                                            <div key={player.userId}>
-                                              🎾 {player.name}
+                                            <div
+                                              key={`${reservation.id}-${player.seat}-${player.userId}`}
+                                              className="flex items-center gap-2 text-[15px] text-gray-800"
+                                            >
+                                              <span className="text-lg leading-none">🎾</span>
+                                              <span>{player.name}</span>
                                             </div>
                                           ))
                                         ) : (
-                                          <div>Partida ya creada</div>
+                                          <div className="text-sm text-gray-600">
+                                            Partida ya creada.
+                                          </div>
                                         )}
                                       </div>
-                                    ) : (
-                                      <div className="text-green-800">
-                                        Lista para crear partida
-                                      </div>
-                                    )}
-                                  </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {!blocked && !reservation && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      openCreateModal({
-                                        date,
-                                        slotStart: slot.start,
-                                        slotEnd: slot.end,
-                                        courtId: court.id,
-                                        courtName: court.name,
-                                      })
-                                    }
-                                    className="shrink-0 rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                                    style={{ backgroundColor: CLUB_GREEN }}
-                                  >
-                                    Crear
-                                  </button>
+                                  <div className="shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        openCreateModal({
+                                          date,
+                                          slotStart: slot.start,
+                                          slotEnd: slot.end,
+                                          courtId: court.id,
+                                          courtName: court.name,
+                                        })
+                                      }
+                                      className="rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
+                                      style={{ backgroundColor: CLUB_GREEN }}
+                                    >
+                                      Crear
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
-              </div>
-            </section>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -856,7 +890,7 @@ export default function AdminCrearPartidasPage() {
       </Modal>
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <Link
             href="/admin"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"

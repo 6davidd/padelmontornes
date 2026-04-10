@@ -16,6 +16,20 @@ type MemberRow = {
   alias?: string | null;
 };
 
+type ReservationRow = {
+  id: string;
+  date: string;
+  slot_start: string;
+  slot_end: string;
+  court_id: number;
+};
+
+type PlayerRow = {
+  reservation_id: string;
+  seat: number;
+  member_user_id: string;
+};
+
 function Arrow() {
   return (
     <span className="text-lg opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition">
@@ -134,13 +148,13 @@ export default function HomePage() {
       setDisplayName(getDisplayName(row));
       setIsAdmin(row.role === "admin" || row.role === "superadmin");
 
-      await loadOpenMatchesCount();
+      await loadOpenMatchesCount(user.id);
     }
 
     init();
   }, [router]);
 
-  async function loadOpenMatchesCount() {
+  async function loadOpenMatchesCount(currentUserId: string) {
     const today = todayISO();
 
     const r = await supabase
@@ -155,13 +169,7 @@ export default function HomePage() {
       return;
     }
 
-    const reservations = (r.data ?? []) as Array<{
-      id: string;
-      date: string;
-      slot_start: string;
-      slot_end: string;
-      court_id: number;
-    }>;
+    const reservations = (r.data ?? []) as ReservationRow[];
 
     const ids = reservations.map((x) => x.id);
     if (ids.length === 0) {
@@ -179,12 +187,14 @@ export default function HomePage() {
       return;
     }
 
-    const players = p.data ?? [];
-    const countByReservation = new Map<string, number>();
+    const players = (p.data ?? []) as PlayerRow[];
+
+    const playersByReservation = new Map<string, PlayerRow[]>();
 
     for (const row of players) {
-      const key = row.reservation_id as string;
-      countByReservation.set(key, (countByReservation.get(key) ?? 0) + 1);
+      const arr = playersByReservation.get(row.reservation_id) ?? [];
+      arr.push(row);
+      playersByReservation.set(row.reservation_id, arr);
     }
 
     const now = new Date();
@@ -195,8 +205,12 @@ export default function HomePage() {
         return end.getTime() > now.getTime();
       })
       .filter((r) => {
-        const n = countByReservation.get(r.id) ?? 0;
-        return n >= 1 && n < 4;
+        const arr = playersByReservation.get(r.id) ?? [];
+        return arr.length >= 1 && arr.length < 4;
+      })
+      .filter((r) => {
+        const arr = playersByReservation.get(r.id) ?? [];
+        return !arr.some((player) => player.member_user_id === currentUserId);
       }).length;
 
     setOpenMatchesCount(count);
