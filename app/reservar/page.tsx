@@ -40,6 +40,12 @@ type BlockRow = {
   reason: string;
 };
 
+type SupabaseLikeError = {
+  message?: string | null;
+  details?: string | null;
+  code?: string | null;
+};
+
 function todayISO() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -106,6 +112,40 @@ const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
+}
+
+function getReservationPlayersErrorMessage(error: SupabaseLikeError | null | undefined) {
+  const message = (error?.message ?? "").toUpperCase();
+  const details = (error?.details ?? "").toUpperCase();
+
+  if (
+    message.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
+    details.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
+    details.includes("YA ESTÁ APUNTADO EN OTRA PISTA PARA EL MISMO DÍA Y HORA") ||
+    details.includes("MISMO DÍA Y HORA")
+  ) {
+    return "Este socio ya tiene una reserva en otra pista a esta misma hora.";
+  }
+
+  if (
+    message.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION") ||
+    details.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION")
+  ) {
+    return "Ese socio ya está apuntado en esta partida.";
+  }
+
+  if (
+    message.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION") ||
+    details.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION")
+  ) {
+    return "Ese hueco acaba de ocuparse. Actualiza e inténtalo de nuevo.";
+  }
+
+  if (message.includes("DUPLICATE KEY")) {
+    return "No se ha podido guardar porque ese hueco ya no está disponible.";
+  }
+
+  return error?.message || "No se ha podido completar la operación.";
 }
 
 function Badge({
@@ -258,6 +298,19 @@ export default function ReservarPage() {
         window.scrollTo({ top: y, behavior: "auto" });
       });
     });
+  }
+
+  async function findReservationBySlot(slotStart: string, courtId: number) {
+    const res = await supabase
+      .from("reservations_public")
+      .select("id,date,slot_start,slot_end,court_id")
+      .eq("date", date)
+      .eq("slot_start", slotStart)
+      .eq("court_id", courtId)
+      .maybeSingle();
+
+    if (res.error || !res.data) return null;
+    return res.data as ReservationRow;
   }
 
   async function loadDay() {
@@ -568,16 +621,18 @@ export default function ReservarPage() {
         .single();
 
       if (ins.error) {
-        const errMsg = ins.error.message ?? "";
+        const errMsg = (ins.error.message ?? "").toLowerCase();
+
         if (
-          errMsg.toLowerCase().includes("duplicate key") ||
-          errMsg.toLowerCase().includes("uq_reservation_unique")
+          errMsg.includes("duplicate key") ||
+          errMsg.includes("uq_reservation_unique")
         ) {
           await loadDay();
-          const nowExisting = reservationByKey.get(`${slotStart}-${courtId}`);
+          const nowExisting = await findReservationBySlot(slotStart, courtId);
           if (nowExisting) setExpandedResId(nowExisting.id);
           return;
         }
+
         setMsg(ins.error.message);
         return;
       }
@@ -591,9 +646,9 @@ export default function ReservarPage() {
       });
 
       if (playerIns.error) {
-        setMsg(playerIns.error.message);
+        await supabase.from("reservations").delete().eq("id", createdReservationId);
         await loadDay();
-        setExpandedResId(createdReservationId);
+        setMsg(getReservationPlayersErrorMessage(playerIns.error));
         return;
       }
 
@@ -640,7 +695,7 @@ export default function ReservarPage() {
       });
 
       if (ins.error) {
-        setMsg(ins.error.message);
+        setMsg(getReservationPlayersErrorMessage(ins.error));
         ok = false;
         return;
       }
@@ -818,7 +873,7 @@ export default function ReservarPage() {
         <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
           <div className="space-y-3">
             <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-              Reservar
+              Reservar pista
             </div>
 
             <div className="overflow-x-auto -mx-1 px-1">

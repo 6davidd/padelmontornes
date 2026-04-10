@@ -33,6 +33,12 @@ type CourtRow = {
   name: string;
 };
 
+type SupabaseLikeError = {
+  message?: string | null;
+  details?: string | null;
+  code?: string | null;
+};
+
 function todayISO() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -101,6 +107,40 @@ function slotIsStillOpen(r: ReservationRow) {
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
+}
+
+function getReservationPlayersErrorMessage(error: SupabaseLikeError | null | undefined) {
+  const message = (error?.message ?? "").toUpperCase();
+  const details = (error?.details ?? "").toUpperCase();
+
+  if (
+    message.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
+    details.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
+    details.includes("YA ESTÁ APUNTADO EN OTRA PISTA PARA EL MISMO DÍA Y HORA") ||
+    details.includes("MISMO DÍA Y HORA")
+  ) {
+    return "Ya tienes una reserva en otra pista a esta misma hora.";
+  }
+
+  if (
+    message.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION") ||
+    details.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION")
+  ) {
+    return "Ya estás apuntado en esta partida.";
+  }
+
+  if (
+    message.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION") ||
+    details.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION")
+  ) {
+    return "Ese hueco acaba de ocuparse. Actualiza e inténtalo de nuevo.";
+  }
+
+  if (message.includes("DUPLICATE KEY")) {
+    return "No se ha podido guardar porque ese hueco ya no está disponible.";
+  }
+
+  return error?.message || "No se ha podido completar la operación.";
 }
 
 function Badge({
@@ -347,7 +387,7 @@ export default function PartidasAbiertasPage() {
       });
 
       if (ins.error) {
-        setMsg(ins.error.message);
+        setMsg(getReservationPlayersErrorMessage(ins.error));
         return;
       }
 

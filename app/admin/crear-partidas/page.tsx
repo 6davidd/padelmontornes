@@ -128,6 +128,34 @@ function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function getCreateMatchErrorMessage(rawError: unknown) {
+  const text =
+    typeof rawError === "string"
+      ? rawError
+      : rawError instanceof Error
+      ? rawError.message
+      : "No se ha podido crear la partida.";
+
+  const upper = text.toUpperCase();
+
+  if (
+    upper.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
+    upper.includes("MISMO DÍA Y HORA")
+  ) {
+    return "Uno de los socios seleccionados ya tiene una reserva en otra pista a esa misma hora.";
+  }
+
+  if (upper.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION")) {
+    return "Uno de los socios ya estaba añadido en esta partida.";
+  }
+
+  if (upper.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION")) {
+    return "Uno de los huecos ya no está disponible. Recarga e inténtalo de nuevo.";
+  }
+
+  return text;
+}
+
 function Badge({
   children,
   tone = "neutral",
@@ -516,7 +544,7 @@ export default function AdminCrearPartidasPage() {
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        setMsg(data?.error || "No se ha podido crear la partida.");
+        setMsg(getCreateMatchErrorMessage(data?.error));
         setCreating(false);
         return;
       }
@@ -531,7 +559,7 @@ export default function AdminCrearPartidasPage() {
       setCreating(false);
       closeCreateModal();
     } catch (error) {
-      setMsg(error instanceof Error ? error.message : "Error inesperado.");
+      setMsg(getCreateMatchErrorMessage(error));
       setCreating(false);
     }
   }
