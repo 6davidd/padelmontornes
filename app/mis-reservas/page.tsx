@@ -326,7 +326,15 @@ export default function MisReservasPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
           <div className="space-y-3">
-            <div className="text-sm font-semibold text-gray-900">Ver</div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                Mis reservas
+              </div>
+
+              <div className="rounded-full bg-green-50 border border-green-200 px-3 py-1 text-sm font-semibold text-green-800 min-w-[38px] text-center">
+                {totalCount}
+              </div>
+            </div>
 
             <div className="overflow-x-auto -mx-1 px-1">
               <div className="flex gap-2 min-w-max">
