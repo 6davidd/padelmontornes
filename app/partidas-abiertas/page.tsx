@@ -33,10 +33,6 @@ type CourtRow = {
   name: string;
 };
 
-function toHM(t: string) {
-  return t?.length >= 5 ? t.slice(0, 5) : t;
-}
-
 function todayISO() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -93,15 +89,8 @@ function getRelativeDayLabel(dateISO: string) {
   return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
-function formatDatePretty(iso: string) {
-  const d = new Date(`${iso}T12:00:00`);
-  return d
-    .toLocaleDateString("es-ES", {
-      weekday: "short",
-      day: "2-digit",
-      month: "2-digit",
-    })
-    .replace(",", "");
+function toHM(t: string) {
+  return t?.length >= 5 ? t.slice(0, 5) : t;
 }
 
 function slotIsStillOpen(r: ReservationRow) {
@@ -134,42 +123,6 @@ function Badge({
   );
 }
 
-function Modal({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        className="absolute inset-0 bg-black/30"
-        onClick={onClose}
-        aria-label="Cerrar"
-      />
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-lg font-semibold text-gray-900">{title}</div>
-          <button
-            onClick={onClose}
-            className="text-sm font-semibold text-gray-700 hover:text-gray-900"
-          >
-            Cerrar
-          </button>
-        </div>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 export default function PartidasAbiertasPage() {
   const [date, setDate] = useState(todayISO());
 
@@ -180,7 +133,6 @@ export default function PartidasAbiertasPage() {
 
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
-  const [openResId, setOpenResId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const visibleDays = useMemo(() => getVisibleDays(), []);
@@ -193,13 +145,9 @@ export default function PartidasAbiertasPage() {
     return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
   }, [date, isSunday]);
 
-  const openReservation = useMemo(() => {
-    if (!openResId) return null;
-    return reservations.find((r) => r.id === openResId) ?? null;
-  }, [openResId, reservations]);
-
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
+
     for (const p of players) {
       const arr = m.get(p.reservation_id) ?? [];
       arr.push({
@@ -209,10 +157,12 @@ export default function PartidasAbiertasPage() {
       });
       m.set(p.reservation_id, arr);
     }
+
     for (const [k, arr] of m.entries()) {
       arr.sort((a, b) => a.seat - b.seat);
       m.set(k, arr);
     }
+
     return m;
   }, [players, membersMap]);
 
@@ -220,37 +170,48 @@ export default function PartidasAbiertasPage() {
     return reservations
       .map((r) => {
         const arr = playersByReservation.get(r.id) ?? [];
+        const alreadyIn =
+          !!currentUserId && arr.some((player) => player.userId === currentUserId);
+
         return {
           ...r,
           playersCount: arr.length,
           playersList: arr,
+          alreadyIn,
         };
       })
-      .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
-      .filter(slotIsStillOpen)
       .filter((r) => r.date === date)
+      .filter(slotIsStillOpen)
+      .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
+      .filter((r) => !r.alreadyIn)
       .sort((a, b) => {
         const ad = new Date(`${a.date}T${toHM(a.slot_start)}:00`).getTime();
         const bd = new Date(`${b.date}T${toHM(b.slot_start)}:00`).getTime();
         if (ad !== bd) return ad - bd;
         return a.court_id - b.court_id;
       });
-  }, [reservations, playersByReservation, date]);
+  }, [reservations, playersByReservation, currentUserId, date]);
 
   const totalOpenMatchesAllVisibleDays = useMemo(() => {
     const visibleSet = new Set(visibleDays);
+
     return reservations
       .map((r) => {
         const arr = playersByReservation.get(r.id) ?? [];
+        const alreadyIn =
+          !!currentUserId && arr.some((player) => player.userId === currentUserId);
+
         return {
           ...r,
           playersCount: arr.length,
+          alreadyIn,
         };
       })
       .filter((r) => visibleSet.has(r.date))
+      .filter(slotIsStillOpen)
       .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
-      .filter(slotIsStillOpen).length;
-  }, [reservations, playersByReservation, visibleDays]);
+      .filter((r) => !r.alreadyIn).length;
+  }, [reservations, playersByReservation, visibleDays, currentUserId]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -356,10 +317,12 @@ export default function PartidasAbiertasPage() {
   async function getUserIdOrMsg() {
     const { data } = await supabase.auth.getUser();
     const user = data.user;
+
     if (!user) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
       return null;
     }
+
     return user.id;
   }
 
@@ -399,6 +362,7 @@ export default function PartidasAbiertasPage() {
     const alreadyIn = (playersByReservation.get(resId) ?? []).some(
       (x) => x.userId === userId
     );
+
     if (alreadyIn) {
       setMsg("Ya estás apuntado en esta partida.");
       return;
@@ -413,52 +377,51 @@ export default function PartidasAbiertasPage() {
     }
 
     await joinSeat(resId, freeSeat, userId);
-    setOpenResId(resId);
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
               <div className="text-2xl sm:text-3xl font-bold text-gray-900">
                 Partidas abiertas
               </div>
+
+              <div className="rounded-full bg-green-50 border border-green-200 px-3 py-1 text-sm font-semibold text-green-800 min-w-[38px] text-center">
+                {totalOpenMatchesAllVisibleDays}
+              </div>
             </div>
 
-            <div className="rounded-full bg-green-50 border border-green-200 px-3 py-1 text-sm font-semibold text-green-800 min-w-[38px] text-center">
-              {totalOpenMatchesAllVisibleDays}
-            </div>
-          </div>
+            <div className="overflow-x-auto -mx-1 px-1">
+              <div className="flex gap-2 min-w-max">
+                {visibleDays.map((day) => {
+                  const selected = day === date;
+                  const sunday = isSundayISO(day);
 
-          <div className="mt-4 overflow-x-auto -mx-1 px-1">
-            <div className="flex gap-2 min-w-max">
-              {visibleDays.map((day) => {
-                const selected = day === date;
-                const sunday = isSundayISO(day);
-
-                return (
-                  <button
-                    key={day}
-                    onClick={() => setDate(day)}
-                    className={classNames(
-                      "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
-                      selected
-                        ? "text-white border-transparent"
-                        : sunday
-                        ? "bg-red-50 border-red-200 text-red-800"
-                        : "bg-white border-gray-300 text-gray-900"
-                    )}
-                    style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
-                  >
-                    <div className="text-xs font-semibold">
-                      {getRelativeDayLabel(day)}
-                    </div>
-                    <div className="text-sm">{formatDayChip(day)}</div>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => setDate(day)}
+                      className={classNames(
+                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                        selected
+                          ? "text-white border-transparent"
+                          : sunday
+                          ? "bg-red-50 border-red-200 text-red-800"
+                          : "bg-white border-gray-300 text-gray-900"
+                      )}
+                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
+                    >
+                      <div className="text-xs font-semibold">
+                        {getRelativeDayLabel(day)}
+                      </div>
+                      <div className="text-sm">{formatDayChip(day)}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -486,7 +449,7 @@ export default function PartidasAbiertasPage() {
               No hay partidas abiertas
             </div>
             <div className="mt-2 text-sm text-gray-600">
-              No hay ninguna partida abierta para {formatDatePretty(date)}.
+              No hay ninguna partida abierta para ese día.
             </div>
           </div>
         ) : (
@@ -523,10 +486,6 @@ export default function PartidasAbiertasPage() {
                           const courtName =
                             courtsMap.get(match.court_id) ?? `Pista ${match.court_id}`;
 
-                          const alreadyIn =
-                            !!currentUserId &&
-                            match.playersList.some((p) => p.userId === currentUserId);
-
                           return (
                             <div
                               key={match.id}
@@ -540,43 +499,40 @@ export default function PartidasAbiertasPage() {
                                     </div>
 
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                                      <Badge tone="neutral">
-                                        {formatDatePretty(match.date)}
-                                      </Badge>
                                       <Badge tone="green">
-                                        {match.playersCount}/4
+                                        Abierta · {match.playersCount}/4
                                       </Badge>
-                                    </div>
-
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                      {match.playersList.map((p) => (
-                                        <span
-                                          key={`${match.id}-${p.userId}`}
-                                          className="inline-flex items-center rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-sm text-gray-700"
-                                        >
-                                          {p.name}
-                                        </span>
-                                      ))}
                                     </div>
                                   </div>
 
-                                  <div className="shrink-0 flex items-center gap-2">
-                                    {alreadyIn && (
-                                      <span
-                                        title="Estás apuntado"
-                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-green-200 bg-green-50 text-lg"
-                                      >
-                                        🎾
-                                      </span>
-                                    )}
-
+                                  <div className="shrink-0">
                                     <button
-                                      onClick={() => setOpenResId(match.id)}
+                                      onClick={() => joinMe(match.id)}
                                       className="rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
                                       style={{ backgroundColor: CLUB_GREEN }}
                                     >
-                                      Ver
+                                      Unirme
                                     </button>
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 border-t border-gray-200 pt-4">
+                                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+                                    <div className="text-sm font-semibold text-gray-900">
+                                      Jugadores
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                      {match.playersList.map((player) => (
+                                        <div
+                                          key={`${match.id}-${player.seat}-${player.userId}`}
+                                          className="flex items-center gap-2 text-[15px] text-gray-800"
+                                        >
+                                          <span className="text-lg leading-none">🎾</span>
+                                          <span>{player.name}</span>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -591,63 +547,6 @@ export default function PartidasAbiertasPage() {
           </div>
         )}
       </div>
-
-      <Modal
-        open={!!openResId && !!openReservation}
-        onClose={() => setOpenResId(null)}
-        title={
-          openReservation
-            ? `${formatDatePretty(openReservation.date)} · ${toHM(
-                openReservation.slot_start
-              )}–${toHM(openReservation.slot_end)} · ${
-                courtsMap.get(openReservation.court_id) ??
-                `Pista ${openReservation.court_id}`
-              }`
-            : "Partida"
-        }
-      >
-        {openReservation && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map((seat) => {
-                const arr = playersByReservation.get(openReservation.id) ?? [];
-                const occ = arr.find((x) => x.seat === seat);
-
-                return (
-                  <div
-                    key={seat}
-                    className={classNames(
-                      "rounded-2xl border border-gray-300 p-4 shadow-sm",
-                      occ ? "bg-white" : "bg-gray-50"
-                    )}
-                  >
-                    <div className="text-base font-semibold text-gray-900">
-                      {occ ? occ.name : "Libre"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {currentUserId &&
-            (playersByReservation.get(openReservation.id) ?? []).some(
-              (x) => x.userId === currentUserId
-            ) ? (
-              <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800 text-center">
-                Ya estás apuntado en esta partida
-              </div>
-            ) : (
-              <button
-                onClick={() => joinMe(openReservation.id)}
-                className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                style={{ backgroundColor: CLUB_GREEN }}
-              >
-                Unirme
-              </button>
-            )}
-          </div>
-        )}
-      </Modal>
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-3xl mx-auto">
