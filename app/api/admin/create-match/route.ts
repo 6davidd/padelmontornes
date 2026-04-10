@@ -82,13 +82,15 @@ function toHM(t: string) {
   return t?.length >= 5 ? t.slice(0, 5) : t;
 }
 
-async function sendBookingCreatedEmail(params: {
+async function sendAdminOpenedMatchEmail(params: {
   to: string;
   fullName?: string;
+  openedByName?: string;
   date: string;
   slotStart: string;
   slotEnd: string;
   courtName: string;
+  players: string[];
 }) {
   const appUrl =
     process.env.APP_URL ||
@@ -102,17 +104,19 @@ async function sendBookingCreatedEmail(params: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        type: "booking_created",
+        type: "admin_opened_match",
         to: params.to,
         fullName: params.fullName ?? "",
+        openedByName: params.openedByName ?? "",
         date: params.date,
         slotStart: params.slotStart,
         slotEnd: params.slotEnd,
         courtName: params.courtName,
+        players: params.players,
       }),
     });
   } catch (error) {
-    console.error("Error enviando email de reserva creada:", error);
+    console.error("Error enviando email de partida creada por admin:", error);
   }
 }
 
@@ -180,7 +184,7 @@ export async function POST(req: Request) {
 
     const meRes = await supabaseAdmin
       .from("members")
-      .select("user_id,role,is_active")
+      .select("user_id,role,is_active,full_name,alias")
       .eq("user_id", user.id)
       .single();
 
@@ -197,6 +201,8 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
+
+    const adminDisplayName = getDisplayName(meRes.data);
 
     const body = (await req.json()) as Body;
 
@@ -456,22 +462,24 @@ export async function POST(req: Request) {
       .map((userId) => members.find((member) => member.user_id === userId))
       .filter(Boolean) as MemberRow[];
 
+    const playerNames = orderedMembers.map((member) => getDisplayName(member));
+
     for (const member of orderedMembers) {
       if (!member.email) continue;
 
-      await sendBookingCreatedEmail({
+      await sendAdminOpenedMatchEmail({
         to: member.email,
         fullName: getDisplayName(member),
+        openedByName: adminDisplayName,
         date,
         slotStart: toHM(slotStart),
         slotEnd: toHM(slotEnd),
         courtName: court.name,
+        players: playerNames,
       });
     }
 
     if (orderedMembers.length === 4) {
-      const playerNames = orderedMembers.map((member) => getDisplayName(member));
-
       for (const member of orderedMembers) {
         if (!member.email) continue;
 

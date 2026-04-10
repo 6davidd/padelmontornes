@@ -2,13 +2,18 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-type EmailType = "booking_created" | "added_to_match" | "match_completed";
+type EmailType =
+  | "booking_created"
+  | "added_to_match"
+  | "match_completed"
+  | "admin_opened_match";
 
 type Body = {
   type: EmailType;
   to: string;
   fullName?: string;
   addedByName?: string;
+  openedByName?: string;
   date: string;
   slotStart: string;
   slotEnd: string;
@@ -187,6 +192,7 @@ export async function POST(req: Request) {
       to,
       fullName = "",
       addedByName = "",
+      openedByName = "",
       date,
       slotStart,
       slotEnd,
@@ -242,6 +248,28 @@ export async function POST(req: Request) {
           ${infoRow("Pista", courtName)}
         `,
         footer: "Revisa la app cuando quieras para ver cómo va quedando la partida.",
+      });
+    }
+
+    if (type === "admin_opened_match") {
+      subject = openedByName
+        ? `🎾 ${openedByName} ha abierto una partida para ti`
+        : `🎾 Han abierto una partida para ti`;
+
+      html = emailShell({
+        preheader: "Han abierto una partida para ti en el club.",
+        title: "Han abierto una partida para ti 🎾",
+        badge: `${players.length || 1}/4 jugadores`,
+        intro: openedByName
+          ? `Hola${helloName}. <strong>${esc(openedByName)}</strong> ha abierto una partida para ti.`
+          : `Hola${helloName}. Han abierto una partida para ti en el club.`,
+        detailsHtml: `
+          ${infoRow("Fecha", date)}
+          ${infoRow("Horario", schedule)}
+          ${infoRow("Pista", courtName)}
+        `,
+        extraHtml: renderPlayersChips(players),
+        footer: "Ya puedes entrar en la app para verla y seguir cómo va quedando la partida.",
       });
     }
 
