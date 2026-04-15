@@ -1,30 +1,174 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import type { EmailOtpType } from "@supabase/supabase-js";
+import { useRouter, useSearchParams } from "next/navigation";
+import PasswordField from "@/app/_components/PasswordField";
+import { syncSessionCookies } from "@/lib/auth-client";
+import { resetCachedCurrentMember } from "@/lib/client-current-member";
+import { setCachedClientSession } from "@/lib/client-session";
+import {
+  AUTH_PASSWORD_MIN_LENGTH,
+  clearBrowserAuthArtifacts,
+  getFriendlyPasswordLinkError,
+  isPasswordSetupOtpType,
+  readBrowserAuthLinkState,
+} from "@/lib/auth-link";
 import { supabase } from "../../lib/supabase";
-import { useRouter } from "next/navigation";
 
 const CLUB_GREEN = "#0f5e2e";
 
+async function waitForClientSession(maxAttempts = 12, delayMs = 150) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      return data.session;
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+  }
+
+  return null;
+}
+
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [checkingLink, setCheckingLink] = useState(true);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    let alive = true;
+
+    async function preparePasswordFlow() {
+      setCheckingLink(true);
+      setMsg(null);
+
+      const authLink = readBrowserAuthLinkState();
+      const errorMessage =
+        authLink?.errorDescription || authLink?.errorCode || null;
+
+      if (errorMessage) {
+        if (alive) {
+          setReady(false);
+          setMsg(getFriendlyPasswordLinkError(errorMessage));
+          setCheckingLink(false);
+        }
+        return;
+      }
+
+      if (authLink?.code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(
+          authLink.code
+        );
+
+        if (!alive) {
+          return;
+        }
+
+        if (error || !data.session) {
+          setReady(false);
+          setMsg(getFriendlyPasswordLinkError(error?.message));
+          setCheckingLink(false);
+          return;
+        }
+
+        resetCachedCurrentMember();
+        setCachedClientSession(data.session);
+        syncSessionCookies(data.session);
+        clearBrowserAuthArtifacts();
+        setReady(true);
+        setCheckingLink(false);
+        return;
+      }
+
+      if (authLink?.tokenHash && isPasswordSetupOtpType(authLink.type)) {
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: authLink.tokenHash,
+          type: authLink.type as Extract<EmailOtpType, "invite" | "recovery">,
+        });
+
+        if (!alive) {
+          return;
+        }
+
+        if (error || !data.session) {
+          setReady(false);
+          setMsg(getFriendlyPasswordLinkError(error?.message));
+          setCheckingLink(false);
+          return;
+        }
+
+        resetCachedCurrentMember();
+        setCachedClientSession(data.session);
+        syncSessionCookies(data.session);
+        clearBrowserAuthArtifacts();
+        setReady(true);
+        setCheckingLink(false);
+        return;
+      }
+
+      const session = await waitForClientSession();
+
+      if (!alive) {
+        return;
+      }
+
+      if (session) {
+        resetCachedCurrentMember();
+        setCachedClientSession(session);
+        syncSessionCookies(session);
+
+        if (authLink?.hasSessionTokensInHash || authLink?.hasPasswordSetupContext) {
+          clearBrowserAuthArtifacts();
+        }
+
+        setReady(true);
+        setCheckingLink(false);
+        return;
+      }
+
+      setReady(false);
+      setMsg(getFriendlyPasswordLinkError(null));
+      setCheckingLink(false);
+    }
+
+    preparePasswordFlow();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setMsg(null);
 
-    if (password.length < 6) {
-      setMsg("La contraseña debe tener al menos 6 caracteres.");
+    if (!password) {
+      setMsg("La nueva contrasena es obligatoria.");
+      return;
+    }
+
+    if (!password2) {
+      setMsg("Repite la contrasena para continuar.");
+      return;
+    }
+
+    if (password.length < AUTH_PASSWORD_MIN_LENGTH) {
+      setMsg(
+        `La contrasena debe tener al menos ${AUTH_PASSWORD_MIN_LENGTH} caracteres.`
+      );
       return;
     }
 
     if (password !== password2) {
-      setMsg("Las contraseñas no coinciden.");
+      setMsg("Las contrasenas no coinciden.");
       return;
     }
 
@@ -37,64 +181,104 @@ export default function ResetPasswordPage() {
     setLoading(false);
 
     if (error) {
-      setMsg(error.message);
+      setMsg(getFriendlyPasswordLinkError(error.message));
       return;
     }
 
-    router.push("/login");
+    const session = await waitForClientSession(4, 100);
+    resetCachedCurrentMember();
+    setCachedClientSession(session);
+    syncSessionCookies(session);
+
+    const nextPath = searchParams.get("next") || "/";
+    router.replace(nextPath);
+    router.refresh();
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-md mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="bg-white border border-gray-300 rounded-3xl p-6 sm:p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900">Nueva contraseña</h1>
+      <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
+        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Crear contrasena
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Escribe tu nueva contraseña para poder entrar en la app.
+            Elige una contrasena facil de recordar. Cuando la guardes entraras
+            directamente en la app.
           </p>
 
           {msg && (
-            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
 
-          <form onSubmit={onSubmit} className="mt-5 space-y-5">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-900">Nueva contraseña</label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
+          {checkingLink ? (
+            <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <p className="text-sm text-gray-700">
+                Estamos comprobando tu enlace para abrir la pantalla de
+                contrasena.
+              </p>
+            </div>
+          ) : ready ? (
+            <form onSubmit={onSubmit} className="mt-5 space-y-5">
+              <PasswordField
+                label="Nueva contrasena"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-900">Repetir contraseña</label>
-              <input
-                type="password"
+                onChange={setPassword}
                 autoComplete="new-password"
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
-                value={password2}
-                onChange={(e) => setPassword2(e.target.value)}
-                placeholder="••••••••"
+                placeholder="********"
                 required
+                disabled={loading}
               />
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm active:scale-[0.99] transition disabled:opacity-60"
-              style={{ backgroundColor: CLUB_GREEN }}
-            >
-              {loading ? "Guardando…" : "Guardar contraseña"}
-            </button>
-          </form>
+              <p className="-mt-2 text-xs text-gray-500">
+                Usa al menos {AUTH_PASSWORD_MIN_LENGTH} caracteres.
+              </p>
+
+              <PasswordField
+                label="Repetir contrasena"
+                value={password2}
+                onChange={setPassword2}
+                autoComplete="new-password"
+                placeholder="********"
+                required
+                disabled={loading}
+              />
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+                style={{ backgroundColor: CLUB_GREEN }}
+              >
+                {loading ? "Guardando..." : "Guardar contrasena"}
+              </button>
+            </form>
+          ) : (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm text-gray-700">
+                  Si necesitas otro enlace, puedes pedirlo ahora mismo.
+                </p>
+              </div>
+
+              <Link
+                href="/forgot-password"
+                className="block w-full rounded-2xl py-3.5 text-center font-semibold text-white shadow-sm transition active:scale-[0.99]"
+                style={{ backgroundColor: CLUB_GREEN }}
+              >
+                Pedir nuevo enlace
+              </Link>
+
+              <Link
+                href="/login"
+                className="block w-full rounded-2xl border border-gray-300 bg-white py-3.5 text-center font-semibold text-gray-900 shadow-sm transition active:scale-[0.99]"
+              >
+                Volver al login
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

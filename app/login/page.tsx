@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import PasswordField from "@/app/_components/PasswordField";
 import { syncSessionCookies } from "@/lib/auth-client";
-import { setCachedClientSession } from "@/lib/client-session";
 import { resetCachedCurrentMember } from "@/lib/client-current-member";
+import { setCachedClientSession } from "@/lib/client-session";
+import { readBrowserAuthLinkState } from "@/lib/auth-link";
+import { supabase } from "../../lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -16,12 +18,27 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const hasPasswordSetupParams = Boolean(
+    searchParams.get("code") ||
+      searchParams.get("token_hash") ||
+      searchParams.get("type")
+  );
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    const authLink = readBrowserAuthLinkState();
+
+    if (!authLink?.hasPasswordSetupContext) {
+      return;
+    }
+
+    const nextUrl = `/reset-password${window.location.search}${window.location.hash}`;
+    window.location.replace(nextUrl);
+  }, []);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setMsg(null);
     setLoading(true);
 
@@ -33,7 +50,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      setMsg("Email o contraseña incorrectos.");
+      setMsg("Email o contrasena incorrectos.");
       return;
     }
 
@@ -46,12 +63,27 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  if (hasPasswordSetupParams) {
+    return (
+      <div className="min-h-[calc(100vh-56px)] bg-gray-50">
+        <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
+          <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
+            <h1 className="text-2xl font-bold text-gray-900">Un momento...</h1>
+            <p className="mt-2 text-sm text-gray-600">
+              Te estamos llevando a la pantalla para crear tu contrasena.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[calc(100vh-56px)] bg-gray-50">
-      <div className="max-w-md mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="bg-white border border-gray-300 rounded-3xl p-6 sm:p-8 shadow-sm">
+      <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
+        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
           {msg && (
-            <div className="mb-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mb-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
@@ -63,34 +95,32 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 inputMode="email"
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
+                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-green-200"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 placeholder="tu@email.com"
                 required
+                disabled={loading}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-900">Contraseña</label>
-              <input
-                type="password"
-                autoComplete="current-password"
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
+            <PasswordField
+              label="Contrasena"
+              value={password}
+              onChange={setPassword}
+              autoComplete="current-password"
+              placeholder="********"
+              required
+              disabled={loading}
+            />
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm active:scale-[0.99] transition disabled:opacity-60"
+              className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
               style={{ backgroundColor: CLUB_GREEN }}
             >
-              {loading ? "Entrando…" : "Entrar"}
+              {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
 
@@ -100,10 +130,10 @@ export default function LoginPage() {
               className="text-sm font-semibold hover:underline"
               style={{ color: CLUB_GREEN }}
             >
-              ¿Has olvidado tu contraseña?
+              Has olvidado tu contrasena?
             </Link>
             <p className="mt-2 text-xs text-gray-500">
-              Si es tu primera vez, usa también esta opción.
+              Si no recuerdas tu contrasena, desde ahi podras crear una nueva.
             </p>
           </div>
         </div>

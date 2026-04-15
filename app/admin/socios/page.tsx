@@ -19,6 +19,12 @@ type MemberRow = {
   role: MemberRole;
 };
 
+type CreateMemberResponse = {
+  ok?: boolean;
+  error?: string;
+  userId?: string;
+};
+
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -67,7 +73,7 @@ function buildWhatsappMessage(params: {
   fullName: string;
   email: string;
 }) {
-  const { fullName, email } = params;
+  const { email } = params;
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -319,7 +325,7 @@ export default function AdminSociosPage() {
 
       const rawText = await res.text();
 
-      let data: any = null;
+      let data: CreateMemberResponse | null = null;
       try {
         data = rawText ? JSON.parse(rawText) : null;
       } catch {
@@ -346,7 +352,9 @@ export default function AdminSociosPage() {
       setNewAlias("");
       setNewRole("member");
       setCreating(false);
-      setOk("Socio creado correctamente. Se ha enviado el acceso por email.");
+      setOk(
+        "Socio creado correctamente. Se ha enviado un email para crear la contrasena."
+      );
       await loadMembers();
     } catch (error) {
       setMsg(error instanceof Error ? error.message : "Error inesperado.");

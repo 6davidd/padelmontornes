@@ -10,9 +10,10 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [msgTone, setMsgTone] = useState<"error" | "success">("success");
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setMsg(null);
     setLoading(true);
 
@@ -28,25 +29,44 @@ export default function ForgotPasswordPage() {
     setLoading(false);
 
     if (error) {
+      setMsgTone("error");
       setMsg(error.message);
       return;
     }
 
-    setMsg("Te hemos enviado un correo para cambiar tu contraseña.");
+    setMsgTone("success");
+    setMsg(
+      "Te hemos enviado un correo con un enlace para crear o cambiar tu contrasena."
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-md mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="bg-white border border-gray-300 rounded-3xl p-6 sm:p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900">Recuperar contraseña</h1>
+      <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
+        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Recuperar contrasena
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Introduce tu email y te enviaremos un enlace para crear o cambiar tu contraseña.
+            Introduce tu email y te enviaremos un enlace para crear o cambiar tu
+            contrasena. Al abrirlo llegaras directamente a esa pantalla.
           </p>
 
           {msg && (
-            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
-              <p className="text-sm text-yellow-900">{msg}</p>
+            <div
+              className={`mt-4 rounded-2xl border p-4 ${
+                msgTone === "error"
+                  ? "border-yellow-300 bg-yellow-50"
+                  : "border-green-200 bg-green-50"
+              }`}
+            >
+              <p
+                className={`text-sm ${
+                  msgTone === "error" ? "text-yellow-900" : "text-green-900"
+                }`}
+              >
+                {msg}
+              </p>
             </div>
           )}
 
@@ -57,21 +77,22 @@ export default function ForgotPasswordPage() {
                 type="email"
                 autoComplete="email"
                 inputMode="email"
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
+                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-green-200"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 placeholder="tu@email.com"
                 required
+                disabled={loading}
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm active:scale-[0.99] transition disabled:opacity-60"
+              className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
               style={{ backgroundColor: CLUB_GREEN }}
             >
-              {loading ? "Enviando…" : "Enviar enlace"}
+              {loading ? "Enviando..." : "Enviar enlace"}
             </button>
           </form>
 

@@ -119,13 +119,15 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_APP_URL ||
       "http://localhost:3000";
 
+    const redirectTo = new URL("/reset-password", appUrl).toString();
+
     const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: {
         full_name: fullName,
         alias,
         role,
       },
-      redirectTo: `${appUrl}/login`,
+      redirectTo,
     });
 
     if (inviteRes.error || !inviteRes.data.user) {
