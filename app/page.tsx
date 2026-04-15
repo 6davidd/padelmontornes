@@ -1,23 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getClientUser, setCachedClientSession } from "@/lib/client-session";
+import { useRouter } from "next/navigation";
+import { supabase } from "../lib/supabase";
+import { setCachedClientSession } from "@/lib/client-session";
+import {
+  getCurrentMember,
+  resetCachedCurrentMember,
+} from "@/lib/client-current-member";
 import { getDisplayName } from "../lib/display-name";
 import { syncSessionCookies } from "@/lib/auth-client";
 
 const CLUB_GREEN = "#0f5e2e";
-
-type MemberRole = "member" | "admin" | "superadmin";
-
-type MemberRow = {
-  role: MemberRole;
-  is_active: boolean;
-  full_name: string;
-  alias?: string | null;
-};
 
 type ReservationRow = {
   id: string;
@@ -35,8 +30,8 @@ type PlayerRow = {
 
 function Arrow() {
   return (
-    <span className="text-lg opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition">
-      →
+    <span className="text-lg opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100">
+      -&gt;
     </span>
   );
 }
@@ -53,15 +48,15 @@ function TileLink({
   return (
     <Link
       href={href}
-      className="group bg-white rounded-3xl shadow-sm ring-1 ring-black/5 px-5 py-4 hover:bg-gray-50 hover:ring-black/10 transition active:scale-[0.99] flex items-center justify-between gap-3"
+      className="group flex items-center justify-between gap-3 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5 transition hover:bg-gray-50 hover:ring-black/10 active:scale-[0.99]"
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <span className="text-base sm:text-lg font-semibold text-gray-900">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="text-base font-semibold text-gray-900 sm:text-lg">
           {title}
         </span>
 
         {typeof badge === "number" && (
-          <span className="inline-flex items-center justify-center min-w-[32px] h-8 rounded-full bg-green-50 border border-green-200 px-2 text-sm font-semibold text-green-800">
+          <span className="inline-flex h-8 min-w-[32px] items-center justify-center rounded-full border border-green-200 bg-green-50 px-2 text-sm font-semibold text-green-800">
             {badge}
           </span>
         )}
@@ -82,10 +77,10 @@ function TileButton({
   variant?: "solid" | "light";
 }) {
   const base =
-    "group w-full rounded-3xl px-5 py-4 shadow-sm transition active:scale-[0.99] flex items-center justify-between";
+    "group flex w-full items-center justify-between rounded-3xl px-5 py-4 shadow-sm transition active:scale-[0.99]";
 
   const light =
-    "bg-white ring-1 ring-black/5 hover:bg-gray-50 hover:ring-black/10 text-gray-900";
+    "bg-white text-gray-900 ring-1 ring-black/5 hover:bg-gray-50 hover:ring-black/10";
   const solid = "text-white ring-1 ring-black/5 hover:brightness-[0.95]";
 
   return (
@@ -94,7 +89,7 @@ function TileButton({
       className={`${base} ${variant === "light" ? light : solid}`}
       style={variant === "solid" ? { backgroundColor: CLUB_GREEN } : undefined}
     >
-      <span className="text-base sm:text-lg font-semibold">{title}</span>
+      <span className="text-base font-semibold sm:text-lg">{title}</span>
       <Arrow />
     </button>
   );
@@ -102,6 +97,15 @@ function TileButton({
 
 function todayISO() {
   const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function addDaysISO(baseISO: string, days: number) {
+  const d = new Date(`${baseISO}T12:00:00`);
+  d.setDate(d.getDate() + days);
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -122,61 +126,62 @@ export default function HomePage() {
 
   async function loadOpenMatchesCount(currentUserId: string) {
     const today = todayISO();
+    const until = addDaysISO(today, 7);
 
-    const r = await supabase
+    const reservationsRes = await supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
       .gte("date", today)
+      .lte("date", until)
       .order("date", { ascending: true })
       .order("slot_start", { ascending: true });
 
-    if (r.error) {
-      setMsg(r.error.message);
+    if (reservationsRes.error) {
+      setMsg(reservationsRes.error.message);
       return;
     }
 
-    const reservations = (r.data ?? []) as ReservationRow[];
+    const reservations = (reservationsRes.data ?? []) as ReservationRow[];
+    const reservationIds = reservations.map((reservation) => reservation.id);
 
-    const ids = reservations.map((x) => x.id);
-    if (ids.length === 0) {
+    if (reservationIds.length === 0) {
       setOpenMatchesCount(0);
       return;
     }
 
-    const p = await supabase
+    const playersRes = await supabase
       .from("reservation_players")
       .select("reservation_id,seat,member_user_id")
-      .in("reservation_id", ids);
+      .in("reservation_id", reservationIds);
 
-    if (p.error) {
-      setMsg(p.error.message);
+    if (playersRes.error) {
+      setMsg(playersRes.error.message);
       return;
     }
 
-    const players = (p.data ?? []) as PlayerRow[];
-
+    const players = (playersRes.data ?? []) as PlayerRow[];
     const playersByReservation = new Map<string, PlayerRow[]>();
 
-    for (const row of players) {
-      const arr = playersByReservation.get(row.reservation_id) ?? [];
-      arr.push(row);
-      playersByReservation.set(row.reservation_id, arr);
+    for (const player of players) {
+      const list = playersByReservation.get(player.reservation_id) ?? [];
+      list.push(player);
+      playersByReservation.set(player.reservation_id, list);
     }
 
     const now = new Date();
 
     const count = reservations
-      .filter((r) => {
-        const end = new Date(`${r.date}T${toHM(r.slot_end)}:00`);
+      .filter((reservation) => {
+        const end = new Date(`${reservation.date}T${toHM(reservation.slot_end)}:00`);
         return end.getTime() > now.getTime();
       })
-      .filter((r) => {
-        const arr = playersByReservation.get(r.id) ?? [];
-        return arr.length >= 1 && arr.length < 4;
+      .filter((reservation) => {
+        const list = playersByReservation.get(reservation.id) ?? [];
+        return list.length >= 1 && list.length < 4;
       })
-      .filter((r) => {
-        const arr = playersByReservation.get(r.id) ?? [];
-        return !arr.some((player) => player.member_user_id === currentUserId);
+      .filter((reservation) => {
+        const list = playersByReservation.get(reservation.id) ?? [];
+        return !list.some((player) => player.member_user_id === currentUserId);
       }).length;
 
     setOpenMatchesCount(count);
@@ -184,36 +189,22 @@ export default function HomePage() {
 
   useEffect(() => {
     async function init() {
-      const user = await getClientUser();
+      const member = await getCurrentMember();
 
-      if (!user) {
-        setMsg("No se ha podido validar la sesiÃ³n.");
+      if (!member) {
+        setMsg("Tu usuario no esta dado de alta en el club.");
         return;
       }
 
-      const [m] = await Promise.all([
-        supabase
-          .from("members")
-          .select("role,is_active,full_name,alias")
-          .eq("user_id", user.id)
-          .single(),
-        loadOpenMatchesCount(user.id),
-      ]);
-
-      if (m.error || !m.data) {
-        setMsg("Tu usuario no está dado de alta en el club.");
+      if (!member.is_active) {
+        setMsg("Tu usuario esta desactivado. Contacta con el club.");
         return;
       }
 
-      const row = m.data as MemberRow;
+      setDisplayName(getDisplayName(member));
+      setIsAdmin(member.role === "admin" || member.role === "superadmin");
 
-      if (!row.is_active) {
-        setMsg("Tu usuario está desactivado. Contacta con el club.");
-        return;
-      }
-
-      setDisplayName(getDisplayName(row));
-      setIsAdmin(row.role === "admin" || row.role === "superadmin");
+      await loadOpenMatchesCount(member.user_id);
     }
 
     init();
@@ -221,6 +212,7 @@ export default function HomePage() {
 
   async function logout() {
     await supabase.auth.signOut();
+    resetCachedCurrentMember();
     setCachedClientSession(null);
     syncSessionCookies(null);
     router.replace("/login");
@@ -229,10 +221,10 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6">
-        <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
+      <div className="mx-auto max-w-3xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8">
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
           <h1
-            className="text-3xl sm:text-4xl font-bold"
+            className="text-3xl font-bold sm:text-4xl"
             style={{ color: CLUB_GREEN }}
           >
             Zona socio
@@ -246,13 +238,13 @@ export default function HomePage() {
           </p>
 
           {msg && (
-            <div className="mt-4 rounded-2xl p-4 bg-yellow-50 ring-1 ring-yellow-200">
+            <div className="mt-4 rounded-2xl bg-yellow-50 p-4 ring-1 ring-yellow-200">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TileLink
             href="/partidas-abiertas"
             title="Partidas abiertas"
@@ -264,7 +256,7 @@ export default function HomePage() {
 
           {isAdmin && <TileLink href="/admin" title="Panel de administrador" />}
 
-          <TileButton title="Cerrar sesión" onClick={logout} />
+          <TileButton title="Cerrar sesion" onClick={logout} />
         </div>
       </div>
     </div>

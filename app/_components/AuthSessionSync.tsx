@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { setCachedClientSession } from "@/lib/client-session";
+import { resetCachedCurrentMember } from "@/lib/client-current-member";
 import { supabase } from "@/lib/supabase";
 import { syncSessionCookies } from "@/lib/auth-client";
 
@@ -20,6 +21,7 @@ export default function AuthSessionSync() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      resetCachedCurrentMember();
       setCachedClientSession(session);
       syncSessionCookies(session);
     });

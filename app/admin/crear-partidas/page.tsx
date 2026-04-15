@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getClientSession } from "@/lib/client-session";
+import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 import { getDisplayName } from "../../../lib/display-name";
@@ -308,28 +309,27 @@ export default function AdminCrearPartidasPage() {
 
   useEffect(() => {
     async function init() {
-      const [session, courtsRes, membersRes] = await Promise.all([
-        getClientSession(),
-        supabase.from("courts").select("id,name").order("id", { ascending: true }),
-        supabase
-          .from("members")
-          .select("user_id,full_name,alias,email,is_active")
-          .eq("is_active", true)
-          .order("full_name", { ascending: true }),
-      ]);
+      try {
+        const [session, courts, membersRes] = await Promise.all([
+          getClientSession(),
+          getCourts(),
+          supabase
+            .from("members")
+            .select("user_id,full_name,alias,email,is_active")
+            .eq("is_active", true)
+            .order("full_name", { ascending: true }),
+        ]);
 
-      setAccessToken(session?.access_token ?? null);
+        setAccessToken(session?.access_token ?? null);
+        setCourts(courts);
 
-      if (courtsRes.error) {
-        setMsg(courtsRes.error.message);
-      } else {
-        setCourts((courtsRes.data ?? []) as Court[]);
-      }
-
-      if (membersRes.error) {
-        setMsg(membersRes.error.message);
-      } else {
-        setActiveMembers((membersRes.data ?? []) as MemberRow[]);
+        if (membersRes.error) {
+          setMsg(membersRes.error.message);
+        } else {
+          setActiveMembers((membersRes.data ?? []) as MemberRow[]);
+        }
+      } catch (error) {
+        setMsg(error instanceof Error ? error.message : "No se han podido cargar los datos.");
       }
 
       setLoadingPage(false);
@@ -351,12 +351,20 @@ export default function AdminCrearPartidasPage() {
       return;
     }
 
-    const reservationsRes = await supabase
-      .from("reservations_public")
-      .select("id,date,slot_start,slot_end,court_id")
-      .eq("date", date)
-      .order("slot_start", { ascending: true })
-      .order("court_id", { ascending: true });
+    const [reservationsRes, blocksRes] = await Promise.all([
+      supabase
+        .from("reservations_public")
+        .select("id,date,slot_start,slot_end,court_id")
+        .eq("date", date)
+        .order("slot_start", { ascending: true })
+        .order("court_id", { ascending: true }),
+      supabase
+        .from("blocks")
+        .select("id,date,slot_start,slot_end,court_id,reason")
+        .eq("date", date)
+        .order("slot_start", { ascending: true })
+        .order("court_id", { ascending: true }),
+    ]);
 
     if (reservationsRes.error) {
       setMsg(reservationsRes.error.message);
@@ -364,22 +372,14 @@ export default function AdminCrearPartidasPage() {
       return;
     }
 
-    const reservationRows = (reservationsRes.data ?? []) as ReservationRow[];
-    setReservations(reservationRows);
-
-    const blocksRes = await supabase
-      .from("blocks")
-      .select("id,date,slot_start,slot_end,court_id,reason")
-      .eq("date", date)
-      .order("slot_start", { ascending: true })
-      .order("court_id", { ascending: true });
-
     if (blocksRes.error) {
       setMsg(blocksRes.error.message);
       setLoadingDay(false);
       return;
     }
 
+    const reservationRows = (reservationsRes.data ?? []) as ReservationRow[];
+    setReservations(reservationRows);
     setBlocks((blocksRes.data ?? []) as BlockRow[]);
 
     const reservationIds = reservationRows.map((x) => x.id);

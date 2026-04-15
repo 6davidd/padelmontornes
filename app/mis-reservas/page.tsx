@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getClientUser } from "@/lib/client-session";
+import { getCurrentMember } from "@/lib/client-current-member";
 import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
 import { TimeRangeDisplay } from "../_components/time-range-display";
@@ -126,9 +127,9 @@ export default function MisReservasPage() {
     setMsg(null);
     setLoading(true);
 
-    const user = await getClientUser();
+    const member = await getCurrentMember();
 
-    if (!user) {
+    if (!member) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
       setLoading(false);
       return;
@@ -137,7 +138,7 @@ export default function MisReservasPage() {
     const rp = await supabase
       .from("reservation_players")
       .select("reservation_id")
-      .eq("member_user_id", user.id);
+      .eq("member_user_id", member.user_id);
 
     if (rp.error) {
       setMsg(rp.error.message);
@@ -308,12 +309,12 @@ export default function MisReservasPage() {
     const ok = confirm("¿Quieres salir de esta partida?");
     if (!ok) return;
 
-    const user = await getClientUser();
-    if (!user) return setMsg("No hay sesión.");
+    const member = await getCurrentMember();
+    if (!member) return setMsg("No hay sesión.");
 
     const rpc = await supabase.rpc("leave_reservation", {
       p_reservation_id: reservationId,
-      p_member: user.id,
+      p_member: member.user_id,
     });
 
     if (rpc.error) return setMsg(rpc.error.message);
@@ -413,13 +414,13 @@ export default function MisReservasPage() {
         ) : items.length === 0 ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
             <p className="text-gray-700 font-semibold">No tienes reservas activas.</p>
-            <a
+            <Link
               href="/reservar"
               className="inline-flex mt-4 rounded-2xl px-5 py-3 text-white font-semibold"
               style={{ backgroundColor: CLUB_GREEN }}
             >
               Ir a reservar
-            </a>
+            </Link>
           </div>
         ) : visibleSections.length === 0 ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
@@ -521,13 +522,13 @@ export default function MisReservasPage() {
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-3xl mx-auto">
-          <a
+          <Link
             href="/"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio
-          </a>
+          </Link>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 
@@ -75,13 +76,13 @@ export default function ForgotPasswordPage() {
           </form>
 
           <div className="mt-5 text-center">
-            <a
+            <Link
               href="/login"
               className="text-sm font-semibold hover:underline"
               style={{ color: CLUB_GREEN }}
             >
               Volver al login
-            </a>
+            </Link>
           </div>
         </div>
       </div>

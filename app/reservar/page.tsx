@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getClientUser } from "@/lib/client-session";
+import { getCurrentMember } from "@/lib/client-current-member";
+import { queueBookingEmail, queueBookingEmails } from "@/lib/client-booking-email";
+import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
@@ -225,6 +228,7 @@ export default function ReservarPage() {
   const [addSeat, setAddSeat] = useState<number | null>(null);
   const [addResId, setAddResId] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [suggestions, setSuggestions] = useState<
     Array<{ user_id: string; label: string }>
   >([]);
@@ -276,21 +280,30 @@ export default function ReservarPage() {
   }, [blocks]);
 
   useEffect(() => {
-    getClientUser().then((user) => {
-      setCurrentUserId(user?.id ?? null);
+    getCurrentMember().then((member) => {
+      setCurrentUserId(member?.user_id ?? null);
     });
   }, []);
 
   useEffect(() => {
-    supabase
-      .from("courts")
-      .select("id,name")
-      .order("id", { ascending: true })
-      .then(({ data, error }) => {
-        if (error) setMsg(error.message);
-        else setCourts(((data ?? []) as Court[]).slice(0, 3));
+    getCourts()
+      .then((data) => {
+        setCourts(data.slice(0, 3));
+      })
+      .catch((error: { message?: string }) => {
+        setMsg(error.message ?? "No se han podido cargar las pistas.");
       });
   }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedQ(q);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [q]);
 
   async function restoreScrollAfter(action: () => Promise<void>) {
     const y = window.scrollY;
@@ -329,36 +342,36 @@ export default function ReservarPage() {
       return;
     }
 
-    const r = await supabase
-      .from("reservations_public")
-      .select("id,date,slot_start,slot_end,court_id")
-      .eq("date", date)
-      .order("slot_start", { ascending: true })
-      .order("court_id", { ascending: true });
+    const [reservationsRes, blocksRes] = await Promise.all([
+      supabase
+        .from("reservations_public")
+        .select("id,date,slot_start,slot_end,court_id")
+        .eq("date", date)
+        .order("slot_start", { ascending: true })
+        .order("court_id", { ascending: true }),
+      supabase
+        .from("blocks")
+        .select("id,date,slot_start,slot_end,court_id,reason")
+        .eq("date", date)
+        .order("slot_start", { ascending: true })
+        .order("court_id", { ascending: true }),
+    ]);
 
-    if (r.error) {
-      setMsg(r.error.message);
+    if (reservationsRes.error) {
+      setMsg(reservationsRes.error.message);
       setLoading(false);
       return;
     }
 
-    const resRows = (r.data ?? []) as ReservationRow[];
+    if (blocksRes.error) {
+      setMsg(blocksRes.error.message);
+      setLoading(false);
+      return;
+    }
+
+    const resRows = (reservationsRes.data ?? []) as ReservationRow[];
     setReservations(resRows);
-
-    const b = await supabase
-      .from("blocks")
-      .select("id,date,slot_start,slot_end,court_id,reason")
-      .eq("date", date)
-      .order("slot_start", { ascending: true })
-      .order("court_id", { ascending: true });
-
-    if (b.error) {
-      setMsg(b.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setBlocks((b.data ?? []) as BlockRow[]);
+    setBlocks((blocksRes.data ?? []) as BlockRow[]);
 
     const ids = resRows.map((x) => x.id);
     if (ids.length === 0) {
@@ -416,12 +429,12 @@ export default function ReservarPage() {
   }, [date]);
 
   async function getUserIdOrMsg() {
-    const user = await getClientUser();
-    if (!user) {
+    const member = await getCurrentMember();
+    if (!member) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
       return null;
     }
-    return user.id;
+    return member.user_id;
   }
 
   async function sendBookingCreatedEmail(params: {
@@ -555,20 +568,21 @@ export default function ReservarPage() {
       courts.find((c) => c.id === reservation.court_id)?.name ??
       `Pista ${reservation.court_id}`;
 
-    for (const member of members) {
-      if (!member.email) continue;
-
-      await sendMatchCompletedEmail({
-        to: member.email,
-        fullName: getDisplayName(member),
-        date: reservation.date,
-        slotStart: toHM(reservation.slot_start),
-        slotEnd: toHM(reservation.slot_end),
-        courtName,
-        playersCount: 4,
-        players: playerNames,
-      });
-    }
+    queueBookingEmails(
+      members
+        .filter((member) => !!member.email)
+        .map((member) => ({
+          type: "match_completed" as const,
+          to: member.email ?? "",
+          fullName: getDisplayName(member),
+          date: reservation.date,
+          slotStart: toHM(reservation.slot_start),
+          slotEnd: toHM(reservation.slot_end),
+          courtName,
+          playersCount: 4,
+          players: playerNames,
+        }))
+    );
   }
 
   async function createOrOpen(slotStart: string, slotEnd: string, courtId: number) {
@@ -596,15 +610,16 @@ export default function ReservarPage() {
       return;
     }
 
-    const user = await getClientUser();
+    const member = await getCurrentMember();
 
-    if (!user) {
+    if (!member) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
       return;
     }
 
-    const userId = user.id;
-    const userEmail = user.email ?? "";
+    const userId = member.user_id;
+    const userEmail = member.email ?? "";
+    const memberName = getDisplayName(member);
 
     await restoreScrollAfter(async () => {
       const ins = await supabase
@@ -655,19 +670,12 @@ export default function ReservarPage() {
       const courtName =
         courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
 
+      await loadDay();
+      setExpandedResId(createdReservationId);
+
       if (userEmail) {
-        const memberRes = await supabase
-          .from("members")
-          .select("full_name,alias")
-          .eq("user_id", userId)
-          .single();
-
-        const memberName =
-          !memberRes.error && memberRes.data
-            ? getDisplayName(memberRes.data)
-            : membersMap.get(userId) ?? "";
-
-        await sendBookingCreatedEmail({
+        queueBookingEmail({
+          type: "booking_created",
           to: userEmail,
           fullName: memberName,
           date,
@@ -676,9 +684,6 @@ export default function ReservarPage() {
           courtName,
         });
       }
-
-      await loadDay();
-      setExpandedResId(createdReservationId);
     });
   }
 
@@ -701,10 +706,13 @@ export default function ReservarPage() {
       }
 
       await loadDay();
-      await notifyMatchCompleted(resId);
       setExpandedResId(resId);
       ok = true;
     });
+
+    if (ok) {
+      void notifyMatchCompleted(resId);
+    }
 
     return ok;
   }
@@ -751,7 +759,7 @@ export default function ReservarPage() {
     async function run() {
       if (!addResId || !addSeat) return;
 
-      const term = q.trim();
+      const term = debouncedQ.trim();
       if (term.length < 2) {
         setSuggestions([]);
         return;
@@ -796,7 +804,7 @@ export default function ReservarPage() {
     return () => {
       alive = false;
     };
-  }, [q, addResId, addSeat, playersByReservation]);
+  }, [debouncedQ, addResId, addSeat, playersByReservation]);
 
   async function addSocio(userId: string) {
     if (!addResId || !addSeat) return;
@@ -818,52 +826,46 @@ export default function ReservarPage() {
     const ok = await joinSeat(addResId, addSeat, userId);
     if (!ok) return;
 
-    const memberRes = await supabase
-      .from("members")
-      .select("user_id,full_name,alias,is_active,email")
-      .eq("user_id", userId)
-      .single();
-
-    if (!memberRes.error && memberRes.data) {
-      const member = memberRes.data as MemberRow;
-      const courtName =
-        courts.find((c) => c.id === reservation.court_id)?.name ??
-        `Pista ${reservation.court_id}`;
-
-      const currentUser = await getClientUser();
-
-      let addedByName = "";
-
-      if (currentUser?.id) {
-        const addedByRes = await supabase
-          .from("members")
-          .select("full_name,alias")
-          .eq("user_id", currentUser.id)
-          .single();
-
-        if (!addedByRes.error && addedByRes.data) {
-          addedByName = getDisplayName(addedByRes.data);
-        }
-      }
-
-      if (member.email) {
-        await sendAddedToMatchEmail({
-          to: member.email,
-          fullName: getDisplayName(member),
-          addedByName,
-          date: reservation.date,
-          slotStart: toHM(reservation.slot_start),
-          slotEnd: toHM(reservation.slot_end),
-          courtName,
-        });
-      }
-    }
-
     setAddResId(null);
     setAddSeat(null);
     setQ("");
     setSuggestions([]);
     setExpandedResId(addResId);
+
+    void (async () => {
+      const [memberRes, currentMember] = await Promise.all([
+        supabase
+          .from("members")
+          .select("user_id,full_name,alias,is_active,email")
+          .eq("user_id", userId)
+          .single(),
+        getCurrentMember(),
+      ]);
+
+      if (memberRes.error || !memberRes.data) {
+        return;
+      }
+
+      const member = memberRes.data as MemberRow;
+      const courtName =
+        courts.find((c) => c.id === reservation.court_id)?.name ??
+        `Pista ${reservation.court_id}`;
+
+      if (!member.email) {
+        return;
+      }
+
+      queueBookingEmail({
+        type: "added_to_match",
+        to: member.email,
+        fullName: getDisplayName(member),
+        addedByName: currentMember ? getDisplayName(currentMember) : "",
+        date: reservation.date,
+        slotStart: toHM(reservation.slot_start),
+        slotEnd: toHM(reservation.slot_end),
+        courtName,
+      });
+    })();
   }
 
   return (
@@ -1145,13 +1147,13 @@ export default function ReservarPage() {
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-3xl mx-auto">
-          <a
+          <Link
             href="/"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio
-          </a>
+          </Link>
         </div>
       </div>
     </div>

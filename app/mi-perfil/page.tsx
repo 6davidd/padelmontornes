@@ -2,16 +2,13 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { getClientUser } from "@/lib/client-session";
+import {
+  getCurrentMember,
+  setCachedCurrentMember,
+} from "@/lib/client-current-member";
 import { supabase } from "../../lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
-
-type MemberRow = {
-  full_name: string;
-  alias: string | null;
-  is_active: boolean;
-};
 
 export default function MiPerfilPage() {
   const [fullName, setFullName] = useState("");
@@ -23,36 +20,22 @@ export default function MiPerfilPage() {
 
   useEffect(() => {
     async function loadProfile() {
-      const user = await getClientUser();
+      const member = await getCurrentMember();
 
-      if (!user) {
-        setMsg("No se ha podido validar la sesiÃ³n.");
-        setLoading(false);
-        return;
-      }
-
-      const m = await supabase
-        .from("members")
-        .select("full_name, alias, is_active")
-        .eq("user_id", user.id)
-        .single();
-
-      if (m.error || !m.data) {
+      if (!member) {
         setMsg("No se ha podido cargar tu perfil.");
         setLoading(false);
         return;
       }
 
-      const row = m.data as MemberRow;
-
-      if (!row.is_active) {
-        setMsg("Tu usuario está desactivado. Contacta con el club.");
+      if (!member.is_active) {
+        setMsg("Tu usuario esta desactivado. Contacta con el club.");
         setLoading(false);
         return;
       }
 
-      setFullName(row.full_name ?? "");
-      setAlias(row.alias ?? "");
+      setFullName(member.full_name ?? "");
+      setAlias(member.alias ?? "");
       setLoading(false);
     }
 
@@ -65,11 +48,11 @@ export default function MiPerfilPage() {
     setOk(null);
     setSaving(true);
 
-    const user = await getClientUser();
+    const member = await getCurrentMember();
 
-    if (!user) {
+    if (!member) {
       setSaving(false);
-      setMsg("No se ha podido validar la sesiÃ³n.");
+      setMsg("No se ha podido validar la sesion.");
       return;
     }
 
@@ -80,13 +63,18 @@ export default function MiPerfilPage() {
       .update({
         alias: cleanAlias === "" ? null : cleanAlias,
       })
-      .eq("user_id", user.id);
+      .eq("user_id", member.user_id);
 
     if (update.error) {
       setMsg(update.error.message);
       setSaving(false);
       return;
     }
+
+    setCachedCurrentMember({
+      ...member,
+      alias: cleanAlias === "" ? null : cleanAlias,
+    });
 
     setAlias(cleanAlias);
     setOk("Alias guardado correctamente.");
@@ -95,27 +83,27 @@ export default function MiPerfilPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6">
-        <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
+      <div className="mx-auto max-w-3xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8">
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
           <h1
-            className="text-3xl sm:text-4xl font-bold"
+            className="text-3xl font-bold sm:text-4xl"
             style={{ color: CLUB_GREEN }}
           >
             Mi perfil
           </h1>
 
           <p className="mt-2 text-gray-600">
-            Aquí puedes elegir el nombre con el que te verá el resto en la app.
+            Aqui puedes elegir el nombre con el que te vera el resto en la app.
           </p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
           {loading ? (
             <p className="text-gray-600">Cargando...</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-900">
                   Nombre real
                 </label>
                 <input
@@ -129,7 +117,7 @@ export default function MiPerfilPage() {
               <div>
                 <label
                   htmlFor="alias"
-                  className="block text-sm font-semibold text-gray-900 mb-2"
+                  className="mb-2 block text-sm font-semibold text-gray-900"
                 >
                   Alias
                 </label>
@@ -140,32 +128,32 @@ export default function MiPerfilPage() {
                   value={alias}
                   onChange={(e) => setAlias(e.target.value)}
                   maxLength={30}
-                  placeholder="Escribe tu alias…"
+                  placeholder="Escribe tu alias..."
                   className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400 outline-none focus:border-gray-300 focus:ring-2 focus:ring-black/5"
                 />
 
                 <p className="mt-2 text-sm text-gray-500">
-                  Si lo dejas vacío, se mostrará tu nombre.
+                  Si lo dejas vacio, se mostrara tu nombre.
                 </p>
               </div>
 
               {msg && (
-                <div className="rounded-2xl p-4 bg-yellow-50 ring-1 ring-yellow-200">
+                <div className="rounded-2xl bg-yellow-50 p-4 ring-1 ring-yellow-200">
                   <p className="text-sm text-yellow-900">{msg}</p>
                 </div>
               )}
 
               {ok && (
-                <div className="rounded-2xl p-4 bg-green-50 ring-1 ring-green-200">
+                <div className="rounded-2xl bg-green-50 p-4 ring-1 ring-green-200">
                   <p className="text-sm text-green-900">{ok}</p>
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center justify-center rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-70"
+                  className="inline-flex items-center justify-center rounded-2xl px-5 py-3 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-70"
                   style={{ backgroundColor: CLUB_GREEN }}
                 >
                   {saving ? "Guardando..." : "Guardar alias"}
@@ -177,10 +165,10 @@ export default function MiPerfilPage() {
       </div>
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl">
           <Link
             href="/"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
+            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg transition active:scale-[0.99]"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio

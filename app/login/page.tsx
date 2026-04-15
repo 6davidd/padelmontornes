@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { syncSessionCookies } from "@/lib/auth-client";
 import { setCachedClientSession } from "@/lib/client-session";
+import { resetCachedCurrentMember } from "@/lib/client-current-member";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -35,6 +37,7 @@ export default function LoginPage() {
       return;
     }
 
+    resetCachedCurrentMember();
     const session = data.session ?? null;
     setCachedClientSession(session);
     syncSessionCookies(session);
@@ -92,13 +95,13 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-5 text-center">
-            <a
+            <Link
               href="/forgot-password"
               className="text-sm font-semibold hover:underline"
               style={{ color: CLUB_GREEN }}
             >
               ¿Has olvidado tu contraseña?
-            </a>
+            </Link>
             <p className="mt-2 text-xs text-gray-500">
               Si es tu primera vez, usa también esta opción.
             </p>

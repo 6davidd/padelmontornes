@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getClientUser } from "@/lib/client-session";
+import { getCurrentMember } from "@/lib/client-current-member";
+import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
@@ -297,14 +299,19 @@ export default function PartidasAbiertasPage() {
   }, [openMatchesCountByDay, visibleDays, hasAutoSelectedDate]);
 
   useEffect(() => {
-    getClientUser().then((user) => {
-      setCurrentUserId(user?.id ?? null);
+    getCurrentMember().then((member) => {
+      setCurrentUserId(member?.user_id ?? null);
     });
   }, []);
 
   useEffect(() => {
     loadOpenMatches();
   }, []);
+
+  function selectDate(day: string) {
+    setHasAutoSelectedDate(true);
+    setDate(day);
+  }
 
   async function loadOpenMatches() {
     setMsg(null);
@@ -313,99 +320,95 @@ export default function PartidasAbiertasPage() {
     const today = todayISO();
     const until = addDaysISO(today, 7);
 
-    const r = await supabase
-      .from("reservations_public")
-      .select("id,date,slot_start,slot_end,court_id")
-      .gte("date", today)
-      .lte("date", until)
-      .order("date", { ascending: true })
-      .order("slot_start", { ascending: true })
-      .order("court_id", { ascending: true });
+    try {
+      const [reservationsRes, courts] = await Promise.all([
+        supabase
+          .from("reservations_public")
+          .select("id,date,slot_start,slot_end,court_id")
+          .gte("date", today)
+          .lte("date", until)
+          .order("date", { ascending: true })
+          .order("slot_start", { ascending: true })
+          .order("court_id", { ascending: true }),
+        getCourts(),
+      ]);
 
-    if (r.error) {
-      setMsg(r.error.message);
+      if (reservationsRes.error) {
+        setMsg(reservationsRes.error.message);
+        setLoading(false);
+        return;
+      }
+
+      const resRows = (reservationsRes.data ?? []) as ReservationRow[];
+      setReservations(resRows);
+
+      const cMap = new Map<number, string>();
+      for (const row of courts as CourtRow[]) {
+        cMap.set(row.id, row.name);
+      }
+      setCourtsMap(cMap);
+
+      const ids = resRows.map((x) => x.id);
+      if (ids.length === 0) {
+        setPlayers([]);
+        setMembersMap(new Map());
+        setLoading(false);
+        return;
+      }
+
+      const p = await supabase
+        .from("reservation_players")
+        .select("reservation_id,seat,member_user_id")
+        .in("reservation_id", ids);
+
+      if (p.error) {
+        setMsg(p.error.message);
+        setLoading(false);
+        return;
+      }
+
+      const playerRows = (p.data ?? []) as PlayerRow[];
+      setPlayers(playerRows);
+
+      const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
+      if (userIds.length === 0) {
+        setMembersMap(new Map());
+        setLoading(false);
+        return;
+      }
+
+      const m = await supabase
+        .from("members")
+        .select("user_id,full_name,alias,is_active")
+        .in("user_id", userIds);
+
+      if (m.error) {
+        setMsg(m.error.message);
+        setLoading(false);
+        return;
+      }
+
+      const map = new Map<string, string>();
+      for (const row of (m.data ?? []) as MemberRow[]) {
+        map.set(row.user_id, getDisplayName(row));
+      }
+      setMembersMap(map);
       setLoading(false);
-      return;
-    }
-
-    const resRows = (r.data ?? []) as ReservationRow[];
-    setReservations(resRows);
-
-    const c = await supabase
-      .from("courts")
-      .select("id,name")
-      .order("id", { ascending: true });
-
-    if (c.error) {
-      setMsg(c.error.message);
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "No se han podido cargar las partidas.");
       setLoading(false);
-      return;
     }
-
-    const cMap = new Map<number, string>();
-    for (const row of (c.data ?? []) as CourtRow[]) {
-      cMap.set(row.id, row.name);
-    }
-    setCourtsMap(cMap);
-
-    const ids = resRows.map((x) => x.id);
-    if (ids.length === 0) {
-      setPlayers([]);
-      setMembersMap(new Map());
-      setLoading(false);
-      return;
-    }
-
-    const p = await supabase
-      .from("reservation_players")
-      .select("reservation_id,seat,member_user_id")
-      .in("reservation_id", ids);
-
-    if (p.error) {
-      setMsg(p.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const playerRows = (p.data ?? []) as PlayerRow[];
-    setPlayers(playerRows);
-
-    const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
-    if (userIds.length === 0) {
-      setMembersMap(new Map());
-      setLoading(false);
-      return;
-    }
-
-    const m = await supabase
-      .from("members")
-      .select("user_id,full_name,alias,is_active")
-      .in("user_id", userIds);
-
-    if (m.error) {
-      setMsg(m.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const map = new Map<string, string>();
-    for (const row of (m.data ?? []) as MemberRow[]) {
-      map.set(row.user_id, getDisplayName(row));
-    }
-    setMembersMap(map);
-
-    setLoading(false);
   }
 
   async function getUserIdOrMsg() {
-    const user = await getClientUser();
+    const member = await getCurrentMember();
 
-    if (!user) {
+    if (!member) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
       return null;
     }
 
-    return user.id;
+    return member.user_id;
   }
 
   async function restoreScrollAfter(action: () => Promise<void>) {
@@ -480,7 +483,7 @@ export default function PartidasAbiertasPage() {
                   return (
                     <button
                       key={day}
-                      onClick={() => setDate(day)}
+                      onClick={() => selectDate(day)}
                       className={classNames(
                         "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
                         selected
@@ -639,13 +642,13 @@ export default function PartidasAbiertasPage() {
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-3xl mx-auto">
-          <a
+          <Link
             href="/"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio
-          </a>
+          </Link>
         </div>
       </div>
     </div>

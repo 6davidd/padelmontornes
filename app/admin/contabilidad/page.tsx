@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { getClientUser } from "@/lib/client-session";
+import { getCurrentMember } from "@/lib/client-current-member";
 import { supabase } from "../../../lib/supabase";
 import { getDisplayName } from "../../../lib/display-name";
 
@@ -113,23 +113,24 @@ export default function AdminContabilidadPage() {
 
     const { year, month } = parseMonthValue(monthValue);
 
-    const membersRes = await supabase
-      .from("members")
-      .select("user_id,full_name,alias,email,is_active,role")
-      .eq("is_active", true)
-      .order("full_name", { ascending: true });
+    const [membersRes, paymentsRes] = await Promise.all([
+      supabase
+        .from("members")
+        .select("user_id,full_name,alias,email,is_active,role")
+        .eq("is_active", true)
+        .order("full_name", { ascending: true }),
+      supabase
+        .from("monthly_payments")
+        .select("id,member_user_id,year,month,status,paid_at,marked_by,notes")
+        .eq("year", year)
+        .eq("month", month),
+    ]);
 
     if (membersRes.error) {
       setMsg(membersRes.error.message);
       setLoading(false);
       return;
     }
-
-    const paymentsRes = await supabase
-      .from("monthly_payments")
-      .select("id,member_user_id,year,month,status,paid_at,marked_by,notes")
-      .eq("year", year)
-      .eq("month", month);
 
     if (paymentsRes.error) {
       setMsg(paymentsRes.error.message);
@@ -207,9 +208,9 @@ export default function AdminContabilidadPage() {
       const nextStatus: "pending" | "paid" =
         existing?.status === "paid" ? "pending" : "paid";
 
-      const user = await getClientUser();
+      const currentMember = await getCurrentMember();
 
-      if (!user) {
+      if (!currentMember) {
         setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
         return;
       }
@@ -220,7 +221,7 @@ export default function AdminContabilidadPage() {
         month,
         status: nextStatus,
         paid_at: nextStatus === "paid" ? new Date().toISOString() : null,
-        marked_by: user.id,
+        marked_by: currentMember.user_id,
       };
 
       let error: string | null = null;

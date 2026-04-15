@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../../lib/slots";
 import { getDisplayName } from "../../../../lib/display-name";
@@ -464,37 +464,42 @@ export async function POST(req: Request) {
 
     const playerNames = orderedMembers.map((member) => getDisplayName(member));
 
-    for (const member of orderedMembers) {
-      if (!member.email) continue;
+    after(async () => {
+      const emailTasks = orderedMembers
+        .filter((member) => !!member.email)
+        .flatMap((member) => {
+          const baseTask = sendAdminOpenedMatchEmail({
+            to: member.email ?? "",
+            fullName: getDisplayName(member),
+            openedByName: adminDisplayName,
+            date,
+            slotStart: toHM(slotStart),
+            slotEnd: toHM(slotEnd),
+            courtName: court.name,
+            players: playerNames,
+          });
 
-      await sendAdminOpenedMatchEmail({
-        to: member.email,
-        fullName: getDisplayName(member),
-        openedByName: adminDisplayName,
-        date,
-        slotStart: toHM(slotStart),
-        slotEnd: toHM(slotEnd),
-        courtName: court.name,
-        players: playerNames,
-      });
-    }
+          if (orderedMembers.length < 4) {
+            return [baseTask];
+          }
 
-    if (orderedMembers.length === 4) {
-      for (const member of orderedMembers) {
-        if (!member.email) continue;
-
-        await sendMatchCompletedEmail({
-          to: member.email,
-          fullName: getDisplayName(member),
-          date,
-          slotStart: toHM(slotStart),
-          slotEnd: toHM(slotEnd),
-          courtName: court.name,
-          playersCount: 4,
-          players: playerNames,
+          return [
+            baseTask,
+            sendMatchCompletedEmail({
+              to: member.email ?? "",
+              fullName: getDisplayName(member),
+              date,
+              slotStart: toHM(slotStart),
+              slotEnd: toHM(slotEnd),
+              courtName: court.name,
+              playersCount: 4,
+              players: playerNames,
+            }),
+          ];
         });
-      }
-    }
+
+      await Promise.allSettled(emailTasks);
+    });
 
     return NextResponse.json({
       ok: true,
