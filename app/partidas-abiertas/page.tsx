@@ -166,6 +166,7 @@ function Badge({
 
 export default function PartidasAbiertasPage() {
   const [date, setDate] = useState(todayISO());
+  const [hasAutoSelectedDate, setHasAutoSelectedDate] = useState(false);
 
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -253,6 +254,46 @@ export default function PartidasAbiertasPage() {
       .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
       .filter((r) => !r.alreadyIn).length;
   }, [reservations, playersByReservation, visibleDays, currentUserId]);
+
+  const openMatchesCountByDay = useMemo(() => {
+    const visibleSet = new Set(visibleDays);
+    const counts = new Map<string, number>();
+
+    reservations
+      .map((r) => {
+        const arr = playersByReservation.get(r.id) ?? [];
+        const alreadyIn =
+          !!currentUserId && arr.some((player) => player.userId === currentUserId);
+
+        return {
+          ...r,
+          playersCount: arr.length,
+          alreadyIn,
+        };
+      })
+      .filter((r) => visibleSet.has(r.date))
+      .filter(slotIsStillOpen)
+      .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
+      .filter((r) => !r.alreadyIn)
+      .forEach((r) => {
+        counts.set(r.date, (counts.get(r.date) ?? 0) + 1);
+      });
+
+    return counts;
+  }, [reservations, playersByReservation, visibleDays, currentUserId]);
+
+  useEffect(() => {
+    if (hasAutoSelectedDate) return;
+
+    const firstDateWithMatches = visibleDays.find(
+      (day) => (openMatchesCountByDay.get(day) ?? 0) > 0
+    );
+
+    if (firstDateWithMatches) {
+      setDate(firstDateWithMatches);
+      setHasAutoSelectedDate(true);
+    }
+  }, [openMatchesCountByDay, visibleDays, hasAutoSelectedDate]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -425,14 +466,8 @@ export default function PartidasAbiertasPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
           <div className="space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                Partidas abiertas
-              </div>
-
-              <div className="rounded-full bg-green-50 border border-green-200 px-3 py-1 text-sm font-semibold text-green-800 min-w-[38px] text-center">
-                {totalOpenMatchesAllVisibleDays}
-              </div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+              Partidas abiertas
             </div>
 
             <div className="overflow-x-auto -mx-1 px-1">
@@ -440,6 +475,7 @@ export default function PartidasAbiertasPage() {
                 {visibleDays.map((day) => {
                   const selected = day === date;
                   const sunday = isSundayISO(day);
+                  const count = openMatchesCountByDay.get(day) ?? 0;
 
                   return (
                     <button
@@ -455,10 +491,26 @@ export default function PartidasAbiertasPage() {
                       )}
                       style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
                     >
-                      <div className="text-xs font-semibold">
-                        {getRelativeDayLabel(day)}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold">
+                          {getRelativeDayLabel(day)}
+                        </span>
+                        {count > 0 && (
+                          <span
+                            className={classNames(
+                              "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
+                              selected
+                                ? "bg-white/20 text-white"
+                                : "bg-green-50 text-green-800 border border-green-200"
+                            )}
+                          >
+                            {count}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-sm">{formatDayChip(day)}</div>
+                      <div className="text-sm">
+                        {formatDayChip(day)}
+                      </div>
                     </button>
                   );
                 })}
@@ -484,7 +536,7 @@ export default function PartidasAbiertasPage() {
               Los domingos no hay partidas abiertas.
             </div>
           </div>
-        ) : openMatches.length === 0 ? (
+        ) : totalOpenMatchesAllVisibleDays === 0 ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
             <div className="text-lg font-bold text-gray-900">
               No hay partidas abiertas

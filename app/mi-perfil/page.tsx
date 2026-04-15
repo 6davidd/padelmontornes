@@ -96,7 +96,7 @@ export default function MiPerfilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-8">
+    <div className="min-h-screen bg-gray-50 pb-40">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6">
         <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
           <h1
@@ -172,17 +172,21 @@ export default function MiPerfilPage() {
                 >
                   {saving ? "Guardando..." : "Guardar alias"}
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => router.push("/")}
-                  className="inline-flex items-center justify-center rounded-2xl px-5 py-3 bg-white text-gray-900 font-semibold ring-1 ring-black/5 hover:bg-gray-50 transition active:scale-[0.99]"
-                >
-                  Volver
-                </button>
               </div>
             </form>
           )}
+        </div>
+      </div>
+
+      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
+        <div className="max-w-3xl mx-auto">
+          <a
+            href="/"
+            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
+            style={{ backgroundColor: CLUB_GREEN }}
+          >
+            Inicio
+          </a>
         </div>
       </div>
     </div>
