@@ -950,9 +950,23 @@ export default function ReservarPage() {
                   key={s.start}
                   className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
                 >
-                  <div className="px-5 py-4 border-b border-gray-200">
-                    <div className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
-                      {slotLabel}
+                  <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-gray-200 bg-white">
+                    <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 sm:px-5 sm:py-5">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-[0.14em] text-green-800">
+                        <span className="text-base leading-none">🕒</span>
+                        <span>Hora de juego</span>
+                      </div>
+
+                      <div
+                        className="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight leading-none"
+                        style={{ color: CLUB_GREEN }}
+                      >
+                        {slotLabel}
+                      </div>
+
+                      <div className="mt-2 text-sm sm:text-base font-medium text-green-900">
+                        Elige pista en este horario
+                      </div>
                     </div>
                   </div>
 
