@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
+import { TimeRangeDisplay } from "../_components/time-range-display";
 
 type Item = {
   reservation_id: string;
@@ -459,11 +460,12 @@ export default function MisReservasPage() {
                         <div className="p-4 sm:p-5">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <div className="text-lg font-bold text-gray-900">
-                                {toHM(r.slot_start)} – {toHM(r.slot_end)}
-                              </div>
+                              <TimeRangeDisplay
+                                start={toHM(r.slot_start)}
+                                end={toHM(r.slot_end)}
+                              />
 
-                              <div className="text-sm text-gray-700 mt-1">
+                              <div className="text-sm text-gray-700 mt-2">
                                 Pista {r.court_id}
                               </div>
 

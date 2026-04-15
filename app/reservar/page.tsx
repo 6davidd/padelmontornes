@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
+import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -943,23 +944,13 @@ export default function ReservarPage() {
         ) : (
           <div className="space-y-6">
             {slotsToShow.map((s) => {
-              const slotLabel = `${s.start} – ${s.end}`;
-
               return (
                 <div
                   key={s.start}
                   className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
                 >
                   <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-gray-200 bg-white">
-                    <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 sm:px-5 sm:py-5">
-                      <div
-                        className="flex items-center gap-3 text-3xl sm:text-4xl font-extrabold tracking-tight leading-none"
-                        style={{ color: CLUB_GREEN }}
-                      >
-                        <span className="text-[0.9em] leading-none">🕒</span>
-                        <span>{slotLabel}</span>
-                      </div>
-                    </div>
+                    <TimeRangeDisplay start={s.start} end={s.end} />
                   </div>
 
                   <div className="p-5">

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
+import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -514,9 +515,9 @@ export default function PartidasAbiertasPage() {
                     key={slot.start}
                     className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
                   >
-                    <div className="px-5 py-4 border-b border-gray-200">
-                      <div className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
-                        {slot.start} – {slot.end}
+                    <div className="px-4 sm:px-5 py-4 border-b border-gray-200">
+                      <div className="flex items-center">
+                        <TimeRangeDisplay start={slot.start} end={slot.end} />
                       </div>
                     </div>
 
