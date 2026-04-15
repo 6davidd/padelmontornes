@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getClientUser } from "@/lib/client-session";
 import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
 import { TimeRangeDisplay } from "../_components/time-range-display";
@@ -125,8 +126,7 @@ export default function MisReservasPage() {
     setMsg(null);
     setLoading(true);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
+    const user = await getClientUser();
 
     if (!user) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
@@ -308,8 +308,7 @@ export default function MisReservasPage() {
     const ok = confirm("¿Quieres salir de esta partida?");
     if (!ok) return;
 
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
+    const user = await getClientUser();
     if (!user) return setMsg("No hay sesión.");
 
     const rpc = await supabase.rpc("leave_reservation", {

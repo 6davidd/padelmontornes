@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { getClientUser } from "@/lib/client-session";
 import { supabase } from "../../../lib/supabase";
 import { getDisplayName } from "../../../lib/display-name";
 
@@ -80,8 +81,6 @@ function formatPaidAt(value: string | null) {
 }
 
 export default function AdminContabilidadPage() {
-  const router = useRouter();
-
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(formatMonthValue(today));
 
@@ -95,35 +94,11 @@ export default function AdminContabilidadPage() {
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const me = await supabase
-        .from("members")
-        .select("role,is_active")
-        .eq("user_id", user.id)
-        .single();
-
-      if (me.error || !me.data) {
-        router.push("/");
-        return;
-      }
-
-      if (!me.data.is_active || me.data.role !== "superadmin") {
-        router.push("/");
-        return;
-      }
-
       await loadData(selectedMonth);
     }
 
     init();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (!loading) {
@@ -232,12 +207,10 @@ export default function AdminContabilidadPage() {
       const nextStatus: "pending" | "paid" =
         existing?.status === "paid" ? "pending" : "paid";
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getClientUser();
 
       if (!user) {
-        router.push("/login");
+        setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
         return;
       }
 
@@ -477,13 +450,13 @@ export default function AdminContabilidadPage() {
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="mx-auto max-w-4xl">
-          <a
+          <Link
             href="/admin"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg transition active:scale-[0.99]"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Panel administrador
-          </a>
+          </Link>
         </div>
       </div>
     </div>

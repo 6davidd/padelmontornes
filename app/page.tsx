@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getClientUser, setCachedClientSession } from "@/lib/client-session";
 import { getDisplayName } from "../lib/display-name";
 import { syncSessionCookies } from "@/lib/auth-client";
 
@@ -183,19 +184,21 @@ export default function HomePage() {
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
+      const user = await getClientUser();
 
       if (!user) {
         setMsg("No se ha podido validar la sesiÃ³n.");
         return;
       }
 
-      const m = await supabase
-        .from("members")
-        .select("role,is_active,full_name,alias")
-        .eq("user_id", user.id)
-        .single();
+      const [m] = await Promise.all([
+        supabase
+          .from("members")
+          .select("role,is_active,full_name,alias")
+          .eq("user_id", user.id)
+          .single(),
+        loadOpenMatchesCount(user.id),
+      ]);
 
       if (m.error || !m.data) {
         setMsg("Tu usuario no está dado de alta en el club.");
@@ -211,15 +214,14 @@ export default function HomePage() {
 
       setDisplayName(getDisplayName(row));
       setIsAdmin(row.role === "admin" || row.role === "superadmin");
-
-      await loadOpenMatchesCount(user.id);
     }
 
     init();
-  }, [router]);
+  }, []);
 
   async function logout() {
     await supabase.auth.signOut();
+    setCachedClientSession(null);
     syncSessionCookies(null);
     router.replace("/login");
     router.refresh();

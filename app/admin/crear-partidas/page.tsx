@@ -2,14 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { getClientSession } from "@/lib/client-session";
 import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 import { getDisplayName } from "../../../lib/display-name";
 
 const CLUB_GREEN = "#0f5e2e";
-
-type MemberRole = "member" | "admin" | "superadmin";
 
 type Court = {
   id: number;
@@ -214,8 +212,6 @@ function Modal({
 }
 
 export default function AdminCrearPartidasPage() {
-  const router = useRouter();
-
   const [loadingPage, setLoadingPage] = useState(true);
   const [loadingDay, setLoadingDay] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -312,36 +308,8 @@ export default function AdminCrearPartidasPage() {
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const me = await supabase
-        .from("members")
-        .select("role,is_active")
-        .eq("user_id", user.id)
-        .single();
-
-      if (me.error || !me.data) {
-        router.push("/");
-        return;
-      }
-
-      const allowedRoles: MemberRole[] = ["admin", "superadmin"];
-
-      if (!me.data.is_active || !allowedRoles.includes(me.data.role as MemberRole)) {
-        router.push("/");
-        return;
-      }
-
-      const sessionRes = await supabase.auth.getSession();
-      setAccessToken(sessionRes.data.session?.access_token ?? null);
-
-      const [courtsRes, membersRes] = await Promise.all([
+      const [session, courtsRes, membersRes] = await Promise.all([
+        getClientSession(),
         supabase.from("courts").select("id,name").order("id", { ascending: true }),
         supabase
           .from("members")
@@ -349,6 +317,8 @@ export default function AdminCrearPartidasPage() {
           .eq("is_active", true)
           .order("full_name", { ascending: true }),
       ]);
+
+      setAccessToken(session?.access_token ?? null);
 
       if (courtsRes.error) {
         setMsg(courtsRes.error.message);
@@ -366,7 +336,7 @@ export default function AdminCrearPartidasPage() {
     }
 
     init();
-  }, [router]);
+  }, []);
 
   async function loadDay() {
     setMsg(null);

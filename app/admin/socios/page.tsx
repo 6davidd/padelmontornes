@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { getClientSession } from "@/lib/client-session";
 import { supabase } from "../../../lib/supabase";
 import { getDisplayName } from "../../../lib/display-name";
 
@@ -97,8 +98,6 @@ function getRoleOrder(role: MemberRole) {
 }
 
 export default function AdminSociosPage() {
-  const router = useRouter();
-
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -123,37 +122,11 @@ export default function AdminSociosPage() {
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const me = await supabase
-        .from("members")
-        .select("role,is_active")
-        .eq("user_id", user.id)
-        .single();
-
-      if (me.error || !me.data) {
-        router.push("/");
-        return;
-      }
-
-      const allowedRoles: MemberRole[] = ["admin", "superadmin"];
-
-      if (!me.data.is_active || !allowedRoles.includes(me.data.role as MemberRole)) {
-        router.push("/");
-        return;
-      }
-
       await loadMembers();
     }
 
     init();
-  }, [router]);
+  }, []);
 
   async function loadMembers() {
     setMsg(null);
@@ -322,9 +295,7 @@ export default function AdminSociosPage() {
         return;
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const session = await getClientSession();
 
       const accessToken = session?.access_token;
       if (!accessToken) {
@@ -687,13 +658,13 @@ export default function AdminSociosPage() {
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-4xl mx-auto">
-          <a
+          <Link
             href="/admin"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Panel administrador
-          </a>
+          </Link>
         </div>
       </div>
     </div>

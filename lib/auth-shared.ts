@@ -20,6 +20,13 @@ export function isAdminPath(pathname: string) {
   );
 }
 
+export function isSuperadminPath(pathname: string) {
+  return (
+    pathname === "/admin/contabilidad" ||
+    pathname.startsWith("/admin/contabilidad/")
+  );
+}
+
 export function isStaticBypassPath(pathname: string) {
   return (
     pathname.startsWith("/_next") ||

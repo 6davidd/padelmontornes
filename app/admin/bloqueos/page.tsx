@@ -2,12 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 
 type Court = { id: number; name: string };
-type MemberRole = "member" | "admin" | "superadmin";
 
 type BlockRow = {
   id: string;
@@ -73,56 +71,17 @@ function formatDateShort(dateISO: string) {
 const toHM = (t: string) => (t.length >= 5 ? t.slice(0, 5) : t);
 
 export default function AdminBloqueosPage() {
-  const router = useRouter();
-
   const [startDate, setStartDate] = useState(todayISO());
   const [reason, setReason] = useState("");
   const [courts, setCourts] = useState<Court[]>([]);
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const visibleDates = useMemo(() => {
     return [startDate, addDays(startDate, 1), addDays(startDate, 2)];
   }, [startDate]);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const m = await supabase
-        .from("members")
-        .select("role,is_active")
-        .eq("user_id", user.id)
-        .single();
-
-      if (m.error || !m.data) {
-        router.push("/");
-        return;
-      }
-
-      if (!m.data.is_active) {
-        router.push("/");
-        return;
-      }
-
-      const allowedRoles: MemberRole[] = ["admin", "superadmin"];
-
-      if (!allowedRoles.includes(m.data.role as MemberRole)) {
-        router.push("/");
-        return;
-      }
-
-      setLoading(false);
-    })();
-  }, [router]);
 
   useEffect(() => {
     supabase
@@ -154,11 +113,9 @@ export default function AdminBloqueosPage() {
   }
 
   useEffect(() => {
-    if (!loading) {
-      loadBlocks();
-    }
+    loadBlocks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, startDate]);
+  }, [startDate]);
 
   const blockMap = useMemo(() => {
     const m = new Map<string, BlockRow>();

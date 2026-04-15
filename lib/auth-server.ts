@@ -10,7 +10,6 @@ import {
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const COOKIE_SECURE = process.env.NODE_ENV === "production";
 
 export type ResolvedSession = {
   accessToken: string;
@@ -116,75 +115,4 @@ export async function getMemberAccess(
   }
 
   return res.data as MemberAccess;
-}
-
-export function applySessionCookies(
-  response: {
-    cookies: {
-      set(
-        name: string,
-        value: string,
-        options: {
-          expires?: Date;
-          httpOnly: boolean;
-          maxAge?: number;
-          path: string;
-          sameSite: "lax";
-          secure: boolean;
-        }
-      ): void;
-    };
-  },
-  session: ResolvedSession
-) {
-  const baseOptions = {
-    httpOnly: false,
-    path: "/",
-    sameSite: "lax" as const,
-    secure: COOKIE_SECURE,
-  };
-
-  response.cookies.set(ACCESS_COOKIE_NAME, session.accessToken, {
-    ...baseOptions,
-    expires: session.expiresAt ? new Date(session.expiresAt * 1000) : undefined,
-  });
-
-  response.cookies.set(REFRESH_COOKIE_NAME, session.refreshToken ?? "", {
-    ...baseOptions,
-    maxAge: session.refreshToken ? 60 * 60 * 24 * 30 : 0,
-  });
-}
-
-export function clearSessionCookies(response: {
-  cookies: {
-    set(
-      name: string,
-      value: string,
-      options: {
-        expires: Date;
-        httpOnly: boolean;
-        path: string;
-        sameSite: "lax";
-        secure: boolean;
-      }
-    ): void;
-  };
-}) {
-  const expired = new Date(0);
-
-  response.cookies.set(ACCESS_COOKIE_NAME, "", {
-    expires: expired,
-    httpOnly: false,
-    path: "/",
-    sameSite: "lax",
-    secure: COOKIE_SECURE,
-  });
-
-  response.cookies.set(REFRESH_COOKIE_NAME, "", {
-    expires: expired,
-    httpOnly: false,
-    path: "/",
-    sameSite: "lax",
-    secure: COOKIE_SECURE,
-  });
 }

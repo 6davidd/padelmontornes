@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { getClientUser } from "@/lib/client-session";
 import { supabase } from "../../lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -22,8 +23,7 @@ export default function MiPerfilPage() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
+      const user = await getClientUser();
 
       if (!user) {
         setMsg("No se ha podido validar la sesiÃ³n.");
@@ -65,8 +65,7 @@ export default function MiPerfilPage() {
     setOk(null);
     setSaving(true);
 
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
+    const user = await getClientUser();
 
     if (!user) {
       setSaving(false);

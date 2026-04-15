@@ -7,7 +7,12 @@ import AuthSessionSync from "./_components/AuthSessionSync";
 import PublicLayoutFrame from "./_components/PublicLayoutFrame";
 import PrivateLayoutFrame from "./_components/PrivateLayoutFrame";
 import "./globals.css";
-import { isAdminPath, isProtectedPath, isPublicPath } from "@/lib/auth-shared";
+import {
+  isAdminPath,
+  isProtectedPath,
+  isPublicPath,
+  isSuperadminPath,
+} from "@/lib/auth-shared";
 import {
   getMemberAccess,
   resolveSessionFromServerCookies,
@@ -35,14 +40,20 @@ export default async function RootLayout({
     const session = await resolveSessionFromServerCookies();
 
     if (!session) {
-      redirect("/login");
+      redirect(`/login?next=${encodeURIComponent(pathname)}`);
     }
 
     if (isAdminPath(pathname)) {
       const member = await getMemberAccess(session.accessToken, session.user.id);
-      const isAdmin = member?.is_active && ["admin", "superadmin"].includes(member.role);
+      const role = member?.role;
+      const isAdmin =
+        member?.is_active && (role === "admin" || role === "superadmin");
 
       if (!isAdmin) {
+        redirect("/");
+      }
+
+      if (isSuperadminPath(pathname) && role !== "superadmin") {
         redirect("/");
       }
     }

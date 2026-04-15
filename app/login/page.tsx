@@ -4,6 +4,7 @@ import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { syncSessionCookies } from "@/lib/auth-client";
+import { setCachedClientSession } from "@/lib/client-session";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -34,7 +35,9 @@ export default function LoginPage() {
       return;
     }
 
-    syncSessionCookies(data.session ?? null);
+    const session = data.session ?? null;
+    setCachedClientSession(session);
+    syncSessionCookies(session);
     const nextPath = searchParams.get("next") || "/";
     router.replace(nextPath);
     router.refresh();

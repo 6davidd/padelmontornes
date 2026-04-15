@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getClientUser } from "@/lib/client-session";
 import { supabase } from "../../lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -9,14 +10,14 @@ const CLUB_GREEN = "#0f5e2e";
 function Arrow() {
   return (
     <span className="text-lg opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition">
-      →
+      -&gt;
     </span>
   );
 }
 
 function TileLink({ href, title }: { href: string; title: string }) {
   return (
-    <a
+    <Link
       href={href}
       className="group bg-white rounded-3xl shadow-sm ring-1 ring-black/5 px-5 py-4 hover:bg-gray-50 hover:ring-black/10 transition active:scale-[0.99] flex items-center justify-between gap-3"
     >
@@ -24,60 +25,36 @@ function TileLink({ href, title }: { href: string; title: string }) {
         {title}
       </span>
       <Arrow />
-    </a>
+    </Link>
   );
 }
 
 export default function AdminPage() {
-  const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
-    async function checkAdmin() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
+    async function loadRole() {
+      const user = await getClientUser();
 
       if (!user) {
-        setLoading(false);
         return;
       }
 
       const m = await supabase
         .from("members")
-        .select("role,is_active")
+        .select("role")
         .eq("user_id", user.id)
         .single();
 
       if (m.error || !m.data) {
-        setLoading(false);
-        return;
-      }
-
-      const allowedRoles = ["admin", "superadmin"];
-
-      if (!m.data.is_active || !allowedRoles.includes(m.data.role)) {
-        setLoading(false);
         return;
       }
 
       setRole(m.data.role);
-      setLoading(false);
     }
 
-    checkAdmin();
+    loadRole();
   }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-          <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6">
-            Cargando…
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const isSuperadmin = role === "superadmin";
 
@@ -92,9 +69,7 @@ export default function AdminPage() {
             Panel administrador
           </h1>
 
-          <p className="mt-2 text-gray-600">
-            Gestiona el club desde aquí.
-          </p>
+          <p className="mt-2 text-gray-600">Gestiona el club desde aqui.</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4">

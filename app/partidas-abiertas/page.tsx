@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getClientUser } from "@/lib/client-session";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
@@ -296,8 +297,8 @@ export default function PartidasAbiertasPage() {
   }, [openMatchesCountByDay, visibleDays, hasAutoSelectedDate]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id ?? null);
+    getClientUser().then((user) => {
+      setCurrentUserId(user?.id ?? null);
     });
   }, []);
 
@@ -397,8 +398,7 @@ export default function PartidasAbiertasPage() {
   }
 
   async function getUserIdOrMsg() {
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
+    const user = await getClientUser();
 
     if (!user) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");

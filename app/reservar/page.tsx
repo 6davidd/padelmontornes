@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getClientUser } from "@/lib/client-session";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
@@ -275,8 +276,8 @@ export default function ReservarPage() {
   }, [blocks]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id ?? null);
+    getClientUser().then((user) => {
+      setCurrentUserId(user?.id ?? null);
     });
   }, []);
 
@@ -415,8 +416,7 @@ export default function ReservarPage() {
   }, [date]);
 
   async function getUserIdOrMsg() {
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
+    const user = await getClientUser();
     if (!user) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
       return null;
@@ -596,8 +596,7 @@ export default function ReservarPage() {
       return;
     }
 
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
+    const user = await getClientUser();
 
     if (!user) {
       setMsg("No hay sesión. Vuelve a iniciar sesión.");
@@ -831,8 +830,7 @@ export default function ReservarPage() {
         courts.find((c) => c.id === reservation.court_id)?.name ??
         `Pista ${reservation.court_id}`;
 
-      const { data } = await supabase.auth.getUser();
-      const currentUser = data.user;
+      const currentUser = await getClientUser();
 
       let addedByName = "";
 
