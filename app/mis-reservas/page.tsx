@@ -352,8 +352,19 @@ export default function MisReservasPage() {
                       : undefined
                   }
                 >
-                  <div className="text-xs font-semibold">Todas</div>
-                  <div className="text-sm">({totalCount})</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">Todas</span>
+                    <span
+                      className={classNames(
+                        "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
+                        selectedChip === "all"
+                          ? "bg-white/20 text-white"
+                          : "bg-green-50 text-green-800 border border-green-200"
+                      )}
+                    >
+                      {totalCount}
+                    </span>
+                  </div>
                 </button>
 
                 {dayChips.map(({ date, count }) => {
@@ -364,20 +375,29 @@ export default function MisReservasPage() {
                       key={date}
                       onClick={() => setSelectedChip(date)}
                       className={classNames(
-                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[100px]",
+                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[108px]",
                         selected
                           ? "text-white border-transparent"
                           : "bg-white border-gray-300 text-gray-900"
                       )}
                       style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
                     >
-                      <div className="text-xs font-semibold">
-                        {getRelativeDayLabel(date)}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold">
+                          {getRelativeDayLabel(date)}
+                        </span>
+                        <span
+                          className={classNames(
+                            "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
+                            selected
+                              ? "bg-white/20 text-white"
+                              : "bg-green-50 text-green-800 border border-green-200"
+                          )}
+                        >
+                          {count}
+                        </span>
                       </div>
-                      <div className="text-sm flex items-center gap-1">
-                        <span>{formatDayChip(date)}</span>
-                        <span className="text-xs opacity-90">({count})</span>
-                      </div>
+                      <div className="mt-1 text-sm font-medium">{formatDayChip(date)}</div>
                     </button>
                   );
                 })}
@@ -417,9 +437,16 @@ export default function MisReservasPage() {
           <div className="space-y-6">
             {visibleSections.map(([date, list]) => (
               <div key={date} className="space-y-3">
-                <div className="text-sm font-semibold text-gray-700">
-                  {capitalizeFirst(weekdayES(date))} · {formatDateES(date)}
-                </div>
+                {selectedChip === "all" && (
+                  <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                    <div className="text-base sm:text-lg font-bold text-gray-900">
+                      {capitalizeFirst(weekdayES(date))}
+                    </div>
+                    <div className="text-sm sm:text-base font-medium text-gray-600">
+                      {formatDateES(date)}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {list.map((r) => {
