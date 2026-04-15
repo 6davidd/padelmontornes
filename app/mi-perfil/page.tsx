@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -13,8 +13,6 @@ type MemberRow = {
 };
 
 export default function MiPerfilPage() {
-  const router = useRouter();
-
   const [fullName, setFullName] = useState("");
   const [alias, setAlias] = useState("");
   const [loading, setLoading] = useState(true);
@@ -28,7 +26,8 @@ export default function MiPerfilPage() {
       const user = data.user;
 
       if (!user) {
-        router.push("/login");
+        setMsg("No se ha podido validar la sesiÃ³n.");
+        setLoading(false);
         return;
       }
 
@@ -58,7 +57,7 @@ export default function MiPerfilPage() {
     }
 
     loadProfile();
-  }, [router]);
+  }, []);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,7 +70,7 @@ export default function MiPerfilPage() {
 
     if (!user) {
       setSaving(false);
-      router.push("/login");
+      setMsg("No se ha podido validar la sesiÃ³n.");
       return;
     }
 
@@ -180,13 +179,13 @@ export default function MiPerfilPage() {
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-3xl mx-auto">
-          <a
+          <Link
             href="/"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio
-          </a>
+          </Link>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -29,7 +29,6 @@ function TileLink({ href, title }: { href: string; title: string }) {
 }
 
 export default function AdminPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
 
@@ -39,7 +38,7 @@ export default function AdminPage() {
       const user = data.user;
 
       if (!user) {
-        router.push("/login");
+        setLoading(false);
         return;
       }
 
@@ -50,14 +49,14 @@ export default function AdminPage() {
         .single();
 
       if (m.error || !m.data) {
-        router.push("/");
+        setLoading(false);
         return;
       }
 
       const allowedRoles = ["admin", "superadmin"];
 
       if (!m.data.is_active || !allowedRoles.includes(m.data.role)) {
-        router.push("/");
+        setLoading(false);
         return;
       }
 
@@ -66,7 +65,7 @@ export default function AdminPage() {
     }
 
     checkAdmin();
-  }, [router]);
+  }, []);
 
   if (loading) {
     return (
@@ -110,13 +109,13 @@ export default function AdminPage() {
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
         <div className="max-w-3xl mx-auto">
-          <a
+          <Link
             href="/"
             className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             Inicio
-          </a>
+          </Link>
         </div>
       </div>
     </div>

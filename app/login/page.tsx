@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { syncSessionCookies } from "@/lib/auth-client";
 
 const CLUB_GREEN = "#0f5e2e";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +22,7 @@ export default function LoginPage() {
     setMsg(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
@@ -32,7 +34,10 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
+    syncSessionCookies(data.session ?? null);
+    const nextPath = searchParams.get("next") || "/";
+    router.replace(nextPath);
+    router.refresh();
   }
 
   return (

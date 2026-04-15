@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getDisplayName } from "../lib/display-name";
+import { syncSessionCookies } from "@/lib/auth-client";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -48,7 +50,7 @@ function TileLink({
   badge?: number;
 }) {
   return (
-    <a
+    <Link
       href={href}
       className="group bg-white rounded-3xl shadow-sm ring-1 ring-black/5 px-5 py-4 hover:bg-gray-50 hover:ring-black/10 transition active:scale-[0.99] flex items-center justify-between gap-3"
     >
@@ -65,7 +67,7 @@ function TileLink({
       </div>
 
       <Arrow />
-    </a>
+    </Link>
   );
 }
 
@@ -116,43 +118,6 @@ export default function HomePage() {
   const [openMatchesCount, setOpenMatchesCount] = useState(0);
 
   const router = useRouter();
-
-  useEffect(() => {
-    async function init() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const m = await supabase
-        .from("members")
-        .select("role,is_active,full_name,alias")
-        .eq("user_id", user.id)
-        .single();
-
-      if (m.error || !m.data) {
-        setMsg("Tu usuario no está dado de alta en el club.");
-        return;
-      }
-
-      const row = m.data as MemberRow;
-
-      if (!row.is_active) {
-        setMsg("Tu usuario está desactivado. Contacta con el club.");
-        return;
-      }
-
-      setDisplayName(getDisplayName(row));
-      setIsAdmin(row.role === "admin" || row.role === "superadmin");
-
-      await loadOpenMatchesCount(user.id);
-    }
-
-    init();
-  }, [router]);
 
   async function loadOpenMatchesCount(currentUserId: string) {
     const today = todayISO();
@@ -216,9 +181,48 @@ export default function HomePage() {
     setOpenMatchesCount(count);
   }
 
+  useEffect(() => {
+    async function init() {
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
+
+      if (!user) {
+        setMsg("No se ha podido validar la sesiÃ³n.");
+        return;
+      }
+
+      const m = await supabase
+        .from("members")
+        .select("role,is_active,full_name,alias")
+        .eq("user_id", user.id)
+        .single();
+
+      if (m.error || !m.data) {
+        setMsg("Tu usuario no está dado de alta en el club.");
+        return;
+      }
+
+      const row = m.data as MemberRow;
+
+      if (!row.is_active) {
+        setMsg("Tu usuario está desactivado. Contacta con el club.");
+        return;
+      }
+
+      setDisplayName(getDisplayName(row));
+      setIsAdmin(row.role === "admin" || row.role === "superadmin");
+
+      await loadOpenMatchesCount(user.id);
+    }
+
+    init();
+  }, [router]);
+
   async function logout() {
     await supabase.auth.signOut();
-    router.push("/login");
+    syncSessionCookies(null);
+    router.replace("/login");
+    router.refresh();
   }
 
   return (
