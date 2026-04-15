@@ -1,14 +1,16 @@
+import "server-only";
+
 import { cookies } from "next/headers";
 import { createClient, type User } from "@supabase/supabase-js";
-
-export const ACCESS_COOKIE_NAME = "sb-access-token";
-export const REFRESH_COOKIE_NAME = "sb-refresh-token";
+import {
+  ACCESS_COOKIE_NAME,
+  REFRESH_COOKIE_NAME,
+  type MemberRole,
+} from "./auth-shared";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const COOKIE_SECURE = process.env.NODE_ENV === "production";
-
-export type MemberRole = "member" | "admin" | "superadmin";
 
 export type ResolvedSession = {
   accessToken: string;
@@ -185,39 +187,4 @@ export function clearSessionCookies(response: {
     sameSite: "lax",
     secure: COOKIE_SECURE,
   });
-}
-
-export function isPublicPath(pathname: string) {
-  return (
-    pathname === "/login" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password" ||
-    pathname.startsWith("/admin/whatsapp-summary/")
-  );
-}
-
-export function isAdminPath(pathname: string) {
-  return (
-    pathname === "/admin" ||
-    (pathname.startsWith("/admin/") &&
-      !pathname.startsWith("/admin/whatsapp-summary/"))
-  );
-}
-
-export function isStaticBypassPath(pathname: string) {
-  return (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/manifest.json" ||
-    /\.[a-zA-Z0-9]+$/.test(pathname)
-  );
-}
-
-export function isProtectedPath(pathname: string) {
-  if (isStaticBypassPath(pathname) || isPublicPath(pathname)) {
-    return false;
-  }
-
-  return true;
 }

@@ -1,16 +1,18 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
-  applySessionCookies,
-  clearSessionCookies,
-  getMemberAccess,
   isAdminPath,
   isProtectedPath,
   isPublicPath,
   isStaticBypassPath,
+} from "@/lib/auth-shared";
+import {
+  applySessionCookies,
+  clearSessionCookies,
+  getMemberAccess,
   readAuthCookies,
   resolveSessionFromTokens,
-} from "@/lib/auth";
+} from "@/lib/auth-server";
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;

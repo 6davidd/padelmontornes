@@ -1,5 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
-import { ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME } from "./auth";
+import { ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME } from "./auth-shared";
 
 function setCookie(name: string, value: string, options: string[]) {
   document.cookie = `${name}=${encodeURIComponent(value)}; ${options.join("; ")}`;

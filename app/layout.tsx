@@ -7,13 +7,11 @@ import AuthSessionSync from "./_components/AuthSessionSync";
 import PublicLayoutFrame from "./_components/PublicLayoutFrame";
 import PrivateLayoutFrame from "./_components/PrivateLayoutFrame";
 import "./globals.css";
+import { isAdminPath, isProtectedPath, isPublicPath } from "@/lib/auth-shared";
 import {
   getMemberAccess,
-  isPublicPath,
-  isAdminPath,
-  isProtectedPath,
   resolveSessionFromServerCookies,
-} from "@/lib/auth";
+} from "@/lib/auth-server";
 
 export const metadata: Metadata = {
   title: "Club Pàdel Montornès",
