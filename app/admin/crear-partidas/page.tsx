@@ -662,11 +662,7 @@ export default function AdminCrearPartidasPage() {
           )}
         </PageHeaderCard>
 
-        {loadingDay ? (
-          <div className="rounded-3xl border border-gray-300 bg-white p-5 text-gray-700 shadow-sm">
-            Cargando...
-          </div>
-        ) : isOutOfRange ? (
+        {isOutOfRange ? (
           <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
             <div className="text-lg font-bold text-gray-900">Fecha no disponible</div>
             <div className="mt-2 text-sm text-gray-600">
