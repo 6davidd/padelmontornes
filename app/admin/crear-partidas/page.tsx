@@ -582,7 +582,7 @@ export default function AdminCrearPartidasPage() {
               </p>
             </div>
 
-            <div className="overflow-x-auto -mx-1 px-1">
+            <div className="horizontal-scroll-row -mx-1 px-1">
               <div className="flex min-w-max gap-2">
                 {visibleDays.map((day) => {
                   const selected = day === date;

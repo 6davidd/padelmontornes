@@ -473,7 +473,7 @@ export default function PartidasAbiertasPage() {
               Partidas abiertas
             </div>
 
-            <div className="overflow-x-auto -mx-1 px-1">
+            <div className="horizontal-scroll-row -mx-1 px-1">
               <div className="flex gap-2 min-w-max">
                 {dayChips.map(({ day, count }) => {
                   const selected = day === date;

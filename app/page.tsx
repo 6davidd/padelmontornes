@@ -28,14 +28,6 @@ type PlayerRow = {
   member_user_id: string;
 };
 
-function Arrow() {
-  return (
-    <span className="text-lg opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100">
-      -&gt;
-    </span>
-  );
-}
-
 function TileLink({
   href,
   title,
@@ -48,7 +40,7 @@ function TileLink({
   return (
     <Link
       href={href}
-      className="group flex items-center justify-between gap-3 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5 transition hover:bg-gray-50 hover:ring-black/10 active:scale-[0.99]"
+      className="flex items-center rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5 transition hover:bg-gray-50 hover:ring-black/10 active:scale-[0.99]"
     >
       <div className="flex min-w-0 items-center gap-3">
         <span className="text-base font-semibold text-gray-900 sm:text-lg">
@@ -61,8 +53,6 @@ function TileLink({
           </span>
         )}
       </div>
-
-      <Arrow />
     </Link>
   );
 }
@@ -77,7 +67,7 @@ function TileButton({
   variant?: "solid" | "light";
 }) {
   const base =
-    "group flex w-full items-center justify-between rounded-3xl px-5 py-4 shadow-sm transition active:scale-[0.99]";
+    "flex w-full items-center rounded-3xl px-5 py-4 shadow-sm transition active:scale-[0.99]";
 
   const light =
     "bg-white text-gray-900 ring-1 ring-black/5 hover:bg-gray-50 hover:ring-black/10";
@@ -90,7 +80,6 @@ function TileButton({
       style={variant === "solid" ? { backgroundColor: CLUB_GREEN } : undefined}
     >
       <span className="text-base font-semibold sm:text-lg">{title}</span>
-      <Arrow />
     </button>
   );
 }

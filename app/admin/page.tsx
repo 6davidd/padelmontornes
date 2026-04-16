@@ -6,24 +6,15 @@ import { getCurrentMember } from "@/lib/client-current-member";
 
 const CLUB_GREEN = "#0f5e2e";
 
-function Arrow() {
-  return (
-    <span className="text-lg opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100">
-      -&gt;
-    </span>
-  );
-}
-
 function TileLink({ href, title }: { href: string; title: string }) {
   return (
     <Link
       href={href}
-      className="group flex items-center justify-between gap-3 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5 transition hover:bg-gray-50 hover:ring-black/10 active:scale-[0.99]"
+      className="flex items-center rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5 transition hover:bg-gray-50 hover:ring-black/10 active:scale-[0.99]"
     >
       <span className="text-base font-semibold text-gray-900 sm:text-lg">
         {title}
       </span>
-      <Arrow />
     </Link>
   );
 }
