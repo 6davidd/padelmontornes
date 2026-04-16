@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../../lib/supabase";
 import { SATURDAY_SLOTS, WEEKDAY_SLOTS } from "../../../lib/slots";
+import { PageHeaderCard } from "../../_components/PageHeaderCard";
 import { TimeRangeDisplay } from "../../_components/time-range-display";
 
 type Court = {
@@ -30,15 +31,6 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function addDaysISO(baseISO: string, days: number) {
-  const d = new Date(`${baseISO}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function isSaturdayISO(dateISO: string) {
   const d = new Date(`${dateISO}T12:00:00`);
   return d.getDay() === 6;
@@ -52,44 +44,6 @@ function isSundayISO(dateISO: string) {
 function getSlotsForDate(dateISO: string) {
   if (isSundayISO(dateISO)) return [];
   return isSaturdayISO(dateISO) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-}
-
-function getRelativeDayLabel(dateISO: string) {
-  const today = todayISO();
-  const tomorrow = addDaysISO(today, 1);
-
-  if (dateISO === today) return "Hoy";
-  if (dateISO === tomorrow) return "Mañana";
-
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-  }).format(d);
-
-  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
-}
-
-function formatDateLong(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(d);
-}
-
-function formatDateShort(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
-}
-
-function capitalizeFirst(text: string) {
-  if (!text) return text;
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function classNames(...xs: Array<string | false | null | undefined>) {
@@ -129,10 +83,7 @@ export default function AdminBloqueosPage() {
   const [loadingBlocks, setLoadingBlocks] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
-  const visibleDates = useMemo(
-    () => [startDate, addDaysISO(startDate, 1), addDaysISO(startDate, 2)],
-    [startDate]
-  );
+  const visibleDates = useMemo(() => [startDate], [startDate]);
 
   useEffect(() => {
     async function init() {
@@ -248,38 +199,29 @@ export default function AdminBloqueosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-gray-50 pb-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="rounded-3xl border border-gray-300 bg-white p-4 shadow-sm sm:p-5">
-          <div className="space-y-4">
-            <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              Bloquear pistas
-            </div>
+        <PageHeaderCard title="Bloquear pistas">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="min-w-0 space-y-2">
+              <div className="text-sm font-semibold text-gray-900">Día del mes</div>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+                className="block w-full min-w-0 max-w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-green-200"
+              />
+            </label>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="space-y-2">
-                <div className="text-sm font-semibold text-gray-900">
-                  Día del mes
-                </div>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                  className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-green-200"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <div className="text-sm font-semibold text-gray-900">Motivo</div>
-                <input
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  placeholder="Motivo del bloqueo"
-                  className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
-                />
-              </label>
-            </div>
-
+            <label className="min-w-0 space-y-2">
+              <div className="text-sm font-semibold text-gray-900">Motivo</div>
+              <input
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Motivo del bloqueo"
+                className="block w-full min-w-0 max-w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
+              />
+            </label>
           </div>
 
           {msg && (
@@ -287,7 +229,7 @@ export default function AdminBloqueosPage() {
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
-        </div>
+        </PageHeaderCard>
 
         {loadingBlocks ? (
           <div className="rounded-3xl border border-gray-300 bg-white p-5 text-gray-700 shadow-sm">
@@ -310,15 +252,6 @@ export default function AdminBloqueosPage() {
 
               return (
                 <div key={dateISO} className="space-y-3">
-                  <div className="px-1">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {getRelativeDayLabel(dateISO)}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {capitalizeFirst(formatDateLong(dateISO))} · {formatDateShort(dateISO)}
-                    </div>
-                  </div>
-
                   {sunday ? (
                     <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
                       <div className="text-lg font-bold text-red-800">
@@ -334,7 +267,7 @@ export default function AdminBloqueosPage() {
                         key={`${dateISO}-${slot.start}`}
                         className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm"
                       >
-                        <div className="border-b border-gray-200 px-4 py-4 sm:px-5">
+                        <div className="min-w-0 border-b border-gray-200 px-4 py-4 sm:px-5">
                           <TimeRangeDisplay start={slot.start} end={slot.end} />
                         </div>
 

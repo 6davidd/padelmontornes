@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { supabase } from "../../../lib/supabase";
 import { getDisplayName } from "../../../lib/display-name";
+import { PageHeaderCard } from "../../_components/PageHeaderCard";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -279,17 +280,7 @@ export default function AdminContabilidadPage() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50 pb-8">
       <div className="mx-auto max-w-4xl px-4 py-6 space-y-6 sm:px-6 sm:py-8">
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
-          <div className="flex flex-col gap-5">
-            <div>
-              <h1
-                className="text-3xl font-bold sm:text-4xl"
-                style={{ color: CLUB_GREEN }}
-              >
-                Contabilidad
-              </h1>
-            </div>
-
+        <PageHeaderCard title="Contabilidad" contentClassName="space-y-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="min-w-0">
                 <label className="mb-2 block text-sm font-semibold text-gray-900">
@@ -321,30 +312,29 @@ export default function AdminContabilidadPage() {
                 {getMonthLabel(year, month)}
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-                  <div className="text-sm text-gray-500">Socios activos</div>
-                  <div className="mt-1 text-2xl font-bold text-gray-900">
+              <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="min-w-0 rounded-2xl bg-white px-3 py-4 text-center ring-1 ring-black/5 sm:p-4">
+                  <div className="text-xs text-gray-500 sm:text-sm">Socios activos</div>
+                  <div className="mt-1 text-xl font-bold text-gray-900 sm:text-2xl">
                     {stats.total}
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-                  <div className="text-sm text-gray-500">Pagados</div>
-                  <div className="mt-1 text-2xl font-bold text-green-700">
+                <div className="min-w-0 rounded-2xl bg-white px-3 py-4 text-center ring-1 ring-black/5 sm:p-4">
+                  <div className="text-xs text-gray-500 sm:text-sm">Pagados</div>
+                  <div className="mt-1 text-xl font-bold text-green-700 sm:text-2xl">
                     {stats.paid}
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-                  <div className="text-sm text-gray-500">Pendientes</div>
-                  <div className="mt-1 text-2xl font-bold text-yellow-700">
+                <div className="min-w-0 rounded-2xl bg-white px-3 py-4 text-center ring-1 ring-black/5 sm:p-4">
+                  <div className="text-xs text-gray-500 sm:text-sm">Pendientes</div>
+                  <div className="mt-1 text-xl font-bold text-yellow-700 sm:text-2xl">
                     {stats.pending}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
           {msg && (
             <div className="mt-4 rounded-2xl bg-yellow-50 p-4 ring-1 ring-yellow-200">
@@ -357,7 +347,7 @@ export default function AdminContabilidadPage() {
               <p className="text-sm text-green-900">{ok}</p>
             </div>
           )}
-        </div>
+        </PageHeaderCard>
 
         {loading ? (
           <div className="rounded-3xl bg-white p-5 text-gray-700 shadow-sm ring-1 ring-black/5">

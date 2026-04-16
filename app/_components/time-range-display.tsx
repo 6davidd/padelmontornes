@@ -18,7 +18,7 @@ export function TimeRangeDisplay({
   return (
     <div
       className={classNames(
-        "inline-flex items-center gap-2.5 rounded-2xl border border-green-200 bg-green-50 px-3.5 py-2.5 sm:px-4 sm:py-3",
+        "inline-flex w-fit max-w-full self-start items-center gap-2.5 rounded-2xl border border-green-200 bg-green-50 px-3.5 py-2.5 sm:px-4 sm:py-3",
         className
       )}
     >
@@ -37,7 +37,7 @@ export function TimeRangeDisplay({
           strokeLinejoin="round"
         />
       </svg>
-      <span className="text-[1.12rem] font-extrabold tracking-tight leading-none text-green-900 sm:text-[1.2rem]">
+      <span className="min-w-0 whitespace-nowrap text-[1.12rem] font-extrabold leading-none tracking-tight text-green-900 sm:text-[1.2rem]">
         {start} - {end}
       </span>
     </div>

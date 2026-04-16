@@ -7,6 +7,7 @@ import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
+import { PageHeaderCard } from "../_components/PageHeaderCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -42,6 +43,13 @@ type BlockRow = {
   slot_end: string;
   court_id: number;
   reason: string;
+};
+
+type VisibleDaysBookingData = {
+  reservations: ReservationRow[];
+  blocks: BlockRow[];
+  players: PlayerRow[];
+  membersMap: Map<string, string>;
 };
 
 type SupabaseLikeError = {
@@ -213,13 +221,13 @@ export default function ReservarPage() {
   const [date, setDate] = useState(todayISO());
 
   const [courts, setCourts] = useState<Court[]>([]);
-  const [reservations, setReservations] = useState<ReservationRow[]>([]);
-  const [blocks, setBlocks] = useState<BlockRow[]>([]);
-  const [players, setPlayers] = useState<PlayerRow[]>([]);
+  const [allReservations, setAllReservations] = useState<ReservationRow[]>([]);
+  const [allBlocks, setAllBlocks] = useState<BlockRow[]>([]);
+  const [allPlayers, setAllPlayers] = useState<PlayerRow[]>([]);
   const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
 
   const [msg, setMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [expandedResId, setExpandedResId] = useState<string | null>(null);
@@ -236,6 +244,14 @@ export default function ReservarPage() {
   const visibleDays = useMemo(() => getVisibleDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
   const isOutOfRange = useMemo(() => !isDateWithin7Days(date), [date]);
+  const reservations = useMemo(
+    () => allReservations.filter((reservation) => reservation.date === date),
+    [allReservations, date]
+  );
+  const blocks = useMemo(
+    () => allBlocks.filter((block) => block.date === date),
+    [allBlocks, date]
+  );
 
   const slotsToShow = useMemo(() => {
     if (isSunday || isOutOfRange) return [];
@@ -246,7 +262,7 @@ export default function ReservarPage() {
 
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
-    for (const p of players) {
+    for (const p of allPlayers) {
       const arr = m.get(p.reservation_id) ?? [];
       arr.push({
         seat: p.seat,
@@ -260,7 +276,7 @@ export default function ReservarPage() {
       m.set(k, arr);
     }
     return m;
-  }, [players, membersMap]);
+  }, [allPlayers, membersMap]);
 
   const reservationByKey = useMemo(() => {
     const m = new Map<string, ReservationRow>();
@@ -278,21 +294,111 @@ export default function ReservarPage() {
     return m;
   }, [blocks]);
 
-  useEffect(() => {
-    getCurrentMember().then((member) => {
-      setCurrentUserId(member?.user_id ?? null);
-    });
-  }, []);
+  function applyVisibleDaysData(data: VisibleDaysBookingData) {
+    setAllReservations(data.reservations);
+    setAllBlocks(data.blocks);
+    setAllPlayers(data.players);
+    setMembersMap(data.membersMap);
+  }
 
-  useEffect(() => {
-    getCourts()
-      .then((data) => {
-        setCourts(data.slice(0, 3));
-      })
-      .catch((error: { message?: string }) => {
-        setMsg(error.message ?? "No se han podido cargar las pistas.");
-      });
-  }, []);
+  async function fetchVisibleDaysData(): Promise<VisibleDaysBookingData> {
+    const [reservationsRes, blocksRes] = await Promise.all([
+      supabase
+        .from("reservations_public")
+        .select("id,date,slot_start,slot_end,court_id")
+        .in("date", visibleDays)
+        .order("date", { ascending: true })
+        .order("slot_start", { ascending: true })
+        .order("court_id", { ascending: true }),
+      supabase
+        .from("blocks")
+        .select("id,date,slot_start,slot_end,court_id,reason")
+        .in("date", visibleDays)
+        .order("date", { ascending: true })
+        .order("slot_start", { ascending: true })
+        .order("court_id", { ascending: true }),
+    ]);
+
+    if (reservationsRes.error) {
+      throw new Error(reservationsRes.error.message);
+    }
+
+    if (blocksRes.error) {
+      throw new Error(blocksRes.error.message);
+    }
+
+    const reservations = (reservationsRes.data ?? []) as ReservationRow[];
+    const reservationIds = reservations.map((reservation) => reservation.id);
+    const blocks = (blocksRes.data ?? []) as BlockRow[];
+
+    if (reservationIds.length === 0) {
+      return {
+        reservations,
+        blocks,
+        players: [],
+        membersMap: new Map(),
+      };
+    }
+
+    const playersRes = await supabase
+      .from("reservation_players")
+      .select("reservation_id,seat,member_user_id")
+      .in("reservation_id", reservationIds);
+
+    if (playersRes.error) {
+      throw new Error(playersRes.error.message);
+    }
+
+    const players = (playersRes.data ?? []) as PlayerRow[];
+    const userIds = Array.from(new Set(players.map((player) => player.member_user_id)));
+
+    if (userIds.length === 0) {
+      return {
+        reservations,
+        blocks,
+        players,
+        membersMap: new Map(),
+      };
+    }
+
+    const membersRes = await supabase
+      .from("members")
+      .select("user_id,full_name,alias,is_active,email")
+      .in("user_id", userIds);
+
+    if (membersRes.error) {
+      throw new Error(membersRes.error.message);
+    }
+
+    const membersMap = new Map<string, string>();
+    for (const row of (membersRes.data ?? []) as MemberRow[]) {
+      membersMap.set(row.user_id, getDisplayName(row));
+    }
+
+    return {
+      reservations,
+      blocks,
+      players,
+      membersMap,
+    };
+  }
+
+  async function refreshVisibleDaysData() {
+    setMsg(null);
+
+    try {
+      const data = await fetchVisibleDaysData();
+      applyVisibleDaysData(data);
+      return data;
+    } catch (error) {
+      setMsg(
+        error instanceof Error
+          ? error.message
+          : "No se han podido cargar las reservas."
+      );
+      return null;
+    }
+  }
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -303,6 +409,47 @@ export default function ReservarPage() {
       window.clearTimeout(timeout);
     };
   }, [q]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function init() {
+      setMsg(null);
+      setLoading(true);
+
+      try {
+        const [member, courtsData, data] = await Promise.all([
+          getCurrentMember(),
+          getCourts(),
+          fetchVisibleDaysData(),
+        ]);
+
+        if (!active) return;
+
+        setCurrentUserId(member?.user_id ?? null);
+        setCourts(courtsData.slice(0, 3));
+        applyVisibleDaysData(data);
+      } catch (error) {
+        if (!active) return;
+
+        setMsg(
+          error instanceof Error
+            ? error.message
+            : "No se han podido cargar las reservas."
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void init();
+
+    return () => {
+      active = false;
+    };
+  }, [visibleDays]);
 
   async function restoreScrollAfter(action: () => Promise<void>) {
     const y = window.scrollY;
@@ -326,106 +473,6 @@ export default function ReservarPage() {
     if (res.error || !res.data) return null;
     return res.data as ReservationRow;
   }
-
-  async function loadDay() {
-    setMsg(null);
-    setLoading(true);
-
-    if (isSundayISO(date) || !isDateWithin7Days(date)) {
-      setReservations([]);
-      setBlocks([]);
-      setPlayers([]);
-      setMembersMap(new Map());
-      setExpandedResId(null);
-      setLoading(false);
-      return;
-    }
-
-    const [reservationsRes, blocksRes] = await Promise.all([
-      supabase
-        .from("reservations_public")
-        .select("id,date,slot_start,slot_end,court_id")
-        .eq("date", date)
-        .order("slot_start", { ascending: true })
-        .order("court_id", { ascending: true }),
-      supabase
-        .from("blocks")
-        .select("id,date,slot_start,slot_end,court_id,reason")
-        .eq("date", date)
-        .order("slot_start", { ascending: true })
-        .order("court_id", { ascending: true }),
-    ]);
-
-    if (reservationsRes.error) {
-      setMsg(reservationsRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (blocksRes.error) {
-      setMsg(blocksRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const resRows = (reservationsRes.data ?? []) as ReservationRow[];
-    setReservations(resRows);
-    setBlocks((blocksRes.data ?? []) as BlockRow[]);
-
-    const ids = resRows.map((x) => x.id);
-    if (ids.length === 0) {
-      setPlayers([]);
-      setMembersMap(new Map());
-      setExpandedResId(null);
-      setLoading(false);
-      return;
-    }
-
-    const p = await supabase
-      .from("reservation_players")
-      .select("reservation_id,seat,member_user_id")
-      .in("reservation_id", ids);
-
-    if (p.error) {
-      setMsg(p.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const playerRows = (p.data ?? []) as PlayerRow[];
-    setPlayers(playerRows);
-
-    const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
-    if (userIds.length === 0) {
-      setMembersMap(new Map());
-      setLoading(false);
-      return;
-    }
-
-    const m = await supabase
-      .from("members")
-      .select("user_id,full_name,alias,is_active,email")
-      .in("user_id", userIds);
-
-    if (m.error) {
-      setMsg(m.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const map = new Map<string, string>();
-    for (const row of (m.data ?? []) as MemberRow[]) {
-      map.set(row.user_id, getDisplayName(row));
-    }
-    setMembersMap(map);
-
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    loadDay();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
 
   async function getUserIdOrMsg() {
     const member = await getCurrentMember();
@@ -641,8 +688,15 @@ export default function ReservarPage() {
           errMsg.includes("duplicate key") ||
           errMsg.includes("uq_reservation_unique")
         ) {
-          await loadDay();
-          const nowExisting = await findReservationBySlot(slotStart, courtId);
+          const refreshedData = await refreshVisibleDaysData();
+          const nowExisting =
+            refreshedData?.reservations.find(
+              (reservation) =>
+                reservation.date === date &&
+                toHM(reservation.slot_start) === slotStart &&
+                reservation.court_id === courtId
+            ) ?? (await findReservationBySlot(slotStart, courtId));
+
           if (nowExisting) setExpandedResId(nowExisting.id);
           return;
         }
@@ -661,7 +715,7 @@ export default function ReservarPage() {
 
       if (playerIns.error) {
         await supabase.from("reservations").delete().eq("id", createdReservationId);
-        await loadDay();
+        await refreshVisibleDaysData();
         setMsg(getReservationPlayersErrorMessage(playerIns.error));
         return;
       }
@@ -669,7 +723,7 @@ export default function ReservarPage() {
       const courtName =
         courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
 
-      await loadDay();
+      await refreshVisibleDaysData();
       setExpandedResId(createdReservationId);
 
       if (userEmail) {
@@ -704,7 +758,7 @@ export default function ReservarPage() {
         return;
       }
 
-      await loadDay();
+      await refreshVisibleDaysData();
       setExpandedResId(resId);
       ok = true;
     });
@@ -870,12 +924,7 @@ export default function ReservarPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
-          <div className="space-y-3">
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-              Reservar pista
-            </div>
-
+        <PageHeaderCard title="Reservar pista" contentClassName="space-y-3">
             <div className="horizontal-scroll-row -mx-1 px-1">
               <div className="flex gap-2 min-w-max">
                 {visibleDays.map((day) => {
@@ -905,7 +954,6 @@ export default function ReservarPage() {
                 })}
               </div>
             </div>
-          </div>
 
           {isOutOfRange && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
@@ -920,7 +968,7 @@ export default function ReservarPage() {
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
-        </div>
+        </PageHeaderCard>
 
         {loading ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">

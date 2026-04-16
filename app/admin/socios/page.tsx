@@ -5,6 +5,7 @@ import { getClientSession } from "@/lib/client-session";
 import { CLUB_NAME, CLUB_PUBLIC_URL } from "@/lib/brand";
 import { supabase } from "../../../lib/supabase";
 import { getDisplayName } from "../../../lib/display-name";
+import { PageHeaderCard } from "../../_components/PageHeaderCard";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -377,30 +378,19 @@ export default function AdminSociosPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1
-                className="text-3xl sm:text-4xl font-bold"
-                style={{ color: CLUB_GREEN }}
-              >
-                Socios
-              </h1>
-
-              <p className="mt-2 text-gray-600">
-                Desde aquí puedes ver los socios del club, añadir nuevos, editar
-                alias y activarlos o desactivarlos.
-              </p>
-            </div>
-
+        <PageHeaderCard
+          title="Socios"
+          contentClassName="space-y-5"
+          actions={
             <button
               onClick={toggleCreateForm}
-              className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99]"
+              className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99] sm:w-auto"
               style={{ backgroundColor: CLUB_GREEN }}
             >
               {creating ? "Cerrar" : "Añadir socio"}
             </button>
-          </div>
+          }
+        >
 
           {creating && (
             <div className="mt-6 rounded-3xl border border-gray-200 bg-gray-50 p-5 space-y-4">
@@ -537,7 +527,7 @@ export default function AdminSociosPage() {
               </pre>
             </div>
           )}
-        </div>
+        </PageHeaderCard>
 
         {loading ? (
           <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-5 text-gray-700">

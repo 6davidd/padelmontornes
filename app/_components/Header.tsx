@@ -150,13 +150,13 @@ function HeaderChrome({
             aria-modal="true"
             aria-labelledby="app-header-menu-title"
             aria-hidden={!isMenuOpen}
-            className={`fixed inset-y-0 right-0 z-50 flex w-[min(80vw,19rem)] flex-col overflow-y-auto border-l border-black/10 bg-gray-50 px-4 pb-5 pt-4 shadow-2xl transition duration-300 ease-out ${
+            className={`fixed right-4 top-[calc(var(--app-header-height)+0.5rem)] z-50 w-[min(calc(100vw-2rem),19rem)] max-h-[calc(100dvh-var(--app-header-height)-1rem)] transition duration-300 ease-out sm:right-6 ${
               isMenuOpen
-                ? "translate-x-0"
-                : "pointer-events-none translate-x-full"
+                ? "translate-x-0 translate-y-0 opacity-100 scale-100"
+                : "pointer-events-none translate-x-2 -translate-y-2 opacity-0 scale-[0.98]"
             }`}
           >
-            <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+            <div className="overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl ring-1 ring-black/5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3 overflow-hidden">
                 <Image

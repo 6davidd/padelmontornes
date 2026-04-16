@@ -6,6 +6,7 @@ import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
+import { PageHeaderCard } from "../_components/PageHeaderCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -470,67 +471,59 @@ export default function PartidasAbiertasPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
-          <div className="space-y-3">
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-              Partidas abiertas
-            </div>
+        <PageHeaderCard title="Partidas abiertas" contentClassName="space-y-3">
+          {hasAnyOpenMatches && (
+            <div className="horizontal-scroll-row -mx-1 px-1">
+              <div className="flex gap-2 min-w-max">
+                {dayChips.map(({ day, count }) => {
+                  const selected = day === date;
+                  const sunday = isSundayISO(day);
 
-            {hasAnyOpenMatches && (
-              <div className="horizontal-scroll-row -mx-1 px-1">
-                <div className="flex gap-2 min-w-max">
-                  {dayChips.map(({ day, count }) => {
-                    const selected = day === date;
-                    const sunday = isSundayISO(day);
-
-                    return (
-                      <button
-                        key={day}
-                        onClick={() => selectDate(day)}
-                        className={classNames(
-                          "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
-                          selected
-                            ? "text-white border-transparent"
-                            : sunday
-                            ? "bg-red-50 border-red-200 text-red-800"
-                            : "bg-white border-gray-300 text-gray-900"
-                        )}
-                        style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold">
-                            {getRelativeDayLabel(day)}
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => selectDate(day)}
+                      className={classNames(
+                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                        selected
+                          ? "text-white border-transparent"
+                          : sunday
+                          ? "bg-red-50 border-red-200 text-red-800"
+                          : "bg-white border-gray-300 text-gray-900"
+                      )}
+                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold">
+                          {getRelativeDayLabel(day)}
+                        </span>
+                        {count > 0 && (
+                          <span
+                            className={classNames(
+                              "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
+                              selected
+                                ? "bg-white/20 text-white"
+                                : "bg-green-50 text-green-800 border border-green-200"
+                            )}
+                          >
+                            {count}
                           </span>
-                          {count > 0 && (
-                            <span
-                              className={classNames(
-                                "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
-                                selected
-                                  ? "bg-white/20 text-white"
-                                  : "bg-green-50 text-green-800 border border-green-200"
-                              )}
-                            >
-                              {count}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm">
-                          {formatDayChip(day)}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        )}
+                      </div>
+                      <div className="text-sm">{formatDayChip(day)}</div>
+                    </button>
+                  );
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {msg && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
-        </div>
+        </PageHeaderCard>
 
         {loading ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">

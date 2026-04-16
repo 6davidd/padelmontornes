@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
+import { PageHeaderCard } from "../_components/PageHeaderCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 type Item = {
@@ -325,12 +326,7 @@ export default function MisReservasPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
-          <div className="space-y-3">
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-              Mis reservas
-            </div>
-
+        <PageHeaderCard title="Mis reservas" contentClassName="space-y-3">
             <div className="horizontal-scroll-row -mx-1 px-1">
               <div className="flex gap-2 min-w-max">
                 <button
@@ -398,14 +394,13 @@ export default function MisReservasPage() {
                 })}
               </div>
             </div>
-          </div>
 
           {msg && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
-        </div>
+        </PageHeaderCard>
 
         {loading ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">

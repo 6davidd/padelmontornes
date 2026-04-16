@@ -6,6 +6,7 @@ import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 import { getDisplayName } from "../../../lib/display-name";
+import { PageHeaderCard } from "../../_components/PageHeaderCard";
 import { TimeRangeDisplay } from "../../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -44,6 +45,13 @@ type BlockRow = {
   slot_end: string;
   court_id: number;
   reason: string;
+};
+
+type VisibleDaysAdminData = {
+  reservations: ReservationRow[];
+  blocks: BlockRow[];
+  players: PlayerRow[];
+  membersMap: Map<string, string>;
 };
 
 type SelectedMatch = {
@@ -228,15 +236,14 @@ function Modal({
 
 export default function AdminCrearPartidasPage() {
   const [loadingPage, setLoadingPage] = useState(true);
-  const [loadingDay, setLoadingDay] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const [date, setDate] = useState(todayISO());
 
   const [courts, setCourts] = useState<Court[]>([]);
-  const [reservations, setReservations] = useState<ReservationRow[]>([]);
-  const [players, setPlayers] = useState<PlayerRow[]>([]);
-  const [blocks, setBlocks] = useState<BlockRow[]>([]);
+  const [allReservations, setAllReservations] = useState<ReservationRow[]>([]);
+  const [allPlayers, setAllPlayers] = useState<PlayerRow[]>([]);
+  const [allBlocks, setAllBlocks] = useState<BlockRow[]>([]);
   const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
   const [activeMembers, setActiveMembers] = useState<MemberRow[]>([]);
 
@@ -251,6 +258,14 @@ export default function AdminCrearPartidasPage() {
   const visibleDays = useMemo(() => getVisibleDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
   const isOutOfRange = useMemo(() => !isDateWithin7Days(date), [date]);
+  const reservations = useMemo(
+    () => allReservations.filter((reservation) => reservation.date === date),
+    [allReservations, date]
+  );
+  const blocks = useMemo(
+    () => allBlocks.filter((block) => block.date === date),
+    [allBlocks, date]
+  );
 
   const slotsToShow = useMemo(() => {
     if (isSunday || isOutOfRange) return [];
@@ -260,7 +275,7 @@ export default function AdminCrearPartidasPage() {
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
 
-    for (const p of players) {
+    for (const p of allPlayers) {
       const arr = m.get(p.reservation_id) ?? [];
       arr.push({
         seat: p.seat,
@@ -276,7 +291,7 @@ export default function AdminCrearPartidasPage() {
     }
 
     return m;
-  }, [players, membersMap]);
+  }, [allPlayers, membersMap]);
 
   const reservationByKey = useMemo(() => {
     const m = new Map<string, ReservationRow>();
@@ -321,88 +336,50 @@ export default function AdminCrearPartidasPage() {
     });
   }, [activeMembers, search, selectedPlayerIds]);
 
-  useEffect(() => {
-    async function init() {
-      try {
-        const [session, courts, membersRes] = await Promise.all([
-          getClientSession(),
-          getCourts(),
-          supabase
-            .from("members")
-            .select("user_id,full_name,alias,email,is_active")
-            .eq("is_active", true)
-            .order("full_name", { ascending: true }),
-        ]);
+  function applyVisibleDaysData(data: VisibleDaysAdminData) {
+    setAllReservations(data.reservations);
+    setAllBlocks(data.blocks);
+    setAllPlayers(data.players);
+    setMembersMap(data.membersMap);
+  }
 
-        setAccessToken(session?.access_token ?? null);
-        setCourts(courts);
-
-        if (membersRes.error) {
-          setMsg(membersRes.error.message);
-        } else {
-          setActiveMembers((membersRes.data ?? []) as MemberRow[]);
-        }
-      } catch (error) {
-        setMsg(error instanceof Error ? error.message : "No se han podido cargar los datos.");
-      }
-
-      setLoadingPage(false);
-    }
-
-    init();
-  }, []);
-
-  async function loadDay() {
-    setMsg(null);
-    setLoadingDay(true);
-
-    if (isSundayISO(date) || !isDateWithin7Days(date)) {
-      setReservations([]);
-      setPlayers([]);
-      setBlocks([]);
-      setMembersMap(new Map());
-      setLoadingDay(false);
-      return;
-    }
-
+  async function fetchVisibleDaysData(): Promise<VisibleDaysAdminData> {
     const [reservationsRes, blocksRes] = await Promise.all([
       supabase
         .from("reservations_public")
         .select("id,date,slot_start,slot_end,court_id")
-        .eq("date", date)
+        .in("date", visibleDays)
+        .order("date", { ascending: true })
         .order("slot_start", { ascending: true })
         .order("court_id", { ascending: true }),
       supabase
         .from("blocks")
         .select("id,date,slot_start,slot_end,court_id,reason")
-        .eq("date", date)
+        .in("date", visibleDays)
+        .order("date", { ascending: true })
         .order("slot_start", { ascending: true })
         .order("court_id", { ascending: true }),
     ]);
 
     if (reservationsRes.error) {
-      setMsg(reservationsRes.error.message);
-      setLoadingDay(false);
-      return;
+      throw new Error(reservationsRes.error.message);
     }
 
     if (blocksRes.error) {
-      setMsg(blocksRes.error.message);
-      setLoadingDay(false);
-      return;
+      throw new Error(blocksRes.error.message);
     }
 
-    const reservationRows = (reservationsRes.data ?? []) as ReservationRow[];
-    setReservations(reservationRows);
-    setBlocks((blocksRes.data ?? []) as BlockRow[]);
-
-    const reservationIds = reservationRows.map((x) => x.id);
+    const reservations = (reservationsRes.data ?? []) as ReservationRow[];
+    const reservationIds = reservations.map((reservation) => reservation.id);
+    const blocks = (blocksRes.data ?? []) as BlockRow[];
 
     if (reservationIds.length === 0) {
-      setPlayers([]);
-      setMembersMap(new Map());
-      setLoadingDay(false);
-      return;
+      return {
+        reservations,
+        blocks,
+        players: [],
+        membersMap: new Map(),
+      };
     }
 
     const playersRes = await supabase
@@ -411,20 +388,19 @@ export default function AdminCrearPartidasPage() {
       .in("reservation_id", reservationIds);
 
     if (playersRes.error) {
-      setMsg(playersRes.error.message);
-      setLoadingDay(false);
-      return;
+      throw new Error(playersRes.error.message);
     }
 
-    const playerRows = (playersRes.data ?? []) as PlayerRow[];
-    setPlayers(playerRows);
-
-    const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
+    const players = (playersRes.data ?? []) as PlayerRow[];
+    const userIds = Array.from(new Set(players.map((player) => player.member_user_id)));
 
     if (userIds.length === 0) {
-      setMembersMap(new Map());
-      setLoadingDay(false);
-      return;
+      return {
+        reservations,
+        blocks,
+        players,
+        membersMap: new Map(),
+      };
     }
 
     const membersRes = await supabase
@@ -433,26 +409,83 @@ export default function AdminCrearPartidasPage() {
       .in("user_id", userIds);
 
     if (membersRes.error) {
-      setMsg(membersRes.error.message);
-      setLoadingDay(false);
-      return;
+      throw new Error(membersRes.error.message);
     }
 
-    const map = new Map<string, string>();
+    const membersMap = new Map<string, string>();
     for (const row of (membersRes.data ?? []) as MemberRow[]) {
-      map.set(row.user_id, getDisplayName(row));
+      membersMap.set(row.user_id, getDisplayName(row));
     }
-    setMembersMap(map);
 
-    setLoadingDay(false);
+    return {
+      reservations,
+      blocks,
+      players,
+      membersMap,
+    };
+  }
+
+  async function refreshVisibleDaysData() {
+    setMsg(null);
+
+    try {
+      const data = await fetchVisibleDaysData();
+      applyVisibleDaysData(data);
+      return data;
+    } catch (error) {
+      setMsg(
+        error instanceof Error
+          ? error.message
+          : "No se han podido cargar los datos."
+      );
+      return null;
+    }
   }
 
   useEffect(() => {
-    if (!loadingPage) {
-      loadDay();
+    let active = true;
+
+    async function init() {
+      try {
+        const [session, courts, membersRes, data] = await Promise.all([
+          getClientSession(),
+          getCourts(),
+          supabase
+            .from("members")
+            .select("user_id,full_name,alias,email,is_active")
+            .eq("is_active", true)
+            .order("full_name", { ascending: true }),
+          fetchVisibleDaysData(),
+        ]);
+
+        if (!active) return;
+
+        setAccessToken(session?.access_token ?? null);
+        setCourts(courts);
+        applyVisibleDaysData(data);
+
+        if (membersRes.error) {
+          setMsg(membersRes.error.message);
+        } else {
+          setActiveMembers((membersRes.data ?? []) as MemberRow[]);
+        }
+      } catch (error) {
+        if (!active) return;
+
+        setMsg(error instanceof Error ? error.message : "No se han podido cargar los datos.");
+      } finally {
+        if (active) {
+          setLoadingPage(false);
+        }
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, loadingPage]);
+
+    void init();
+
+    return () => {
+      active = false;
+    };
+  }, [visibleDays]);
 
   function openCreateModal(match: SelectedMatch) {
     setMsg(null);
@@ -543,7 +576,7 @@ export default function AdminCrearPartidasPage() {
           : "Partida abierta creada correctamente."
       );
 
-      await loadDay();
+      await refreshVisibleDaysData();
       setCreating(false);
       resetModalState();
     } catch (error) {
@@ -569,12 +602,7 @@ export default function AdminCrearPartidasPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="rounded-3xl border border-gray-300 bg-white p-4 shadow-sm sm:p-5">
-          <div className="space-y-4">
-            <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              Crear partidas
-            </div>
-
+        <PageHeaderCard title="Crear partidas">
             <div className="horizontal-scroll-row -mx-1 px-1">
               <div className="flex min-w-max gap-2">
                 {visibleDays.map((day) => {
@@ -604,7 +632,6 @@ export default function AdminCrearPartidasPage() {
                 })}
               </div>
             </div>
-          </div>
 
           {isOutOfRange && (
             <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
@@ -633,7 +660,7 @@ export default function AdminCrearPartidasPage() {
               <p className="text-sm text-green-900">{ok}</p>
             </div>
           )}
-        </div>
+        </PageHeaderCard>
 
         {loadingDay ? (
           <div className="rounded-3xl border border-gray-300 bg-white p-5 text-gray-700 shadow-sm">
