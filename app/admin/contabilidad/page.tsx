@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { supabase } from "../../../lib/supabase";
 import { getDisplayName } from "../../../lib/display-name";
@@ -72,7 +71,7 @@ function getMonthLabel(year: number, month: number) {
 }
 
 function formatPaidAt(value: string | null) {
-  if (!value) return "â€”";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat("es-ES", {
     dateStyle: "short",
@@ -278,7 +277,7 @@ export default function AdminContabilidadPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gray-50 pb-40">
+    <div className="min-h-screen overflow-x-hidden bg-gray-50 pb-8">
       <div className="mx-auto max-w-4xl px-4 py-6 space-y-6 sm:px-6 sm:py-8">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
           <div className="flex flex-col gap-5">
@@ -311,7 +310,7 @@ export default function AdminContabilidadPage() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre, alias o emailâ€¦"
+                  placeholder="Buscar por nombre, alias o email…"
                   className="block w-full min-w-0 max-w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-green-200"
                 />
               </div>
@@ -373,7 +372,7 @@ export default function AdminContabilidadPage() {
             {filteredMembers.map((member) => {
               const cleanAlias = member.alias?.trim() || "";
               const hasAlias = cleanAlias.length > 0;
-              const titleName = hasAlias ? cleanAlias : member.full_name || "â€”";
+              const titleName = hasAlias ? cleanAlias : member.full_name || "—";
               const payment = paymentMap.get(member.user_id);
               const isPaid = payment?.status === "paid";
               const isSaving = savingId === member.user_id;
@@ -398,7 +397,7 @@ export default function AdminContabilidadPage() {
                             <span className="font-semibold text-gray-800">
                               Nombre real:
                             </span>{" "}
-                            {member.full_name || "â€”"}
+                            {member.full_name || "—"}
                           </div>
                         )}
 
@@ -406,12 +405,12 @@ export default function AdminContabilidadPage() {
                           <span className="font-semibold text-gray-800">
                             Email:
                           </span>{" "}
-                          {member.email || "â€”"}
+                          {member.email || "—"}
                         </div>
 
                         <div>
                           <span className="font-semibold text-gray-800">
-                            Ãšltimo cambio:
+                            Último cambio:
                           </span>{" "}
                           {formatPaidAt(payment?.paid_at ?? null)}
                         </div>
@@ -449,17 +448,6 @@ export default function AdminContabilidadPage() {
         )}
       </div>
 
-      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="mx-auto max-w-4xl">
-          <Link
-            href="/admin"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg transition active:scale-[0.99]"
-            style={{ backgroundColor: CLUB_GREEN }}
-          >
-            Panel administrador
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

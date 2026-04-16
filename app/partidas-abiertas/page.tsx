@@ -1,6 +1,5 @@
 ﻿"use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getCourts } from "@/lib/client-reference-data";
@@ -89,7 +88,7 @@ function getRelativeDayLabel(dateISO: string) {
   const tomorrow = addDaysISO(today, 1);
 
   if (dateISO === today) return "Hoy";
-  if (dateISO === tomorrow) return "MaÃ±ana";
+  if (dateISO === tomorrow) return "Mañana";
 
   const d = new Date(`${dateISO}T12:00:00`);
   const weekday = new Intl.DateTimeFormat("es-ES", {
@@ -120,8 +119,8 @@ function getReservationPlayersErrorMessage(error: SupabaseLikeError | null | und
   if (
     message.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
     details.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
-    details.includes("YA ESTÃ APUNTADO EN OTRA PISTA PARA EL MISMO DÃA Y HORA") ||
-    details.includes("MISMO DÃA Y HORA")
+    details.includes("YA ESTÁ APUNTADO EN OTRA PISTA PARA EL MISMO DÍA Y HORA") ||
+    details.includes("MISMO DÍA Y HORA")
   ) {
     return "Ya tienes una reserva en otra pista a esta misma hora.";
   }
@@ -130,21 +129,21 @@ function getReservationPlayersErrorMessage(error: SupabaseLikeError | null | und
     message.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION") ||
     details.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION")
   ) {
-    return "Ya estÃ¡s apuntado en esta partida.";
+    return "Ya estás apuntado en esta partida.";
   }
 
   if (
     message.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION") ||
     details.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION")
   ) {
-    return "Ese hueco acaba de ocuparse. Actualiza e intÃ©ntalo de nuevo.";
+    return "Ese hueco acaba de ocuparse. Actualiza e inténtalo de nuevo.";
   }
 
   if (message.includes("DUPLICATE KEY")) {
-    return "No se ha podido guardar porque ese hueco ya no estÃ¡ disponible.";
+    return "No se ha podido guardar porque ese hueco ya no está disponible.";
   }
 
-  return error?.message || "No se ha podido completar la operaciÃ³n.";
+  return error?.message || "No se ha podido completar la operación.";
 }
 
 function Badge({
@@ -272,6 +271,10 @@ export default function PartidasAbiertasPage() {
       }))
       .filter(({ count }) => count > 0);
   }, [visibleDays, openMatchesCountByDay]);
+
+  const hasAnyOpenMatches = dayChips.length > 0;
+  const isSelectingFirstOpenDay =
+    hasAnyOpenMatches && !dayChips.some(({ day }) => day === date);
 
   useEffect(() => {
     if (hasAutoSelectedDate) return;
@@ -449,7 +452,7 @@ export default function PartidasAbiertasPage() {
     );
 
     if (alreadyIn) {
-      setMsg("Ya estÃ¡s apuntado en esta partida.");
+      setMsg("Ya estás apuntado en esta partida.");
       return;
     }
 
@@ -457,7 +460,7 @@ export default function PartidasAbiertasPage() {
     const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
 
     if (!freeSeat) {
-      setMsg("Esta partida ya estÃ¡ completa.");
+      setMsg("Esta partida ya está completa.");
       return;
     }
 
@@ -465,7 +468,7 @@ export default function PartidasAbiertasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
+    <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
           <div className="space-y-3">
@@ -473,51 +476,53 @@ export default function PartidasAbiertasPage() {
               Partidas abiertas
             </div>
 
-            <div className="horizontal-scroll-row -mx-1 px-1">
-              <div className="flex gap-2 min-w-max">
-                {dayChips.map(({ day, count }) => {
-                  const selected = day === date;
-                  const sunday = isSundayISO(day);
+            {hasAnyOpenMatches && (
+              <div className="horizontal-scroll-row -mx-1 px-1">
+                <div className="flex gap-2 min-w-max">
+                  {dayChips.map(({ day, count }) => {
+                    const selected = day === date;
+                    const sunday = isSundayISO(day);
 
-                  return (
-                    <button
-                      key={day}
-                      onClick={() => selectDate(day)}
-                      className={classNames(
-                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
-                        selected
-                          ? "text-white border-transparent"
-                          : sunday
-                          ? "bg-red-50 border-red-200 text-red-800"
-                          : "bg-white border-gray-300 text-gray-900"
-                      )}
-                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold">
-                          {getRelativeDayLabel(day)}
-                        </span>
-                        {count > 0 && (
-                          <span
-                            className={classNames(
-                              "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
-                              selected
-                                ? "bg-white/20 text-white"
-                                : "bg-green-50 text-green-800 border border-green-200"
-                            )}
-                          >
-                            {count}
-                          </span>
+                    return (
+                      <button
+                        key={day}
+                        onClick={() => selectDate(day)}
+                        className={classNames(
+                          "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                          selected
+                            ? "text-white border-transparent"
+                            : sunday
+                            ? "bg-red-50 border-red-200 text-red-800"
+                            : "bg-white border-gray-300 text-gray-900"
                         )}
-                      </div>
-                      <div className="text-sm">
-                        {formatDayChip(day)}
-                      </div>
-                    </button>
-                  );
-                })}
+                        style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold">
+                            {getRelativeDayLabel(day)}
+                          </span>
+                          {count > 0 && (
+                            <span
+                              className={classNames(
+                                "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
+                                selected
+                                  ? "bg-white/20 text-white"
+                                  : "bg-green-50 text-green-800 border border-green-200"
+                              )}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm">
+                          {formatDayChip(day)}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {msg && (
@@ -529,7 +534,23 @@ export default function PartidasAbiertasPage() {
 
         {loading ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
-            Cargandoâ€¦
+            Cargando…
+          </div>
+        ) : isSelectingFirstOpenDay ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
+            Cargando…
+          </div>
+        ) : !hasAnyOpenMatches ? (
+          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-8 sm:p-10 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-3xl">
+              🎾
+            </div>
+            <div className="mt-4 text-xl font-bold text-gray-900">
+              No hay partidas abiertas
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              Cuando se abra una nueva partida, te aparecerá aquí para poder unirte.
+            </div>
           </div>
         ) : isSunday ? (
           <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
@@ -541,7 +562,7 @@ export default function PartidasAbiertasPage() {
         ) : openMatches.length === 0 ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
             <div className="text-sm font-semibold text-gray-700">
-              No hay partidas abiertas este dÃ­a.
+              No hay partidas abiertas.
             </div>
           </div>
         ) : (
@@ -616,7 +637,7 @@ export default function PartidasAbiertasPage() {
                                           key={`${match.id}-${player.seat}-${player.userId}`}
                                           className="flex items-center gap-2 text-[15px] text-gray-800"
                                         >
-                                          <span className="text-lg leading-none">ðŸŽ¾</span>
+                                          <span className="text-lg leading-none">🎾</span>
                                           <span>{player.name}</span>
                                         </div>
                                       ))}
@@ -636,17 +657,6 @@ export default function PartidasAbiertasPage() {
         )}
       </div>
 
-      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-3xl mx-auto">
-          <Link
-            href="/"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
-            style={{ backgroundColor: CLUB_GREEN }}
-          >
-            Inicio
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

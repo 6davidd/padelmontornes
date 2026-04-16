@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
 import {
   getCurrentMember,
   setCachedCurrentMember,
@@ -82,7 +81,7 @@ export default function MiPerfilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
+    <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto max-w-3xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
           <h1
@@ -164,17 +163,6 @@ export default function MiPerfilPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="mx-auto max-w-3xl">
-          <Link
-            href="/"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg transition active:scale-[0.99]"
-            style={{ backgroundColor: CLUB_GREEN }}
-          >
-            Inicio
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

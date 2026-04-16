@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { getClientSession } from "@/lib/client-session";
 import { CLUB_NAME, CLUB_PUBLIC_URL } from "@/lib/brand";
 import { supabase } from "../../../lib/supabase";
@@ -376,7 +375,7 @@ export default function AdminSociosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
+    <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white rounded-3xl shadow-sm ring-1 ring-black/5 p-6 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -399,7 +398,7 @@ export default function AdminSociosPage() {
               className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99]"
               style={{ backgroundColor: CLUB_GREEN }}
             >
-              {creating ? "Cerrar" : "AÃ±adir socio"}
+              {creating ? "Cerrar" : "Añadir socio"}
             </button>
           </div>
 
@@ -492,7 +491,7 @@ export default function AdminSociosPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, alias o emailâ€¦"
+              placeholder="Buscar por nombre, alias o email…"
               className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
             />
           </div>
@@ -553,7 +552,7 @@ export default function AdminSociosPage() {
             {filteredMembers.map((member) => {
               const cleanAlias = member.alias?.trim() || "";
               const hasAlias = cleanAlias.length > 0;
-              const titleName = hasAlias ? cleanAlias : member.full_name || "â€”";
+              const titleName = hasAlias ? cleanAlias : member.full_name || "—";
               const isSaving = savingId === member.user_id;
               const isEditing = editingId === member.user_id;
 
@@ -578,7 +577,7 @@ export default function AdminSociosPage() {
                             <span className="font-semibold text-gray-800">
                               Nombre real:
                             </span>{" "}
-                            {member.full_name || "â€”"}
+                            {member.full_name || "—"}
                           </div>
                         )}
 
@@ -586,7 +585,7 @@ export default function AdminSociosPage() {
                           <span className="font-semibold text-gray-800">
                             Email:
                           </span>{" "}
-                          {member.email || "â€”"}
+                          {member.email || "—"}
                         </div>
                       </div>
 
@@ -600,7 +599,7 @@ export default function AdminSociosPage() {
                             value={editingAlias}
                             onChange={(e) => setEditingAlias(e.target.value)}
                             maxLength={30}
-                            placeholder="Escribe el aliasâ€¦"
+                            placeholder="Escribe el alias…"
                             className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
                           />
 
@@ -665,17 +664,6 @@ export default function AdminSociosPage() {
         )}
       </div>
 
-      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-4xl mx-auto">
-          <Link
-            href="/admin"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
-            style={{ backgroundColor: CLUB_GREEN }}
-          >
-            Panel administrador
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

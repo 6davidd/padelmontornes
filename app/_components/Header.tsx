@@ -18,9 +18,9 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Inicio" },
-  { href: "/reservar", label: "Reservar" },
-  { href: "/mis-reservas", label: "Mis reservas" },
   { href: "/partidas-abiertas", label: "Partidas abiertas" },
+  { href: "/reservar", label: "Reservar pista" },
+  { href: "/mis-reservas", label: "Mis reservas" },
   { href: "/mi-perfil", label: "Mi perfil" },
   {
     href: "/admin",
@@ -158,14 +158,25 @@ function HeaderChrome({
             }`}
           >
             <div className="flex items-center justify-between gap-3 border-b border-black/5 pb-4">
-              <div>
+              <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+                <Image
+                  src="/logo.png"
+                  alt={CLUB_NAME}
+                  width={1024}
+                  height={1536}
+                  priority
+                  quality={100}
+                  sizes="40px"
+                  className="h-12 w-auto shrink-0 object-contain"
+                />
+
                 <p
                   id="app-header-menu-title"
-                  className="text-lg font-semibold text-gray-900"
+                  className="truncate text-lg font-bold leading-tight sm:text-xl"
+                  style={{ color: CLUB_GREEN }}
                 >
                   Menú
                 </p>
-                <p className="text-sm text-gray-500">{CLUB_NAME}</p>
               </div>
 
               <button

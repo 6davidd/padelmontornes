@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../../lib/supabase";
@@ -568,7 +567,7 @@ export default function AdminCrearPartidasPage() {
   const canSearchMembers = search.trim().length >= 2;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
+    <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <div className="rounded-3xl border border-gray-300 bg-white p-4 shadow-sm sm:p-5">
           <div className="space-y-4">
@@ -945,17 +944,6 @@ export default function AdminCrearPartidasPage() {
         )}
       </Modal>
 
-      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-3xl mx-auto">
-          <Link
-            href="/admin"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
-            style={{ backgroundColor: CLUB_GREEN }}
-          >
-            Panel administrador
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

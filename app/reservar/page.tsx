@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { queueBookingEmail, queueBookingEmails } from "@/lib/client-booking-email";
@@ -869,7 +868,7 @@ export default function ReservarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
+    <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
           <div className="space-y-3">
@@ -1145,17 +1144,6 @@ export default function ReservarPage() {
         </div>
       </Modal>
 
-      <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-3xl mx-auto">
-          <Link
-            href="/"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
-            style={{ backgroundColor: CLUB_GREEN }}
-          >
-            Inicio
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }
