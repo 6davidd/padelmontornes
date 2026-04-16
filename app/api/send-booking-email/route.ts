@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { CLUB_NAME } from "@/lib/brand";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -115,7 +116,7 @@ function emailShell(params: {
                 <tr>
                   <td style="padding-bottom: 14px; text-align: center;">
                     <div style="font-size: 14px; font-weight: 700; color: ${CLUB_GREEN_DARK}; letter-spacing: 0.2px;">
-                      🎾 Club Pádel Montornès
+                      🎾 ${esc(CLUB_NAME)}
                     </div>
                   </td>
                 </tr>
@@ -171,7 +172,7 @@ function emailShell(params: {
 
                 <tr>
                   <td style="padding-top: 14px; text-align: center; font-size: 12px; color: ${MUTED};">
-                    Club Pádel Montornès
+                    ${esc(CLUB_NAME)}
                   </td>
                 </tr>
               </table>

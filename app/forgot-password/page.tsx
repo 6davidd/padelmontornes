@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
 
     setMsgTone("success");
     setMsg(
-      "Te hemos enviado un correo con un enlace para crear o cambiar tu contrasena."
+      "Te hemos enviado un correo con un enlace para crear o cambiar tu contraseña."
     );
   }
 
@@ -45,11 +45,11 @@ export default function ForgotPasswordPage() {
       <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
         <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
           <h1 className="text-2xl font-bold text-gray-900">
-            Recuperar contrasena
+            Recuperar contraseña
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             Introduce tu email y te enviaremos un enlace para crear o cambiar tu
-            contrasena. Al abrirlo llegaras directamente a esa pantalla.
+            contraseña. Al abrirlo llegarás directamente a esa pantalla.
           </p>
 
           {msg && (

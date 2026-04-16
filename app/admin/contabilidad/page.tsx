@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -72,7 +72,7 @@ function getMonthLabel(year: number, month: number) {
 }
 
 function formatPaidAt(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   return new Intl.DateTimeFormat("es-ES", {
     dateStyle: "short",
@@ -211,7 +211,7 @@ export default function AdminContabilidadPage() {
       const currentMember = await getCurrentMember();
 
       if (!currentMember) {
-        setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
+        setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -311,7 +311,7 @@ export default function AdminContabilidadPage() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre, alias o email…"
+                  placeholder="Buscar por nombre, alias o emailâ€¦"
                   className="block w-full min-w-0 max-w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-green-200"
                 />
               </div>
@@ -373,7 +373,7 @@ export default function AdminContabilidadPage() {
             {filteredMembers.map((member) => {
               const cleanAlias = member.alias?.trim() || "";
               const hasAlias = cleanAlias.length > 0;
-              const titleName = hasAlias ? cleanAlias : member.full_name || "—";
+              const titleName = hasAlias ? cleanAlias : member.full_name || "â€”";
               const payment = paymentMap.get(member.user_id);
               const isPaid = payment?.status === "paid";
               const isSaving = savingId === member.user_id;
@@ -398,7 +398,7 @@ export default function AdminContabilidadPage() {
                             <span className="font-semibold text-gray-800">
                               Nombre real:
                             </span>{" "}
-                            {member.full_name || "—"}
+                            {member.full_name || "â€”"}
                           </div>
                         )}
 
@@ -406,12 +406,12 @@ export default function AdminContabilidadPage() {
                           <span className="font-semibold text-gray-800">
                             Email:
                           </span>{" "}
-                          {member.email || "—"}
+                          {member.email || "â€”"}
                         </div>
 
                         <div>
                           <span className="font-semibold text-gray-800">
-                            Último cambio:
+                            Ãšltimo cambio:
                           </span>{" "}
                           {formatPaidAt(payment?.paid_at ?? null)}
                         </div>
@@ -463,3 +463,4 @@ export default function AdminContabilidadPage() {
     </div>
   );
 }
+

@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { CLUB_NAME } from "@/lib/brand";
 import AuthSessionSync from "./_components/AuthSessionSync";
 import PublicLayoutFrame from "./_components/PublicLayoutFrame";
 import PrivateLayoutFrame from "./_components/PrivateLayoutFrame";
@@ -19,8 +20,8 @@ import {
 } from "@/lib/auth-server";
 
 export const metadata: Metadata = {
-  title: "Club Pàdel Montornès",
-  description: "Sistema de reservas del club",
+  title: CLUB_NAME,
+  description: `Sistema de reservas de ${CLUB_NAME}`,
   manifest: "/manifest.json",
   icons: {
     icon: "/icon-192.png",

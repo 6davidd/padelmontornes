@@ -151,24 +151,24 @@ export default function ResetPasswordPage() {
     setMsg(null);
 
     if (!password) {
-      setMsg("La nueva contrasena es obligatoria.");
+      setMsg("La nueva contraseña es obligatoria.");
       return;
     }
 
     if (!password2) {
-      setMsg("Repite la contrasena para continuar.");
+      setMsg("Repite la contraseña para continuar.");
       return;
     }
 
     if (password.length < AUTH_PASSWORD_MIN_LENGTH) {
       setMsg(
-        `La contrasena debe tener al menos ${AUTH_PASSWORD_MIN_LENGTH} caracteres.`
+        `La contraseña debe tener al menos ${AUTH_PASSWORD_MIN_LENGTH} caracteres.`
       );
       return;
     }
 
     if (password !== password2) {
-      setMsg("Las contrasenas no coinciden.");
+      setMsg("Las contraseñas no coinciden.");
       return;
     }
 
@@ -200,10 +200,10 @@ export default function ResetPasswordPage() {
       <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
         <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
           <h1 className="text-2xl font-bold text-gray-900">
-            Crear contrasena
+            Crear contraseña
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Elige una contrasena facil de recordar. Cuando la guardes entraras
+            Elige una contraseña fácil de recordar. Cuando la guardes entrarás
             directamente en la app.
           </p>
 
@@ -217,13 +217,13 @@ export default function ResetPasswordPage() {
             <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
               <p className="text-sm text-gray-700">
                 Estamos comprobando tu enlace para abrir la pantalla de
-                contrasena.
+                contraseña.
               </p>
             </div>
           ) : ready ? (
             <form onSubmit={onSubmit} className="mt-5 space-y-5">
               <PasswordField
-                label="Nueva contrasena"
+                label="Nueva contraseña"
                 value={password}
                 onChange={setPassword}
                 autoComplete="new-password"
@@ -237,7 +237,7 @@ export default function ResetPasswordPage() {
               </p>
 
               <PasswordField
-                label="Repetir contrasena"
+                label="Repetir contraseña"
                 value={password2}
                 onChange={setPassword2}
                 autoComplete="new-password"
@@ -252,7 +252,7 @@ export default function ResetPasswordPage() {
                 className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
                 style={{ backgroundColor: CLUB_GREEN }}
               >
-                {loading ? "Guardando..." : "Guardar contrasena"}
+                {loading ? "Guardando..." : "Guardar contraseña"}
               </button>
             </form>
           ) : (

@@ -85,7 +85,7 @@ export default function PasswordField({
           type="button"
           onClick={() => setVisible((current) => !current)}
           className="absolute inset-y-0 right-0 flex w-14 items-center justify-center rounded-r-2xl text-gray-500 transition hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-default disabled:text-gray-400"
-          aria-label={visible ? "Ocultar contrasena" : "Mostrar contrasena"}
+          aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
           aria-pressed={visible}
           disabled={disabled}
         >

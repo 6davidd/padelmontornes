@@ -95,7 +95,7 @@ export function getFriendlyPasswordLinkError(rawMessage?: string | null) {
   const message = (rawMessage ?? "").toLowerCase();
 
   if (!message) {
-    return "Este enlace ya no es valido o ha caducado. Pide uno nuevo para crear tu contrasena.";
+    return "Este enlace ya no es válido o ha caducado. Pide uno nuevo para crear tu contraseña.";
   }
 
   if (
@@ -103,14 +103,14 @@ export function getFriendlyPasswordLinkError(rawMessage?: string | null) {
     message.includes("otp_expired") ||
     message.includes("token has expired")
   ) {
-    return "Este enlace ha caducado. Pide uno nuevo para crear tu contrasena.";
+    return "Este enlace ha caducado. Pide uno nuevo para crear tu contraseña.";
   }
 
   if (
     message.includes("auth session missing") ||
     message.includes("session_not_found")
   ) {
-    return "Abre el enlace desde el correo o pide uno nuevo para crear tu contrasena.";
+    return "Abre el enlace desde el correo o pide uno nuevo para crear tu contraseña.";
   }
 
   if (
@@ -118,16 +118,16 @@ export function getFriendlyPasswordLinkError(rawMessage?: string | null) {
     message.includes("token") ||
     message.includes("code verifier")
   ) {
-    return "No hemos podido validar el enlace. Pide uno nuevo para crear tu contrasena.";
+    return "No hemos podido validar el enlace. Pide uno nuevo para crear tu contraseña.";
   }
 
   if (message.includes("password should be at least")) {
-    return `La contrasena debe tener al menos ${AUTH_PASSWORD_MIN_LENGTH} caracteres.`;
+    return `La contraseña debe tener al menos ${AUTH_PASSWORD_MIN_LENGTH} caracteres.`;
   }
 
   if (message.includes("same password")) {
-    return "Elige una contrasena distinta de la anterior.";
+    return "Elige una contraseña distinta de la anterior.";
   }
 
-  return "No hemos podido completar este paso ahora mismo. Pide un nuevo enlace e intentalo otra vez.";
+  return "No hemos podido completar este paso ahora mismo. Pide un nuevo enlace e inténtalo otra vez.";
 }

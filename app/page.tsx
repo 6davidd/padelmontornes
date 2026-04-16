@@ -192,12 +192,12 @@ export default function HomePage() {
       const member = await getCurrentMember();
 
       if (!member) {
-        setMsg("Tu usuario no esta dado de alta en el club.");
+        setMsg("Tu usuario no está dado de alta en el club.");
         return;
       }
 
       if (!member.is_active) {
-        setMsg("Tu usuario esta desactivado. Contacta con el club.");
+        setMsg("Tu usuario está desactivado. Contacta con el club.");
         return;
       }
 
@@ -256,7 +256,7 @@ export default function HomePage() {
 
           {isAdmin && <TileLink href="/admin" title="Panel de administrador" />}
 
-          <TileButton title="Cerrar sesion" onClick={logout} />
+          <TileButton title="Cerrar sesión" onClick={logout} />
         </div>
       </div>
     </div>

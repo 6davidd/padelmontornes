@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getClientSession } from "@/lib/client-session";
+import { CLUB_NAME, CLUB_PUBLIC_URL } from "@/lib/brand";
 import { supabase } from "../../../lib/supabase";
 import { getDisplayName } from "../../../lib/display-name";
 
@@ -78,11 +79,11 @@ function buildWhatsappMessage(params: {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://www.clubpadelmontornes.com";
+    CLUB_PUBLIC_URL;
 
-  return `Hola 👋
+  return `Hola
 
-Ya te he dado de alta en la app del Club Pádel Montornès 🎾
+Ya te he dado de alta en la APP del club ${CLUB_NAME}.
 
 Puedes entrar aquí:
 ${appUrl}
@@ -90,11 +91,11 @@ ${appUrl}
 Tu email es:
 ${email}
 
-Te debería haber llegado un correo para completar el acceso.
+Te habrá llegado un correo para crear tu contraseña y entrar en la app.
 
 Si no lo ves, mira también en spam.
 
-¡Nos vemos en pista! 🎾`;
+¡Nos vemos en pista!`;
 }
 
 function getRoleOrder(role: MemberRole) {
@@ -353,7 +354,7 @@ export default function AdminSociosPage() {
       setNewRole("member");
       setCreating(false);
       setOk(
-        "Socio creado correctamente. Se ha enviado un email para crear la contrasena."
+        "Socio creado correctamente. Se ha enviado el email de invitación."
       );
       await loadMembers();
     } catch (error) {
@@ -398,7 +399,7 @@ export default function AdminSociosPage() {
               className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99]"
               style={{ backgroundColor: CLUB_GREEN }}
             >
-              {creating ? "Cerrar" : "Añadir socio"}
+              {creating ? "Cerrar" : "AÃ±adir socio"}
             </button>
           </div>
 
@@ -463,7 +464,7 @@ export default function AdminSociosPage() {
               </div>
 
               <p className="text-sm text-gray-500">
-                Se enviará un email al socio para que complete su acceso a la app.
+                Se enviará un email al socio para crear su contraseña y entrar en la APP del club.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3">
@@ -491,7 +492,7 @@ export default function AdminSociosPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, alias o email…"
+              placeholder="Buscar por nombre, alias o emailâ€¦"
               className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
             />
           </div>
@@ -552,7 +553,7 @@ export default function AdminSociosPage() {
             {filteredMembers.map((member) => {
               const cleanAlias = member.alias?.trim() || "";
               const hasAlias = cleanAlias.length > 0;
-              const titleName = hasAlias ? cleanAlias : member.full_name || "—";
+              const titleName = hasAlias ? cleanAlias : member.full_name || "â€”";
               const isSaving = savingId === member.user_id;
               const isEditing = editingId === member.user_id;
 
@@ -577,7 +578,7 @@ export default function AdminSociosPage() {
                             <span className="font-semibold text-gray-800">
                               Nombre real:
                             </span>{" "}
-                            {member.full_name || "—"}
+                            {member.full_name || "â€”"}
                           </div>
                         )}
 
@@ -585,7 +586,7 @@ export default function AdminSociosPage() {
                           <span className="font-semibold text-gray-800">
                             Email:
                           </span>{" "}
-                          {member.email || "—"}
+                          {member.email || "â€”"}
                         </div>
                       </div>
 
@@ -599,7 +600,7 @@ export default function AdminSociosPage() {
                             value={editingAlias}
                             onChange={(e) => setEditingAlias(e.target.value)}
                             maxLength={30}
-                            placeholder="Escribe el alias…"
+                            placeholder="Escribe el aliasâ€¦"
                             className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
                           />
 
@@ -678,3 +679,5 @@ export default function AdminSociosPage() {
     </div>
   );
 }
+
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -89,7 +89,7 @@ function getRelativeDayLabel(dateISO: string) {
   const tomorrow = addDaysISO(today, 1);
 
   if (dateISO === today) return "Hoy";
-  if (dateISO === tomorrow) return "Mañana";
+  if (dateISO === tomorrow) return "MaÃ±ana";
 
   const d = new Date(`${dateISO}T12:00:00`);
   const weekday = new Intl.DateTimeFormat("es-ES", {
@@ -120,8 +120,8 @@ function getReservationPlayersErrorMessage(error: SupabaseLikeError | null | und
   if (
     message.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
     details.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
-    details.includes("YA ESTÁ APUNTADO EN OTRA PISTA PARA EL MISMO DÍA Y HORA") ||
-    details.includes("MISMO DÍA Y HORA")
+    details.includes("YA ESTÃ APUNTADO EN OTRA PISTA PARA EL MISMO DÃA Y HORA") ||
+    details.includes("MISMO DÃA Y HORA")
   ) {
     return "Ya tienes una reserva en otra pista a esta misma hora.";
   }
@@ -130,21 +130,21 @@ function getReservationPlayersErrorMessage(error: SupabaseLikeError | null | und
     message.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION") ||
     details.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION")
   ) {
-    return "Ya estás apuntado en esta partida.";
+    return "Ya estÃ¡s apuntado en esta partida.";
   }
 
   if (
     message.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION") ||
     details.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION")
   ) {
-    return "Ese hueco acaba de ocuparse. Actualiza e inténtalo de nuevo.";
+    return "Ese hueco acaba de ocuparse. Actualiza e intÃ©ntalo de nuevo.";
   }
 
   if (message.includes("DUPLICATE KEY")) {
-    return "No se ha podido guardar porque ese hueco ya no está disponible.";
+    return "No se ha podido guardar porque ese hueco ya no estÃ¡ disponible.";
   }
 
-  return error?.message || "No se ha podido completar la operación.";
+  return error?.message || "No se ha podido completar la operaciÃ³n.";
 }
 
 function Badge({
@@ -237,27 +237,6 @@ export default function PartidasAbiertasPage() {
       });
   }, [reservations, playersByReservation, currentUserId, date]);
 
-  const totalOpenMatchesAllVisibleDays = useMemo(() => {
-    const visibleSet = new Set(visibleDays);
-
-    return reservations
-      .map((r) => {
-        const arr = playersByReservation.get(r.id) ?? [];
-        const alreadyIn =
-          !!currentUserId && arr.some((player) => player.userId === currentUserId);
-
-        return {
-          ...r,
-          playersCount: arr.length,
-          alreadyIn,
-        };
-      })
-      .filter((r) => visibleSet.has(r.date))
-      .filter(slotIsStillOpen)
-      .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
-      .filter((r) => !r.alreadyIn).length;
-  }, [reservations, playersByReservation, visibleDays, currentUserId]);
-
   const openMatchesCountByDay = useMemo(() => {
     const visibleSet = new Set(visibleDays);
     const counts = new Map<string, number>();
@@ -285,6 +264,15 @@ export default function PartidasAbiertasPage() {
     return counts;
   }, [reservations, playersByReservation, visibleDays, currentUserId]);
 
+  const dayChips = useMemo(() => {
+    return visibleDays
+      .map((day) => ({
+        day,
+        count: openMatchesCountByDay.get(day) ?? 0,
+      }))
+      .filter(({ count }) => count > 0);
+  }, [visibleDays, openMatchesCountByDay]);
+
   useEffect(() => {
     if (hasAutoSelectedDate) return;
 
@@ -293,8 +281,14 @@ export default function PartidasAbiertasPage() {
     );
 
     if (firstDateWithMatches) {
-      setDate(firstDateWithMatches);
-      setHasAutoSelectedDate(true);
+      const timeoutId = window.setTimeout(() => {
+        setDate(firstDateWithMatches);
+        setHasAutoSelectedDate(true);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(timeoutId);
+      };
     }
   }, [openMatchesCountByDay, visibleDays, hasAutoSelectedDate]);
 
@@ -302,10 +296,6 @@ export default function PartidasAbiertasPage() {
     getCurrentMember().then((member) => {
       setCurrentUserId(member?.user_id ?? null);
     });
-  }, []);
-
-  useEffect(() => {
-    loadOpenMatches();
   }, []);
 
   function selectDate(day: string) {
@@ -400,6 +390,16 @@ export default function PartidasAbiertasPage() {
     }
   }
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadOpenMatches();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
   async function getUserIdOrMsg() {
     const member = await getCurrentMember();
 
@@ -449,7 +449,7 @@ export default function PartidasAbiertasPage() {
     );
 
     if (alreadyIn) {
-      setMsg("Ya estás apuntado en esta partida.");
+      setMsg("Ya estÃ¡s apuntado en esta partida.");
       return;
     }
 
@@ -457,7 +457,7 @@ export default function PartidasAbiertasPage() {
     const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
 
     if (!freeSeat) {
-      setMsg("Esta partida ya está completa.");
+      setMsg("Esta partida ya estÃ¡ completa.");
       return;
     }
 
@@ -475,10 +475,9 @@ export default function PartidasAbiertasPage() {
 
             <div className="overflow-x-auto -mx-1 px-1">
               <div className="flex gap-2 min-w-max">
-                {visibleDays.map((day) => {
+                {dayChips.map(({ day, count }) => {
                   const selected = day === date;
                   const sunday = isSundayISO(day);
-                  const count = openMatchesCountByDay.get(day) ?? 0;
 
                   return (
                     <button
@@ -530,7 +529,7 @@ export default function PartidasAbiertasPage() {
 
         {loading ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
-            Cargando…
+            Cargandoâ€¦
           </div>
         ) : isSunday ? (
           <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
@@ -539,13 +538,10 @@ export default function PartidasAbiertasPage() {
               Los domingos no hay partidas abiertas.
             </div>
           </div>
-        ) : totalOpenMatchesAllVisibleDays === 0 ? (
+        ) : openMatches.length === 0 ? (
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
-            <div className="text-lg font-bold text-gray-900">
-              No hay partidas abiertas
-            </div>
-            <div className="mt-2 text-sm text-gray-600">
-              No hay ninguna partida abierta para ese día.
+            <div className="text-sm font-semibold text-gray-700">
+              No hay partidas abiertas este dÃ­a.
             </div>
           </div>
         ) : (
@@ -620,7 +616,7 @@ export default function PartidasAbiertasPage() {
                                           key={`${match.id}-${player.seat}-${player.userId}`}
                                           className="flex items-center gap-2 text-[15px] text-gray-800"
                                         >
-                                          <span className="text-lg leading-none">🎾</span>
+                                          <span className="text-lg leading-none">ðŸŽ¾</span>
                                           <span>{player.name}</span>
                                         </div>
                                       ))}
@@ -654,3 +650,5 @@ export default function PartidasAbiertasPage() {
     </div>
   );
 }
+
+

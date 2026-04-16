@@ -7,6 +7,7 @@ import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 import { getDisplayName } from "../../../lib/display-name";
+import { TimeRangeDisplay } from "../../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -121,6 +122,20 @@ function getRelativeDayLabel(dateISO: string) {
   return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
+function formatDateLong(dateISO: string) {
+  const d = new Date(`${dateISO}T12:00:00`);
+  return new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(d);
+}
+
+function capitalizeFirst(text: string) {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
 
 function classNames(...xs: Array<string | false | null | undefined>) {
@@ -192,21 +207,21 @@ function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
-        className="absolute inset-0 bg-black/30"
+        className="absolute inset-0 bg-black/30 backdrop-blur-[1px]"
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-lg font-semibold text-gray-900">{title}</div>
+      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-gray-300 bg-white p-5 shadow-xl sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="text-xl font-bold text-gray-900">{title}</div>
           <button
             onClick={onClose}
-            className="text-sm font-semibold text-gray-700 hover:text-gray-900"
+            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
           >
             Cerrar
           </button>
         </div>
-        <div className="mt-4">{children}</div>
+        <div className="mt-5">{children}</div>
       </div>
     </div>
   );
@@ -448,11 +463,15 @@ export default function AdminCrearPartidasPage() {
     setSearch("");
   }
 
-  function closeCreateModal() {
-    if (creating) return;
+  function resetModalState() {
     setSelectedMatch(null);
     setSelectedPlayers([]);
     setSearch("");
+  }
+
+  function closeCreateModal() {
+    if (creating) return;
+    resetModalState();
   }
 
   function removePlayer(index: number) {
@@ -527,7 +546,7 @@ export default function AdminCrearPartidasPage() {
 
       await loadDay();
       setCreating(false);
-      closeCreateModal();
+      resetModalState();
     } catch (error) {
       setMsg(getCreateMatchErrorMessage(error));
       setCreating(false);
@@ -539,22 +558,32 @@ export default function AdminCrearPartidasPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5">
-            Cargando…
+            Cargando...
           </div>
         </div>
       </div>
     );
   }
 
+  const canSearchMembers = search.trim().length >= 2;
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-4 sm:p-5">
-          <div className="space-y-3">
-            <div className="text-sm font-semibold text-gray-900">Día</div>
+    <div className="min-h-screen bg-gray-50 pb-40">
+      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="rounded-3xl border border-gray-300 bg-white p-4 shadow-sm sm:p-5">
+          <div className="space-y-4">
+            <div>
+              <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
+                Crear partidas
+              </div>
+              <p className="mt-1 text-sm text-gray-600">
+                Crea una partida abierta o cerrada en una franja libre, con el
+                mismo calendario visual que usa el resto de la app.
+              </p>
+            </div>
 
             <div className="overflow-x-auto -mx-1 px-1">
-              <div className="flex gap-2 min-w-max">
+              <div className="flex min-w-max gap-2">
                 {visibleDays.map((day) => {
                   const selected = day === date;
                   const sunday = isSundayISO(day);
@@ -564,12 +593,12 @@ export default function AdminCrearPartidasPage() {
                       key={day}
                       onClick={() => setDate(day)}
                       className={classNames(
-                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
+                        "min-w-[88px] rounded-2xl border px-3 py-2 text-left shadow-sm transition",
                         selected
-                          ? "text-white border-transparent"
+                          ? "border-transparent text-white"
                           : sunday
-                          ? "bg-red-50 border-red-200 text-red-800"
-                          : "bg-white border-gray-300 text-gray-900"
+                            ? "border-red-200 bg-red-50 text-red-800"
+                            : "border-gray-300 bg-white text-gray-900"
                       )}
                       style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
                     >
@@ -585,7 +614,7 @@ export default function AdminCrearPartidasPage() {
           </div>
 
           {isOutOfRange && (
-            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm font-semibold text-yellow-900">
                 Solo se puede crear con un máximo de 7 días de antelación.
               </p>
@@ -593,7 +622,7 @@ export default function AdminCrearPartidasPage() {
           )}
 
           {isSunday && (
-            <div className="mt-4 border border-red-200 rounded-2xl p-4 bg-red-50">
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4">
               <p className="text-sm font-semibold text-red-800">
                 Domingo: club cerrado. No se pueden crear partidas.
               </p>
@@ -601,108 +630,116 @@ export default function AdminCrearPartidasPage() {
           )}
 
           {msg && (
-            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+            <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
 
           {ok && (
-            <div className="mt-4 border border-green-200 rounded-2xl p-4 bg-green-50">
+            <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-4">
               <p className="text-sm text-green-900">{ok}</p>
             </div>
           )}
         </div>
 
         {loadingDay ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
-            Cargando…
+          <div className="rounded-3xl border border-gray-300 bg-white p-5 text-gray-700 shadow-sm">
+            Cargando...
           </div>
         ) : isOutOfRange ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
+          <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
             <div className="text-lg font-bold text-gray-900">Fecha no disponible</div>
             <div className="mt-2 text-sm text-gray-600">
               Solo se puede crear entre hoy y los próximos 7 días.
             </div>
           </div>
         ) : isSunday ? (
-          <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
             <div className="text-lg font-bold text-red-800">Club cerrado</div>
             <div className="mt-2 text-sm text-red-700">
               Los domingos no se pueden crear partidas.
             </div>
           </div>
+        ) : courts.length === 0 ? (
+          <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
+            <div className="text-lg font-bold text-gray-900">
+              No hay pistas disponibles
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              Revisa la configuración de pistas para poder crear partidas.
+            </div>
+          </div>
         ) : (
           <div className="space-y-6">
-            {slotsToShow.map((slot) => {
-              const slotLabel = `${slot.start} – ${slot.end}`;
+            {slotsToShow.map((slot) => (
+              <div
+                key={slot.start}
+                className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm"
+              >
+                <div className="border-b border-gray-200 px-4 py-4 sm:px-5">
+                  <TimeRangeDisplay start={slot.start} end={slot.end} />
+                </div>
 
-              return (
-                <div
-                  key={slot.start}
-                  className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
-                >
-                  <div className="px-5 py-4 border-b border-gray-200">
-                    <div className="text-lg font-bold" style={{ color: CLUB_GREEN }}>
-                      {slotLabel}
-                    </div>
-                  </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-1 gap-4">
+                    {courts.map((court) => {
+                      const key = `${slot.start}-${court.id}`;
+                      const reservation = reservationByKey.get(key);
+                      const block = blockByKey.get(key);
+                      const blocked = !!block;
+                      const occupiedPlayers = reservation
+                        ? playersByReservation.get(reservation.id) ?? []
+                        : [];
+                      const full = occupiedPlayers.length >= 4;
 
-                  <div className="p-5">
-                    <div className="grid grid-cols-1 gap-4">
-                      {courts.map((court) => {
-                        const key = `${slot.start}-${court.id}`;
-                        const reservation = reservationByKey.get(key);
-                        const block = blockByKey.get(key);
-                        const blocked = !!block;
-                        const occupiedPlayers = reservation
-                          ? playersByReservation.get(reservation.id) ?? []
-                          : [];
-                        const full = occupiedPlayers.length >= 4;
+                      return (
+                        <div
+                          key={court.id}
+                          className={classNames(
+                            "overflow-hidden rounded-3xl border shadow-sm transition",
+                            blocked || full
+                              ? "border-red-200 bg-red-50"
+                              : !reservation
+                                ? "border-gray-300 bg-green-50"
+                                : "border-gray-300 bg-white"
+                          )}
+                        >
+                          <div className="p-4 sm:p-5">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-lg font-bold text-gray-900">
+                                  {court.name}
+                                </div>
 
-                        return (
-                          <div
-                            key={court.id}
-                            className={classNames(
-                              "rounded-3xl border shadow-sm transition overflow-hidden",
-                              blocked || full
-                                ? "bg-red-50 border-red-200"
-                                : !reservation
-                                ? "bg-green-50 border-gray-300"
-                                : "bg-white border-gray-300"
-                            )}
-                          >
-                            <div className="p-4 sm:p-5">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-lg font-bold text-gray-900">
-                                    {court.name}
-                                  </div>
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  {blocked ? (
+                                    <Badge tone="red">Bloqueada</Badge>
+                                  ) : !reservation ? (
+                                    <Badge tone="green">Libre</Badge>
+                                  ) : full ? (
+                                    <Badge tone="red">
+                                      Cerrada · {occupiedPlayers.length}/4
+                                    </Badge>
+                                  ) : (
+                                    <Badge tone="green">
+                                      Abierta · {occupiedPlayers.length}/4
+                                    </Badge>
+                                  )}
+                                </div>
 
-                                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                                    {blocked ? (
-                                      <Badge tone="red">🔒 Bloqueada</Badge>
-                                    ) : !reservation ? (
-                                      <Badge tone="green">Libre</Badge>
-                                    ) : full ? (
-                                      <Badge tone="red">
-                                        Cerrada · {occupiedPlayers.length}/4
-                                      </Badge>
-                                    ) : (
-                                      <Badge tone="green">
-                                        Abierta · {occupiedPlayers.length}/4
-                                      </Badge>
-                                    )}
-                                  </div>
-
-                                  {blocked && (
-                                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-100 px-3 py-2 text-sm font-medium text-red-700">
+                                {blocked ? (
+                                  <div className="mt-4 rounded-2xl border border-red-200 bg-red-100 px-4 py-3">
+                                    <div className="text-sm font-semibold text-red-800">
+                                      Motivo del bloqueo
+                                    </div>
+                                    <div className="mt-1 text-sm text-red-700">
                                       {block?.reason || "Bloqueado"}
                                     </div>
-                                  )}
-
-                                  {!blocked && reservation && (
-                                    <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
-                                      <div className="mt-3 space-y-2">
+                                  </div>
+                                ) : reservation ? (
+                                  <div className="mt-4 border-t border-gray-200 pt-4">
+                                    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+                                      <div className="space-y-2">
                                         {occupiedPlayers.length > 0 ? (
                                           occupiedPlayers.map((player) => (
                                             <div
@@ -720,99 +757,125 @@ export default function AdminCrearPartidasPage() {
                                         )}
                                       </div>
                                     </div>
-                                  )}
-                                </div>
-
-                                {!blocked && !reservation && (
-                                  <div className="shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        openCreateModal({
-                                          date,
-                                          slotStart: slot.start,
-                                          slotEnd: slot.end,
-                                          courtId: court.id,
-                                          courtName: court.name,
-                                        })
-                                      }
-                                      className="rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                                      style={{ backgroundColor: CLUB_GREEN }}
-                                    >
-                                      Crear
-                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="mt-4 rounded-2xl border border-green-200 bg-white/70 px-4 py-3 text-sm text-green-900">
+                                    Esta franja está libre para crear una partida.
                                   </div>
                                 )}
                               </div>
+
+                              {!blocked && !reservation && (
+                                <div className="shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openCreateModal({
+                                        date,
+                                        slotStart: slot.start,
+                                        slotEnd: slot.end,
+                                        courtId: court.id,
+                                        courtName: court.name,
+                                      })
+                                    }
+                                    className="rounded-full px-6 py-2.5 text-white font-semibold shadow-sm transition hover:brightness-[0.97] active:scale-[0.99]"
+                                    style={{ backgroundColor: CLUB_GREEN }}
+                                  >
+                                    Crear
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      <Modal
-        open={!!selectedMatch}
-        onClose={closeCreateModal}
-        title={
-          selectedMatch
-            ? `${selectedMatch.courtName} · ${selectedMatch.slotStart}-${selectedMatch.slotEnd}`
-            : "Crear partida"
-        }
-      >
+      <Modal open={!!selectedMatch} onClose={closeCreateModal} title="Crear partida">
         {selectedMatch && (
           <div className="space-y-5">
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="text-sm text-gray-700">
-                <span className="font-semibold text-gray-900">Horario:</span>{" "}
-                {selectedMatch.slotStart} - {selectedMatch.slotEnd}
+            {msg && (
+              <div className="rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
+                <p className="text-sm text-yellow-900">{msg}</p>
               </div>
-              <div className="mt-1 text-sm text-gray-700">
-                <span className="font-semibold text-gray-900">Pista:</span>{" "}
-                {selectedMatch.courtName}
+            )}
+
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="text-base font-bold text-gray-900">
+                    {selectedMatch.courtName}
+                  </div>
+                  <div className="mt-1 text-sm text-gray-600 capitalize">
+                    {capitalizeFirst(formatDateLong(selectedMatch.date))}
+                  </div>
+                </div>
+
+                <div className="shrink-0">
+                  <TimeRangeDisplay
+                    start={selectedMatch.slotStart}
+                    end={selectedMatch.slotEnd}
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-base font-semibold text-gray-900">Jugadores</div>
-                <div className="text-sm text-gray-500">
-                  {selectedPlayerIds.length}/4 seleccionados
-                </div>
+                <Badge
+                  tone={
+                    selectedPlayerIds.length === 4
+                      ? "red"
+                      : selectedPlayerIds.length > 0
+                        ? "green"
+                        : "neutral"
+                  }
+                >
+                  {selectedPlayerIds.length}/4
+                </Badge>
               </div>
 
               {selectedPlayerIds.length === 0 ? (
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                  Aún no has añadido ningún socio.
+                  Añade al menos un socio para crear la partida.
                 </div>
               ) : (
                 <div className="space-y-3">
                   {selectedPlayerIds.map((userId, index) => {
-                    const selectedMember = activeMembers.find((m) => m.user_id === userId);
+                    const selectedMember = activeMembers.find(
+                      (member) => member.user_id === userId
+                    );
                     if (!selectedMember) return null;
 
                     return (
                       <div
                         key={userId}
-                        className="rounded-2xl border border-gray-200 bg-white p-4"
+                        className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="font-semibold text-gray-900">
                               Jugador {index + 1}: {getDisplayName(selectedMember)}
                             </div>
+                            {selectedMember.email && (
+                              <div className="mt-1 text-sm text-gray-600">
+                                {selectedMember.email}
+                              </div>
+                            )}
                           </div>
 
                           <button
                             type="button"
                             onClick={() => removePlayer(index)}
-                            className="shrink-0 rounded-2xl px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-900 shadow-sm hover:bg-gray-50 transition active:scale-[0.99]"
+                            className="shrink-0 rounded-2xl border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
                           >
                             Quitar
                           </button>
@@ -825,41 +888,50 @@ export default function AdminCrearPartidasPage() {
             </div>
 
             <div className="space-y-3">
-              <div className="text-base font-semibold text-gray-900">Añadir socio</div>
+              <div className="text-base font-semibold text-gray-900">
+                Añadir socio
+              </div>
 
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, alias o email…"
-                className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por nombre, alias o email..."
+                className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
               />
 
-              <div className="max-h-56 overflow-y-auto space-y-2">
-                {search.trim().length >= 2 && filteredMembers.length === 0 ? (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                    Sin resultados disponibles.
-                  </div>
-                ) : (
-                  filteredMembers
-                    .slice(0, search.trim().length >= 2 ? 12 : 0)
-                    .map((member) => (
-                      <button
-                        key={member.user_id}
-                        type="button"
-                        onClick={() => quickAddPlayer(member.user_id)}
-                        disabled={selectedPlayerIds.length >= 4}
-                        className="w-full text-left rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm hover:bg-gray-50 active:scale-[0.99] transition disabled:opacity-50"
-                      >
-                        <div className="font-semibold text-gray-900">
-                          {getDisplayName(member)}
+              {!canSearchMembers ? (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  Escribe al menos 2 letras para buscar por nombre, alias o email.
+                </div>
+              ) : filteredMembers.length === 0 ? (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  Sin resultados disponibles.
+                </div>
+              ) : (
+                <div className="max-h-56 space-y-2 overflow-y-auto">
+                  {filteredMembers.slice(0, 12).map((member) => (
+                    <button
+                      key={member.user_id}
+                      type="button"
+                      onClick={() => quickAddPlayer(member.user_id)}
+                      disabled={selectedPlayerIds.length >= 4}
+                      className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-left shadow-sm transition hover:bg-gray-50 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      <div className="font-semibold text-gray-900">
+                        {getDisplayName(member)}
+                      </div>
+                      {member.email && (
+                        <div className="mt-1 text-sm text-gray-600">
+                          {member.email}
                         </div>
-                      </button>
-                    ))
-                )}
-              </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={createMatch}
@@ -874,7 +946,7 @@ export default function AdminCrearPartidasPage() {
                 type="button"
                 onClick={closeCreateModal}
                 disabled={creating}
-                className="rounded-2xl px-5 py-3 bg-white text-gray-900 font-semibold ring-1 ring-black/5 hover:bg-gray-50 transition active:scale-[0.99] disabled:opacity-70"
+                className="rounded-2xl border border-gray-300 bg-white px-5 py-3 font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99] disabled:opacity-70"
               >
                 Cancelar
               </button>
@@ -897,3 +969,4 @@ export default function AdminCrearPartidasPage() {
     </div>
   );
 }
+

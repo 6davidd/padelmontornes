@@ -51,7 +51,7 @@ export default function AdminPage() {
             Panel administrador
           </h1>
 
-          <p className="mt-2 text-gray-600">Gestiona el club desde aqui.</p>
+          <p className="mt-2 text-gray-600">Gestiona el club desde aquí.</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4">

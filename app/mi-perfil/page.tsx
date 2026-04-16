@@ -29,7 +29,7 @@ export default function MiPerfilPage() {
       }
 
       if (!member.is_active) {
-        setMsg("Tu usuario esta desactivado. Contacta con el club.");
+        setMsg("Tu usuario está desactivado. Contacta con el club.");
         setLoading(false);
         return;
       }
@@ -52,7 +52,7 @@ export default function MiPerfilPage() {
 
     if (!member) {
       setSaving(false);
-      setMsg("No se ha podido validar la sesion.");
+      setMsg("No se ha podido validar la sesión.");
       return;
     }
 
@@ -93,7 +93,7 @@ export default function MiPerfilPage() {
           </h1>
 
           <p className="mt-2 text-gray-600">
-            Aqui puedes elegir el nombre con el que te vera el resto en la app.
+            Aquí puedes elegir el nombre con el que te verá el resto en la app.
           </p>
         </div>
 
@@ -133,7 +133,7 @@ export default function MiPerfilPage() {
                 />
 
                 <p className="mt-2 text-sm text-gray-500">
-                  Si lo dejas vacio, se mostrara tu nombre.
+                  Si lo dejas vacío, se mostrará tu nombre.
                 </p>
               </div>
 

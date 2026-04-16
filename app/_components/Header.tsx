@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { CLUB_NAME } from "@/lib/brand";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -9,7 +10,7 @@ export default function Header() {
         <div className="flex h-16 items-center gap-4 py-3">
           <Image
             src="/logo.png"
-            alt="Club Padel Montornes"
+            alt={CLUB_NAME}
             width={29}
             height={44}
             priority
@@ -20,7 +21,7 @@ export default function Header() {
             className="text-xl font-bold leading-tight sm:text-2xl"
             style={{ color: CLUB_GREEN }}
           >
-            Club Padel Montornes
+            {CLUB_NAME}
           </span>
         </div>
       </div>

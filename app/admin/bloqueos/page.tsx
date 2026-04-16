@@ -1,11 +1,16 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { getCourts } from "@/lib/client-reference-data";
 import { supabase } from "../../../lib/supabase";
-import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
+import { SATURDAY_SLOTS, WEEKDAY_SLOTS } from "../../../lib/slots";
+import { TimeRangeDisplay } from "../../_components/time-range-display";
 
-type Court = { id: number; name: string };
+type Court = {
+  id: number;
+  name: string;
+};
 
 type BlockRow = {
   id: string;
@@ -26,8 +31,8 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function addDays(dateISO: string, days: number) {
-  const d = new Date(`${dateISO}T00:00:00`);
+function addDaysISO(baseISO: string, days: number) {
+  const d = new Date(`${baseISO}T12:00:00`);
   d.setDate(d.getDate() + days);
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -35,32 +40,47 @@ function addDays(dateISO: string, days: number) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function isSaturday(dateISO: string) {
-  const d = new Date(`${dateISO}T00:00:00`);
+function isSaturdayISO(dateISO: string) {
+  const d = new Date(`${dateISO}T12:00:00`);
   return d.getDay() === 6;
 }
 
-function isSunday(dateISO: string) {
-  const d = new Date(`${dateISO}T00:00:00`);
+function isSundayISO(dateISO: string) {
+  const d = new Date(`${dateISO}T12:00:00`);
   return d.getDay() === 0;
 }
 
 function getSlotsForDate(dateISO: string) {
-  if (isSunday(dateISO)) return [];
-  return isSaturday(dateISO) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
+  if (isSundayISO(dateISO)) return [];
+  return isSaturdayISO(dateISO) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
+}
+
+function getRelativeDayLabel(dateISO: string) {
+  const today = todayISO();
+  const tomorrow = addDaysISO(today, 1);
+
+  if (dateISO === today) return "Hoy";
+  if (dateISO === tomorrow) return "Mañana";
+
+  const d = new Date(`${dateISO}T12:00:00`);
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+  }).format(d);
+
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
 function formatDateLong(dateISO: string) {
-  const d = new Date(`${dateISO}T00:00:00`);
+  const d = new Date(`${dateISO}T12:00:00`);
   return new Intl.DateTimeFormat("es-ES", {
     weekday: "long",
     day: "numeric",
-    month: "short",
+    month: "long",
   }).format(d);
 }
 
 function formatDateShort(dateISO: string) {
-  const d = new Date(`${dateISO}T00:00:00`);
+  const d = new Date(`${dateISO}T12:00:00`);
   return new Intl.DateTimeFormat("es-ES", {
     day: "2-digit",
     month: "2-digit",
@@ -68,7 +88,37 @@ function formatDateShort(dateISO: string) {
   }).format(d);
 }
 
+function capitalizeFirst(text: string) {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function classNames(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
+
 const toHM = (t: string) => (t.length >= 5 ? t.slice(0, 5) : t);
+
+function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "green" | "red";
+}) {
+  return (
+    <span
+      className={classNames(
+        "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold",
+        tone === "green" && "border-green-200 bg-green-50 text-green-800",
+        tone === "red" && "border-red-200 bg-red-50 text-red-800",
+        tone === "neutral" && "border-gray-200 bg-gray-50 text-gray-700"
+      )}
+    >
+      {children}
+    </span>
+  );
+}
 
 export default function AdminBloqueosPage() {
   const [startDate, setStartDate] = useState(todayISO());
@@ -76,26 +126,37 @@ export default function AdminBloqueosPage() {
   const [courts, setCourts] = useState<Court[]>([]);
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
-  const [loading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(true);
+  const [loadingBlocks, setLoadingBlocks] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
-  const visibleDates = useMemo(() => {
-    return [startDate, addDays(startDate, 1), addDays(startDate, 2)];
-  }, [startDate]);
+  const visibleDates = useMemo(
+    () => [startDate, addDaysISO(startDate, 1), addDaysISO(startDate, 2)],
+    [startDate]
+  );
 
   useEffect(() => {
-    supabase
-      .from("courts")
-      .select("id,name")
-      .order("id")
-      .then(({ data, error }) => {
-        if (error) setMsg(error.message);
-        else setCourts((data as Court[]) ?? []);
-      });
+    async function init() {
+      try {
+        const availableCourts = await getCourts();
+        setCourts(availableCourts);
+      } catch (error) {
+        setMsg(
+          error instanceof Error
+            ? error.message
+            : "No se han podido cargar las pistas."
+        );
+      }
+
+      setLoadingPage(false);
+    }
+
+    void init();
   }, []);
 
   async function loadBlocks() {
     setMsg(null);
+    setLoadingBlocks(true);
 
     const { data, error } = await supabase
       .from("blocks")
@@ -106,26 +167,29 @@ export default function AdminBloqueosPage() {
 
     if (error) {
       setMsg(error.message);
+      setLoadingBlocks(false);
       return;
     }
 
     setBlocks((data as BlockRow[]) ?? []);
+    setLoadingBlocks(false);
   }
 
   useEffect(() => {
-    loadBlocks();
+    if (!loadingPage) {
+      void loadBlocks();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate]);
+  }, [startDate, loadingPage]);
 
   const blockMap = useMemo(() => {
-    const m = new Map<string, BlockRow>();
+    const map = new Map<string, BlockRow>();
 
-    for (const b of blocks) {
-      const key = `${b.date}-${toHM(b.slot_start)}-${b.court_id}`;
-      m.set(key, b);
+    for (const block of blocks) {
+      map.set(`${block.date}-${toHM(block.slot_start)}-${block.court_id}`, block);
     }
 
-    return m;
+    return map;
   }, [blocks]);
 
   async function toggleBlock(
@@ -143,7 +207,6 @@ export default function AdminBloqueosPage() {
 
     if (existing) {
       const del = await supabase.from("blocks").delete().eq("id", existing.id);
-
       setSavingKey(null);
 
       if (del.error) {
@@ -173,12 +236,12 @@ export default function AdminBloqueosPage() {
     await loadBlocks();
   }
 
-  if (loading) {
+  if (loadingPage) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-          <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm">
-            Cargando…
+        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+          <div className="rounded-3xl border border-gray-300 bg-white p-5 shadow-sm">
+            Cargando...
           </div>
         </div>
       </div>
@@ -186,138 +249,201 @@ export default function AdminBloqueosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-        <div className="bg-white border border-gray-200 rounded-[28px] p-5 shadow-sm space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="space-y-2">
-              <div className="text-sm font-semibold text-gray-900">
-                Día
+    <div className="min-h-screen bg-gray-50 pb-40">
+      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="rounded-3xl border border-gray-300 bg-white p-4 shadow-sm sm:p-5">
+          <div className="space-y-4">
+            <div>
+              <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
+                Bloquear pistas
               </div>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
-              />
-            </label>
+              <p className="mt-1 text-sm text-gray-600">
+                Bloquea o desbloquea franjas puntuales sin salir del mismo
+                calendario visual que usa la app.
+              </p>
+            </div>
 
-            <label className="space-y-2">
-              <div className="text-sm font-semibold text-gray-900">Motivo</div>
-              <input
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Motivo del bloqueo"
-                className="w-full appearance-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm outline-none focus:ring-2 focus:ring-green-200 focus:border-gray-400"
-              />
-            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="space-y-2">
+                <div className="text-sm font-semibold text-gray-900">
+                  Día del mes
+                </div>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-green-200"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <div className="text-sm font-semibold text-gray-900">Motivo</div>
+                <input
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  placeholder="Motivo del bloqueo"
+                  className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
+                />
+              </label>
+            </div>
+
+            <div className="text-sm text-gray-600">
+              Selecciona un día del mes. Se mostrarán ese día y los dos siguientes. Si lo dejas vacío, se guardará como “Bloqueado”.
+            </div>
           </div>
 
           {msg && (
-            <div className="border border-yellow-300 rounded-2xl p-3.5 bg-yellow-50">
+            <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
           )}
         </div>
 
-        <div className="space-y-5">
-          {visibleDates.map((dateISO) => {
-            const slots = getSlotsForDate(dateISO);
-            const sunday = isSunday(dateISO);
+        {loadingBlocks ? (
+          <div className="rounded-3xl border border-gray-300 bg-white p-5 text-gray-700 shadow-sm">
+            Cargando...
+          </div>
+        ) : courts.length === 0 ? (
+          <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
+            <div className="text-lg font-bold text-gray-900">
+              No hay pistas disponibles
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              Revisa la configuración de pistas para poder gestionar bloqueos.
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {visibleDates.map((dateISO) => {
+              const slots = getSlotsForDate(dateISO);
+              const sunday = isSundayISO(dateISO);
 
-            return (
-              <section
-                key={dateISO}
-                className="bg-white border border-gray-200 rounded-[28px] shadow-sm overflow-hidden"
-              >
-                <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
-                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1">
-                    <h2
-                      className="text-xl font-bold capitalize"
-                      style={{ color: CLUB_GREEN }}
-                    >
-                      {formatDateLong(dateISO)}
-                    </h2>
-                    <div className="text-sm text-gray-600">
-                      {formatDateShort(dateISO)}
+              return (
+                <div key={dateISO} className="space-y-3">
+                  <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                    <div className="text-base font-bold text-gray-900 sm:text-lg">
+                      {getRelativeDayLabel(dateISO)}
+                    </div>
+                    <div className="text-sm font-medium text-gray-600 sm:text-base">
+                      {capitalizeFirst(formatDateLong(dateISO))} · {formatDateShort(dateISO)}
                     </div>
                   </div>
-                </div>
 
-                <div className="p-4 space-y-4">
                   {sunday ? (
-                    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-5 text-center text-gray-600">
-                      Club cerrado
+                    <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
+                      <div className="text-lg font-bold text-red-800">
+                        Club cerrado
+                      </div>
+                      <div className="mt-2 text-sm text-red-700">
+                        Los domingos no hay franjas para bloquear.
+                      </div>
                     </div>
                   ) : (
-                    slots.map((s) => (
+                    slots.map((slot) => (
                       <div
-                        key={`${dateISO}-${s.start}`}
-                        className="rounded-[24px] border border-gray-200 overflow-hidden"
+                        key={`${dateISO}-${slot.start}`}
+                        className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm"
                       >
-                        <div className="px-4 py-3 border-b border-gray-200 bg-white">
-                          <div
-                            className="font-bold text-[17px]"
-                            style={{ color: CLUB_GREEN }}
-                          >
-                            {s.start} – {s.end}
-                          </div>
+                        <div className="border-b border-gray-200 px-4 py-4 sm:px-5">
+                          <TimeRangeDisplay start={slot.start} end={slot.end} />
                         </div>
 
-                        <div className="p-3">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            {courts.map((c) => {
-                              const key = `${dateISO}-${s.start}-${c.id}`;
-                              const b = blockMap.get(key);
-                              const blocked = !!b;
+                        <div className="p-5">
+                          <div className="grid grid-cols-1 gap-4">
+                            {courts.map((court) => {
+                              const key = `${dateISO}-${slot.start}-${court.id}`;
+                              const block = blockMap.get(key);
+                              const blocked = !!block;
                               const isSaving = savingKey === key;
 
                               return (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() =>
-                                    toggleBlock(dateISO, s.start, s.end, c.id)
-                                  }
-                                  disabled={isSaving}
-                                  className={[
-                                    "text-left rounded-[22px] border px-4 py-3.5 transition active:scale-[0.99]",
+                                <div
+                                  key={court.id}
+                                  className={classNames(
+                                    "overflow-hidden rounded-3xl border shadow-sm transition",
                                     blocked
-                                      ? "bg-red-50 border-red-200 hover:bg-red-100"
-                                      : "bg-white border-gray-300 hover:bg-gray-50",
-                                    isSaving ? "opacity-60" : "",
-                                  ].join(" ")}
-                                  title={blocked ? "Quitar bloqueo" : "Bloquear"}
+                                      ? "border-red-200 bg-red-50"
+                                      : "border-gray-300 bg-green-50"
+                                  )}
                                 >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="font-bold text-gray-900 text-[15px]">
-                                      {c.name}
+                                  <div className="p-4 sm:p-5">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-lg font-bold text-gray-900">
+                                          {court.name}
+                                        </div>
+
+                                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                                          {blocked ? (
+                                            <Badge tone="red">Bloqueada</Badge>
+                                          ) : (
+                                            <Badge tone="green">Libre</Badge>
+                                          )}
+                                        </div>
+
+                                        <div
+                                          className={classNames(
+                                            "mt-4 rounded-2xl border px-4 py-3",
+                                            blocked
+                                              ? "border-red-200 bg-red-100"
+                                              : "border-green-200 bg-white/70"
+                                          )}
+                                        >
+                                          <div
+                                            className={classNames(
+                                              "text-sm font-semibold",
+                                              blocked ? "text-red-800" : "text-green-900"
+                                            )}
+                                          >
+                                            {blocked ? "Motivo actual" : "Sin bloqueo"}
+                                          </div>
+                                          <div
+                                            className={classNames(
+                                              "mt-1 text-sm",
+                                              blocked ? "text-red-700" : "text-green-900"
+                                            )}
+                                          >
+                                            {blocked
+                                              ? block?.reason || "Bloqueado"
+                                              : "Esta franja está disponible."}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            toggleBlock(
+                                              dateISO,
+                                              slot.start,
+                                              slot.end,
+                                              court.id
+                                            )
+                                          }
+                                          disabled={isSaving}
+                                          className={classNames(
+                                            "rounded-full px-5 py-2.5 font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-60",
+                                            blocked
+                                              ? "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
+                                              : "text-white hover:brightness-[0.97]"
+                                          )}
+                                          style={
+                                            blocked
+                                              ? undefined
+                                              : { backgroundColor: CLUB_GREEN }
+                                          }
+                                        >
+                                          {isSaving
+                                            ? "Guardando..."
+                                            : blocked
+                                              ? "Quitar"
+                                              : "Bloquear"}
+                                        </button>
+                                      </div>
                                     </div>
-
-                                    <span
-                                      className={[
-                                        "shrink-0 text-[11px] font-semibold rounded-full px-2.5 py-1 border",
-                                        blocked
-                                          ? "border-red-200 text-red-700 bg-white"
-                                          : "border-gray-200 text-gray-700 bg-white",
-                                      ].join(" ")}
-                                    >
-                                      {blocked ? "Bloqueada" : "Libre"}
-                                    </span>
                                   </div>
-
-                                  <div className="mt-2 min-h-[32px]">
-                                    {blocked ? (
-                                      <div className="text-sm text-red-800 leading-snug">
-                                        {b?.reason || "Bloqueado"}
-                                      </div>
-                                    ) : (
-                                      <div className="text-sm text-gray-400 leading-snug">
-                                        Sin bloqueo
-                                      </div>
-                                    )}
-                                  </div>
-                                </button>
+                                </div>
                               );
                             })}
                           </div>
@@ -326,23 +452,26 @@ export default function AdminBloqueosPage() {
                     ))
                   )}
                 </div>
-              </section>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-        <div className="max-w-5xl mx-auto">
+        <div className="mx-auto max-w-3xl">
           <Link
             href="/admin"
-            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg active:scale-[0.99] transition"
+            className="block w-full rounded-3xl py-4 text-center font-semibold text-white shadow-lg transition active:scale-[0.99]"
             style={{ backgroundColor: CLUB_GREEN }}
           >
-            Inicio
+            Panel administrador
           </Link>
         </div>
       </div>
     </div>
   );
 }
+
+
+

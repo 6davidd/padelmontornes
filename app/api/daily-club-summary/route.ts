@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
+import { CLUB_NAME } from "@/lib/brand";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -86,6 +87,11 @@ function tomorrowISO() {
   return toISODateLocal(d);
 }
 
+function isSundayISO(dateISO: string) {
+  const d = new Date(`${dateISO}T12:00:00`);
+  return d.getDay() === 0;
+}
+
 function formatDateLongES(dateISO: string) {
   const d = new Date(`${dateISO}T12:00:00`);
   return d.toLocaleDateString("es-ES", {
@@ -170,7 +176,7 @@ function emailShell(params: {
                 <tr>
                   <td style="padding-bottom: 14px; text-align: center;">
                     <div style="font-size: 14px; font-weight: 700; color: ${CLUB_GREEN_DARK}; letter-spacing: 0.2px;">
-                      🎾 Club Pádel Montornès
+                      🎾 ${esc(CLUB_NAME)}
                     </div>
                   </td>
                 </tr>
@@ -226,7 +232,7 @@ function emailShell(params: {
 
                 <tr>
                   <td style="padding-top: 14px; text-align: center; font-size: 12px; color: ${MUTED};">
-                    Club Pádel Montornès
+                    ${esc(CLUB_NAME)}
                   </td>
                 </tr>
               </table>
@@ -512,6 +518,15 @@ async function sendClosedMatchReminders(params: {
 
 async function runDailySummary() {
   const targetDate = tomorrowISO();
+
+  if (isSundayISO(targetDate)) {
+    return {
+      ok: true,
+      skipped: true,
+      targetDate,
+      reason: "sunday",
+    };
+  }
 
   const reservationsRes = await supabase
     .from("reservations")
