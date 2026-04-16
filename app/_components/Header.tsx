@@ -139,7 +139,7 @@ function HeaderChrome({
             type="button"
             aria-label="Cerrar menú"
             onClick={() => setIsMenuOpen(false)}
-            className={`fixed inset-0 z-40 bg-black/20 transition ${
+            className={`fixed inset-0 z-40 bg-black/20 transition duration-300 ease-out ${
               isMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           />
@@ -150,14 +150,15 @@ function HeaderChrome({
             aria-modal="true"
             aria-labelledby="app-header-menu-title"
             aria-hidden={!isMenuOpen}
-            className={`fixed inset-y-0 right-0 z-50 flex w-[min(80vw,19rem)] flex-col overflow-y-auto border-l border-black/10 bg-gray-50 px-4 pb-5 pt-4 shadow-2xl transition duration-200 ${
+            className={`fixed inset-y-0 right-0 z-50 flex w-[min(80vw,19rem)] flex-col overflow-y-auto border-l border-black/10 bg-gray-50 px-4 pb-5 pt-4 shadow-2xl transition duration-300 ease-out ${
               isMenuOpen
                 ? "translate-x-0"
                 : "pointer-events-none translate-x-full"
             }`}
           >
-            <div className="flex items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-              <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+            <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3 overflow-hidden">
                 <Image
                   src="/logo.png"
                   alt={CLUB_NAME}
@@ -171,7 +172,7 @@ function HeaderChrome({
 
                 <p
                   id="app-header-menu-title"
-                  className="truncate text-lg font-bold leading-tight sm:text-xl"
+                  className="truncate text-xl font-bold leading-tight sm:text-2xl"
                   style={{ color: CLUB_GREEN }}
                 >
                   Menú
@@ -199,7 +200,7 @@ function HeaderChrome({
               </button>
             </div>
 
-            <nav className="mt-4 flex flex-col gap-2 rounded-3xl bg-white p-2 shadow-sm ring-1 ring-black/5">
+            <nav className="mt-4 flex flex-col gap-2 border-t border-black/5 pt-3">
               {navItems.map((item) => {
                 const isActive = isNavItemActive(pathname, item.href);
 
@@ -208,7 +209,7 @@ function HeaderChrome({
                     key={item.href}
                     href={item.href}
                     aria-current={isActive ? "page" : undefined}
-                    className={`flex items-center rounded-2xl px-4 py-3.5 text-[15px] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 ${
+                    className={`flex items-center rounded-2xl px-4 py-4 text-base sm:text-[17px] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 ${
                       isActive
                         ? "bg-green-50 text-green-900 ring-1 ring-green-200"
                         : "text-gray-800 hover:bg-gray-50"
@@ -220,6 +221,7 @@ function HeaderChrome({
                 );
               })}
             </nav>
+            </div>
           </aside>
         </>
       ) : null}
