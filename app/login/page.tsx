@@ -65,7 +65,7 @@ export default function LoginPage() {
 
   if (hasPasswordSetupParams) {
     return (
-      <div className="min-h-[calc(100vh-56px)] bg-gray-50">
+      <div className="min-h-[calc(100vh-var(--app-header-height))] bg-gray-50">
         <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
           <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
             <h1 className="text-2xl font-bold text-gray-900">Un momento...</h1>
@@ -79,7 +79,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-56px)] bg-gray-50">
+    <div className="min-h-[calc(100vh-var(--app-header-height))] bg-gray-50">
       <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
         <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
           {msg && (

@@ -3,6 +3,13 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --app-header-height: 4.25rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --app-header-height: 4.5rem;
+  }
 }
 
 @theme inline {

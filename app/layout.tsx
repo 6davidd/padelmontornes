@@ -36,6 +36,7 @@ export default async function RootLayout({
 }) {
   const pathname = (await headers()).get("x-app-pathname") ?? "/";
   const isPublic = isPublicPath(pathname);
+  let isAdmin = false;
 
   if (isProtectedPath(pathname)) {
     const session = await resolveSessionFromServerCookies();
@@ -44,13 +45,14 @@ export default async function RootLayout({
       redirect(`/login?next=${encodeURIComponent(pathname)}`);
     }
 
-    if (isAdminPath(pathname)) {
+    if (pathname !== "/") {
       const member = await getMemberAccess(session.accessToken, session.user.id);
       const role = member?.role;
-      const isAdmin =
-        member?.is_active && (role === "admin" || role === "superadmin");
+      isAdmin = Boolean(
+        member?.is_active && (role === "admin" || role === "superadmin")
+      );
 
-      if (!isAdmin) {
+      if (isAdminPath(pathname) && !isAdmin) {
         redirect("/");
       }
 
@@ -65,9 +67,11 @@ export default async function RootLayout({
       <body className="bg-gray-50 text-gray-900">
         <AuthSessionSync />
         {isPublic ? (
-          <PublicLayoutFrame>{children}</PublicLayoutFrame>
+          <PublicLayoutFrame pathname={pathname}>{children}</PublicLayoutFrame>
         ) : (
-          <PrivateLayoutFrame>{children}</PrivateLayoutFrame>
+          <PrivateLayoutFrame pathname={pathname} isAdmin={isAdmin}>
+            {children}
+          </PrivateLayoutFrame>
         )}
         <Analytics />
         <SpeedInsights />

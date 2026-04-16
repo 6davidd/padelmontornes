@@ -16,7 +16,7 @@ export default function PageShell({
   }
 
   return (
-    <div className="bg-gray-50 min-h-[calc(100vh-72px)]">
+    <div className="min-h-[calc(100vh-var(--app-header-height))] bg-gray-50">
       <div className="px-4 sm:px-6 py-6 sm:py-8">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white border border-gray-300 rounded-3xl shadow-md p-5 sm:p-7">
