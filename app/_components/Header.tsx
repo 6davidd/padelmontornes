@@ -21,7 +21,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/partidas-abiertas", label: "Partidas abiertas" },
   { href: "/reservar", label: "Reservar pista" },
   { href: "/mis-reservas", label: "Mis reservas" },
-  { href: "/mi-perfil", label: "Mi perfil" },
   {
     href: "/admin",
     label: "Panel de administrador",
@@ -151,13 +150,13 @@ function HeaderChrome({
             aria-modal="true"
             aria-labelledby="app-header-menu-title"
             aria-hidden={!isMenuOpen}
-            className={`fixed inset-y-0 right-0 z-50 flex w-[min(84vw,22rem)] flex-col border-l border-black/10 bg-white px-5 pb-6 pt-5 shadow-2xl transition duration-200 ${
+            className={`fixed inset-y-0 right-0 z-50 flex w-[min(80vw,19rem)] flex-col overflow-y-auto border-l border-black/10 bg-gray-50 px-4 pb-5 pt-4 shadow-2xl transition duration-200 ${
               isMenuOpen
                 ? "translate-x-0"
                 : "pointer-events-none translate-x-full"
             }`}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-black/5 pb-4">
+            <div className="flex items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
               <div className="flex min-w-0 items-center gap-3 overflow-hidden">
                 <Image
                   src="/logo.png"
@@ -200,7 +199,7 @@ function HeaderChrome({
               </button>
             </div>
 
-            <nav className="mt-4 flex flex-col gap-2">
+            <nav className="mt-4 flex flex-col gap-2 rounded-3xl bg-white p-2 shadow-sm ring-1 ring-black/5">
               {navItems.map((item) => {
                 const isActive = isNavItemActive(pathname, item.href);
 
@@ -208,7 +207,8 @@ function HeaderChrome({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`rounded-2xl px-4 py-3.5 text-base font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 ${
+                    aria-current={isActive ? "page" : undefined}
+                    className={`flex items-center rounded-2xl px-4 py-3.5 text-[15px] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 ${
                       isActive
                         ? "bg-green-50 text-green-900 ring-1 ring-green-200"
                         : "text-gray-800 hover:bg-gray-50"
