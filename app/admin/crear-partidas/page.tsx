@@ -572,14 +572,8 @@ export default function AdminCrearPartidasPage() {
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <div className="rounded-3xl border border-gray-300 bg-white p-4 shadow-sm sm:p-5">
           <div className="space-y-4">
-            <div>
-              <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                Crear partidas
-              </div>
-              <p className="mt-1 text-sm text-gray-600">
-                Crea una partida abierta o cerrada en una franja libre, con el
-                mismo calendario visual que usa el resto de la app.
-              </p>
+            <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Crear partidas
             </div>
 
             <div className="horizontal-scroll-row -mx-1 px-1">
@@ -758,11 +752,7 @@ export default function AdminCrearPartidasPage() {
                                       </div>
                                     </div>
                                   </div>
-                                ) : (
-                                  <div className="mt-4 rounded-2xl border border-green-200 bg-white/70 px-4 py-3 text-sm text-green-900">
-                                    Esta franja está libre para crear una partida.
-                                  </div>
-                                )}
+                                ) : null}
                               </div>
 
                               {!blocked && !reservation && (

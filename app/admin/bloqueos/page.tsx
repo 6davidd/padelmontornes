@@ -253,14 +253,8 @@ export default function AdminBloqueosPage() {
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <div className="rounded-3xl border border-gray-300 bg-white p-4 shadow-sm sm:p-5">
           <div className="space-y-4">
-            <div>
-              <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                Bloquear pistas
-              </div>
-              <p className="mt-1 text-sm text-gray-600">
-                Bloquea o desbloquea franjas puntuales sin salir del mismo
-                calendario visual que usa la app.
-              </p>
+            <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Bloquear pistas
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -287,9 +281,6 @@ export default function AdminBloqueosPage() {
               </label>
             </div>
 
-            <div className="text-sm text-gray-600">
-              Selecciona un día del mes. Se mostrarán ese día y los dos siguientes. Si lo dejas vacío, se guardará como “Bloqueado”.
-            </div>
           </div>
 
           {msg && (
@@ -320,11 +311,11 @@ export default function AdminBloqueosPage() {
 
               return (
                 <div key={dateISO} className="space-y-3">
-                  <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                    <div className="text-base font-bold text-gray-900 sm:text-lg">
+                  <div className="px-1">
+                    <div className="text-sm font-semibold text-gray-900">
                       {getRelativeDayLabel(dateISO)}
                     </div>
-                    <div className="text-sm font-medium text-gray-600 sm:text-base">
+                    <div className="text-sm text-gray-600">
                       {capitalizeFirst(formatDateLong(dateISO))} · {formatDateShort(dateISO)}
                     </div>
                   </div>
@@ -373,41 +364,22 @@ export default function AdminBloqueosPage() {
                                           {court.name}
                                         </div>
 
-                                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                                          {blocked ? (
-                                            <Badge tone="red">Bloqueada</Badge>
-                                          ) : (
-                                            <Badge tone="green">Libre</Badge>
-                                          )}
-                                        </div>
+                                        {blocked && (
+                                          <>
+                                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                              <Badge tone="red">Bloqueada</Badge>
+                                            </div>
 
-                                        <div
-                                          className={classNames(
-                                            "mt-4 rounded-2xl border px-4 py-3",
-                                            blocked
-                                              ? "border-red-200 bg-red-100"
-                                              : "border-green-200 bg-white/70"
-                                          )}
-                                        >
-                                          <div
-                                            className={classNames(
-                                              "text-sm font-semibold",
-                                              blocked ? "text-red-800" : "text-green-900"
-                                            )}
-                                          >
-                                            {blocked ? "Motivo actual" : "Sin bloqueo"}
-                                          </div>
-                                          <div
-                                            className={classNames(
-                                              "mt-1 text-sm",
-                                              blocked ? "text-red-700" : "text-green-900"
-                                            )}
-                                          >
-                                            {blocked
-                                              ? block?.reason || "Bloqueado"
-                                              : "Esta franja está disponible."}
-                                          </div>
-                                        </div>
+                                            <div className="mt-4 rounded-2xl border border-red-200 bg-red-100 px-4 py-3">
+                                              <div className="text-sm font-semibold text-red-800">
+                                                Motivo del bloqueo
+                                              </div>
+                                              <div className="mt-1 text-sm text-red-700">
+                                                {block?.reason || "Bloqueado"}
+                                              </div>
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
 
                                       <div className="shrink-0">
