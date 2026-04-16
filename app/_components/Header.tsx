@@ -3,15 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { CLUB_NAME } from "@/lib/brand";
+import { getCurrentMember } from "@/lib/client-current-member";
+import { isPublicPath } from "@/lib/auth-shared";
 
 const CLUB_GREEN = "#0f5e2e";
-
-type HeaderProps = {
-  pathname: string;
-  showMenu?: boolean;
-  isAdmin?: boolean;
-};
 
 type NavItem = {
   href: string;
@@ -40,11 +37,15 @@ function isNavItemActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function Header({
+function HeaderChrome({
   pathname,
-  showMenu = false,
-  isAdmin = false,
-}: HeaderProps) {
+  showMenu,
+  isAdmin,
+}: {
+  pathname: string;
+  showMenu: boolean;
+  isAdmin: boolean;
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navItems = NAV_ITEMS.filter(
     (item) => !item.requiresAdmin || isAdmin
@@ -84,7 +85,7 @@ export default function Header({
           <div className="flex h-[var(--app-header-height)] items-center justify-between gap-3">
             <Link
               href="/"
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl outline-none transition hover:opacity-95 focus-visible:ring-2 focus-visible:ring-green-200"
+              className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-2xl outline-none transition hover:opacity-95 focus-visible:ring-2 focus-visible:ring-green-200"
             >
               <Image
                 src="/logo.png"
@@ -112,15 +113,15 @@ export default function Header({
                 aria-controls="app-header-menu"
                 aria-expanded={isMenuOpen}
                 onClick={() => setIsMenuOpen((open) => !open)}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 text-gray-900 outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-green-200 active:scale-[0.98]"
+                className="relative z-20 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-green-200 bg-white text-green-900 shadow-sm outline-none transition hover:bg-green-50 focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.98]"
               >
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 24 24"
-                  className="h-5 w-5"
+                  className="h-6 w-6"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2"
+                  strokeWidth="2.25"
                   strokeLinecap="round"
                 >
                   <path d="M4 7h16" />
@@ -150,7 +151,7 @@ export default function Header({
             aria-modal="true"
             aria-labelledby="app-header-menu-title"
             aria-hidden={!isMenuOpen}
-            className={`fixed inset-y-0 right-0 z-50 flex w-[min(82vw,20rem)] flex-col border-l border-black/10 bg-white px-5 pb-6 pt-5 shadow-2xl transition duration-200 ${
+            className={`fixed inset-y-0 right-0 z-50 flex w-[min(84vw,22rem)] flex-col border-l border-black/10 bg-white px-5 pb-6 pt-5 shadow-2xl transition duration-200 ${
               isMenuOpen
                 ? "translate-x-0"
                 : "pointer-events-none translate-x-full"
@@ -171,7 +172,7 @@ export default function Header({
                 type="button"
                 aria-label="Cerrar menú"
                 onClick={() => setIsMenuOpen(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 text-gray-900 outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-green-200"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/10 text-gray-900 outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-green-200"
               >
                 <svg
                   aria-hidden="true"
@@ -196,7 +197,7 @@ export default function Header({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`rounded-2xl px-4 py-3 text-base font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 ${
+                    className={`rounded-2xl px-4 py-3.5 text-base font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 ${
                       isActive
                         ? "bg-green-50 text-green-900 ring-1 ring-green-200"
                         : "text-gray-800 hover:bg-gray-50"
@@ -212,5 +213,45 @@ export default function Header({
         </>
       ) : null}
     </>
+  );
+}
+
+export default function Header() {
+  const pathname = usePathname() ?? "/";
+  const showMenu = pathname !== "/" && !isPublicPath(pathname);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!showMenu) {
+      return;
+    }
+
+    let alive = true;
+
+    getCurrentMember().then((member) => {
+      if (!alive) {
+        return;
+      }
+
+      setIsAdmin(
+        Boolean(
+          member?.is_active &&
+            (member.role === "admin" || member.role === "superadmin")
+        )
+      );
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [showMenu, pathname]);
+
+  return (
+    <HeaderChrome
+      key={pathname}
+      pathname={pathname}
+      showMenu={showMenu}
+      isAdmin={isAdmin}
+    />
   );
 }
