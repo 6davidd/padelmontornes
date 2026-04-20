@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { queueBookingEmail, queueBookingEmails } from "@/lib/client-booking-email";
+import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
+import { BookingDayChips } from "@/app/_components/BookingDayChips";
+import {
+  getAdvanceLimitMessage,
+  getAdvanceRangeMessage,
+  getTodayClubISODate,
+  getVisibleBookingDays,
+  isDateWithinGeneralBookingWindow,
+  isSundayISO,
+} from "@/lib/booking-window";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
@@ -52,112 +62,10 @@ type VisibleDaysBookingData = {
   membersMap: Map<string, string>;
 };
 
-type SupabaseLikeError = {
-  message?: string | null;
-  details?: string | null;
-  code?: string | null;
-};
-
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function addDaysISO(baseISO: string, days: number) {
-  const d = new Date(`${baseISO}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isSundayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 0;
-}
-
-function isDateWithin7Days(dateISO: string) {
-  const min = todayISO();
-  const max = addDaysISO(min, 7);
-  return dateISO >= min && dateISO <= max;
-}
-
-function getVisibleDays() {
-  const base = todayISO();
-  return Array.from({ length: 8 }, (_, i) => addDaysISO(base, i));
-}
-
-function formatDayChip(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "short",
-  })
-    .format(d)
-    .replace(".", "");
-  const day = new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-  }).format(d);
-
-  return `${weekday} ${day}`;
-}
-
-function getRelativeDayLabel(dateISO: string) {
-  const today = todayISO();
-  const tomorrow = addDaysISO(today, 1);
-
-  if (dateISO === today) return "Hoy";
-  if (dateISO === tomorrow) return "Mañana";
-
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-  }).format(d);
-
-  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
-}
-
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
-}
-
-function getReservationPlayersErrorMessage(error: SupabaseLikeError | null | undefined) {
-  const message = (error?.message ?? "").toUpperCase();
-  const details = (error?.details ?? "").toUpperCase();
-
-  if (
-    message.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
-    details.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
-    details.includes("YA ESTÁ APUNTADO EN OTRA PISTA PARA EL MISMO DÍA Y HORA") ||
-    details.includes("MISMO DÍA Y HORA")
-  ) {
-    return "Este socio ya tiene una reserva en otra pista a esta misma hora.";
-  }
-
-  if (
-    message.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION") ||
-    details.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION")
-  ) {
-    return "Ese socio ya está apuntado en esta partida.";
-  }
-
-  if (
-    message.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION") ||
-    details.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION")
-  ) {
-    return "Ese hueco acaba de ocuparse. Actualiza e inténtalo de nuevo.";
-  }
-
-  if (message.includes("DUPLICATE KEY")) {
-    return "No se ha podido guardar porque ese hueco ya no está disponible.";
-  }
-
-  return error?.message || "No se ha podido completar la operación.";
 }
 
 function Badge({
@@ -218,7 +126,7 @@ function Modal({
 }
 
 export default function ReservarPage() {
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(getTodayClubISODate());
 
   const [courts, setCourts] = useState<Court[]>([]);
   const [allReservations, setAllReservations] = useState<ReservationRow[]>([]);
@@ -241,9 +149,9 @@ export default function ReservarPage() {
   >([]);
   const [searching, setSearching] = useState(false);
 
-  const visibleDays = useMemo(() => getVisibleDays(), []);
+  const visibleDays = useMemo(() => getVisibleBookingDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
-  const isOutOfRange = useMemo(() => !isDateWithin7Days(date), [date]);
+  const isOutOfRange = useMemo(() => !isDateWithinGeneralBookingWindow(date), [date]);
   const reservations = useMemo(
     () => allReservations.filter((reservation) => reservation.date === date),
     [allReservations, date]
@@ -410,44 +318,43 @@ export default function ReservarPage() {
     };
   }, [q]);
 
+  const loadInitialData = useEffectEvent(async () => {
+    setMsg(null);
+    setLoading(true);
+
+    try {
+      const [member, courtsData, data] = await Promise.all([
+        getCurrentMember(),
+        getCourts(),
+        fetchVisibleDaysData(),
+      ]);
+
+      setCurrentUserId(member?.user_id ?? null);
+      setCourts(courtsData.slice(0, 3));
+      applyVisibleDaysData(data);
+    } catch (error) {
+      setMsg(
+        error instanceof Error
+          ? error.message
+          : "No se han podido cargar las reservas."
+      );
+    } finally {
+      setLoading(false);
+    }
+  });
+
   useEffect(() => {
     let active = true;
 
-    async function init() {
-      setMsg(null);
-      setLoading(true);
-
-      try {
-        const [member, courtsData, data] = await Promise.all([
-          getCurrentMember(),
-          getCourts(),
-          fetchVisibleDaysData(),
-        ]);
-
-        if (!active) return;
-
-        setCurrentUserId(member?.user_id ?? null);
-        setCourts(courtsData.slice(0, 3));
-        applyVisibleDaysData(data);
-      } catch (error) {
-        if (!active) return;
-
-        setMsg(
-          error instanceof Error
-            ? error.message
-            : "No se han podido cargar las reservas."
-        );
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
+    const timeoutId = window.setTimeout(() => {
+      if (active) {
+        void loadInitialData();
       }
-    }
-
-    void init();
+    }, 0);
 
     return () => {
       active = false;
+      window.clearTimeout(timeoutId);
     };
   }, [visibleDays]);
 
@@ -481,99 +388,6 @@ export default function ReservarPage() {
       return null;
     }
     return member.user_id;
-  }
-
-  async function sendBookingCreatedEmail(params: {
-    to: string;
-    fullName?: string;
-    date: string;
-    slotStart: string;
-    slotEnd: string;
-    courtName: string;
-  }) {
-    try {
-      await fetch("/api/send-booking-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "booking_created",
-          to: params.to,
-          fullName: params.fullName ?? "",
-          date: params.date,
-          slotStart: params.slotStart,
-          slotEnd: params.slotEnd,
-          courtName: params.courtName,
-        }),
-      });
-    } catch (error) {
-      console.error("Error enviando email de reserva:", error);
-    }
-  }
-
-  async function sendAddedToMatchEmail(params: {
-    to: string;
-    fullName?: string;
-    addedByName?: string;
-    date: string;
-    slotStart: string;
-    slotEnd: string;
-    courtName: string;
-  }) {
-    try {
-      await fetch("/api/send-booking-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "added_to_match",
-          to: params.to,
-          fullName: params.fullName ?? "",
-          addedByName: params.addedByName ?? "",
-          date: params.date,
-          slotStart: params.slotStart,
-          slotEnd: params.slotEnd,
-          courtName: params.courtName,
-        }),
-      });
-    } catch (error) {
-      console.error("Error enviando email de añadido a partida:", error);
-    }
-  }
-
-  async function sendMatchCompletedEmail(params: {
-    to: string;
-    fullName?: string;
-    date: string;
-    slotStart: string;
-    slotEnd: string;
-    courtName: string;
-    playersCount: number;
-    players: string[];
-  }) {
-    try {
-      await fetch("/api/send-booking-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "match_completed",
-          to: params.to,
-          fullName: params.fullName ?? "",
-          date: params.date,
-          slotStart: params.slotStart,
-          slotEnd: params.slotEnd,
-          courtName: params.courtName,
-          playersCount: params.playersCount,
-          players: params.players,
-        }),
-      });
-    } catch (error) {
-      console.error("Error enviando email de partida completa:", error);
-    }
   }
 
   async function notifyMatchCompleted(resId: string) {
@@ -634,8 +448,8 @@ export default function ReservarPage() {
   async function createOrOpen(slotStart: string, slotEnd: string, courtId: number) {
     setMsg(null);
 
-    if (!isDateWithin7Days(date)) {
-      setMsg("Solo se puede reservar con un máximo de 7 días de antelación.");
+    if (!isDateWithinGeneralBookingWindow(date)) {
+      setMsg(getAdvanceLimitMessage("reservar"));
       return;
     }
 
@@ -646,7 +460,7 @@ export default function ReservarPage() {
 
     const block = blockByKey.get(`${slotStart}-${courtId}`);
     if (block) {
-      setMsg("Esta pista está bloqueada en ese horario.");
+      setMsg("Esta pista esta bloqueada en ese horario.");
       return;
     }
 
@@ -656,38 +470,40 @@ export default function ReservarPage() {
       return;
     }
 
-    const member = await getCurrentMember();
+    const [member, session] = await Promise.all([
+      getCurrentMember(),
+      getClientSession(),
+    ]);
 
-    if (!member) {
-      setMsg("No hay sesión. Vuelve a iniciar sesión.");
+    if (!member || !session?.access_token) {
+      setMsg("No hay sesion. Vuelve a iniciar sesion.");
       return;
     }
 
-    const userId = member.user_id;
     const userEmail = member.email ?? "";
     const memberName = getDisplayName(member);
 
     await restoreScrollAfter(async () => {
-      const ins = await supabase
-        .from("reservations")
-        .insert({
+      const res = await fetch("/api/reservations/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
           date,
-          slot_start: slotStart,
-          slot_end: slotEnd,
-          court_id: courtId,
-          member_user_id: userId,
-          status: "active",
-        })
-        .select("id")
-        .single();
+          slotStart,
+          slotEnd,
+          courtId,
+        }),
+      });
 
-      if (ins.error) {
-        const errMsg = (ins.error.message ?? "").toLowerCase();
+      const data = await res.json().catch(() => null);
 
-        if (
-          errMsg.includes("duplicate key") ||
-          errMsg.includes("uq_reservation_unique")
-        ) {
+      if (!res.ok || !data?.ok) {
+        const errorMessage = String(data?.error ?? "No se ha podido crear la reserva.");
+
+        if (res.status === 409 || errorMessage.includes("ya no esta disponible")) {
           const refreshedData = await refreshVisibleDaysData();
           const nowExisting =
             refreshedData?.reservations.find(
@@ -697,29 +513,17 @@ export default function ReservarPage() {
                 reservation.court_id === courtId
             ) ?? (await findReservationBySlot(slotStart, courtId));
 
-          if (nowExisting) setExpandedResId(nowExisting.id);
-          return;
+          if (nowExisting) {
+            setExpandedResId(nowExisting.id);
+            return;
+          }
         }
 
-        setMsg(ins.error.message);
+        setMsg(errorMessage);
         return;
       }
 
-      const createdReservationId = ins.data.id as string;
-
-      const playerIns = await supabase.from("reservation_players").insert({
-        reservation_id: createdReservationId,
-        seat: 1,
-        member_user_id: userId,
-      });
-
-      if (playerIns.error) {
-        await supabase.from("reservations").delete().eq("id", createdReservationId);
-        await refreshVisibleDaysData();
-        setMsg(getReservationPlayersErrorMessage(playerIns.error));
-        return;
-      }
-
+      const createdReservationId = String(data.reservationId);
       const courtName =
         courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
 
@@ -740,20 +544,34 @@ export default function ReservarPage() {
     });
   }
 
-  async function joinSeat(resId: string, seat: number, memberUserId: string) {
+  async function joinSeat(resId: string, _seat: number | null, memberUserId: string) {
     setMsg(null);
+
+    const session = await getClientSession();
+    if (!session?.access_token) {
+      setMsg("No hay sesion. Vuelve a iniciar sesion.");
+      return false;
+    }
 
     let ok = false;
 
     await restoreScrollAfter(async () => {
-      const ins = await supabase.from("reservation_players").insert({
-        reservation_id: resId,
-        seat,
-        member_user_id: memberUserId,
+      const res = await fetch("/api/reservations/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          reservationId: resId,
+          memberUserId,
+        }),
       });
 
-      if (ins.error) {
-        setMsg(getReservationPlayersErrorMessage(ins.error));
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setMsg(String(data?.error ?? "No se ha podido completar la operacion."));
         ok = false;
         return;
       }
@@ -925,40 +743,17 @@ export default function ReservarPage() {
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <PageHeaderCard title="Reservar pista" contentClassName="space-y-3">
-            <div className="horizontal-scroll-row -mx-1 px-1">
-              <div className="flex gap-2 min-w-max">
-                {visibleDays.map((day) => {
-                  const selected = day === date;
-                  const sunday = isSundayISO(day);
-
-                  return (
-                    <button
-                      key={day}
-                      onClick={() => setDate(day)}
-                      className={classNames(
-                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
-                        selected
-                          ? "text-white border-transparent"
-                          : sunday
-                          ? "bg-red-50 border-red-200 text-red-800"
-                          : "bg-white border-gray-300 text-gray-900"
-                      )}
-                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
-                    >
-                      <div className="text-xs font-semibold">
-                        {getRelativeDayLabel(day)}
-                      </div>
-                      <div className="text-sm">{formatDayChip(day)}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <BookingDayChips
+            days={visibleDays}
+            selectedDay={date}
+            onSelect={setDate}
+            accentColor={CLUB_GREEN}
+          />
 
           {isOutOfRange && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
               <p className="text-sm font-semibold text-yellow-900">
-                Solo se puede reservar con un máximo de 7 días de antelación.
+                {getAdvanceLimitMessage("reservar")}
               </p>
             </div>
           )}
@@ -978,7 +773,7 @@ export default function ReservarPage() {
           <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
             <div className="text-lg font-bold text-gray-900">Fecha no disponible</div>
             <div className="mt-2 text-sm text-gray-600">
-              Solo se puede reservar entre hoy y los próximos 7 días.
+              {getAdvanceRangeMessage("reservar")}
             </div>
           </div>
         ) : isSunday ? (

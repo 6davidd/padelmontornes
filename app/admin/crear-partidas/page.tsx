@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
+import { BookingDayChips } from "@/app/_components/BookingDayChips";
+import {
+  canCreateAdminMatchOnDate,
+  formatDateLong,
+  getAdvanceLimitMessage,
+  getAdvanceRangeMessage,
+  getTodayClubISODate,
+  getVisibleBookingDays,
+  isSaturdayISO,
+  isSundayISO,
+} from "@/lib/booking-window";
 import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 import { getDisplayName } from "../../../lib/display-name";
@@ -61,82 +73,6 @@ type SelectedMatch = {
   courtId: number;
   courtName: string;
 };
-
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function addDaysISO(baseISO: string, days: number) {
-  const d = new Date(`${baseISO}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isSundayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 0;
-}
-
-function isSaturdayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 6;
-}
-
-function isDateWithin7Days(dateISO: string) {
-  const min = todayISO();
-  const max = addDaysISO(min, 7);
-  return dateISO >= min && dateISO <= max;
-}
-
-function getVisibleDays() {
-  const base = todayISO();
-  return Array.from({ length: 8 }, (_, i) => addDaysISO(base, i));
-}
-
-function formatDayChip(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "short",
-  })
-    .format(d)
-    .replace(".", "");
-  const day = new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-  }).format(d);
-
-  return `${weekday} ${day}`;
-}
-
-function getRelativeDayLabel(dateISO: string) {
-  const today = todayISO();
-  const tomorrow = addDaysISO(today, 1);
-
-  if (dateISO === today) return "Hoy";
-  if (dateISO === tomorrow) return "Mañana";
-
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-  }).format(d);
-
-  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
-}
-
-function formatDateLong(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(d);
-}
 
 function capitalizeFirst(text: string) {
   if (!text) return text;
@@ -238,7 +174,7 @@ export default function AdminCrearPartidasPage() {
   const [loadingPage, setLoadingPage] = useState(true);
   const [creating, setCreating] = useState(false);
 
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(getTodayClubISODate());
 
   const [courts, setCourts] = useState<Court[]>([]);
   const [allReservations, setAllReservations] = useState<ReservationRow[]>([]);
@@ -254,10 +190,13 @@ export default function AdminCrearPartidasPage() {
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState<"member" | "admin" | "superadmin" | null>(null);
 
-  const visibleDays = useMemo(() => getVisibleDays(), []);
+  const visibleDays = useMemo(() => getVisibleBookingDays(), []);
+  const fetchDates = useMemo(() => Array.from(new Set([...visibleDays, date])), [visibleDays, date]);
+  const isSuperadmin = currentRole === "superadmin";
   const isSunday = useMemo(() => isSundayISO(date), [date]);
-  const isOutOfRange = useMemo(() => !isDateWithin7Days(date), [date]);
+  const isOutOfRange = useMemo(() => !canCreateAdminMatchOnDate(date, currentRole), [date, currentRole]);
   const reservations = useMemo(
     () => allReservations.filter((reservation) => reservation.date === date),
     [allReservations, date]
@@ -348,14 +287,14 @@ export default function AdminCrearPartidasPage() {
       supabase
         .from("reservations_public")
         .select("id,date,slot_start,slot_end,court_id")
-        .in("date", visibleDays)
+        .in("date", fetchDates)
         .order("date", { ascending: true })
         .order("slot_start", { ascending: true })
         .order("court_id", { ascending: true }),
       supabase
         .from("blocks")
         .select("id,date,slot_start,slot_end,court_id,reason")
-        .in("date", visibleDays)
+        .in("date", fetchDates)
         .order("date", { ascending: true })
         .order("slot_start", { ascending: true })
         .order("court_id", { ascending: true }),
@@ -442,50 +381,50 @@ export default function AdminCrearPartidasPage() {
     }
   }
 
+  const loadAdminPage = useEffectEvent(async () => {
+    try {
+      const [session, member, courts, membersRes, data] = await Promise.all([
+        getClientSession(),
+        getCurrentMember(),
+        getCourts(),
+        supabase
+          .from("members")
+          .select("user_id,full_name,alias,email,is_active")
+          .eq("is_active", true)
+          .order("full_name", { ascending: true }),
+        fetchVisibleDaysData(),
+      ]);
+
+      setAccessToken(session?.access_token ?? null);
+      setCurrentRole(member?.role ?? null);
+      setCourts(courts);
+      applyVisibleDaysData(data);
+
+      if (membersRes.error) {
+        setMsg(membersRes.error.message);
+      } else {
+        setActiveMembers((membersRes.data ?? []) as MemberRow[]);
+      }
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "No se han podido cargar los datos.");
+    } finally {
+      setLoadingPage(false);
+    }
+  });
+
   useEffect(() => {
     let active = true;
-
-    async function init() {
-      try {
-        const [session, courts, membersRes, data] = await Promise.all([
-          getClientSession(),
-          getCourts(),
-          supabase
-            .from("members")
-            .select("user_id,full_name,alias,email,is_active")
-            .eq("is_active", true)
-            .order("full_name", { ascending: true }),
-          fetchVisibleDaysData(),
-        ]);
-
-        if (!active) return;
-
-        setAccessToken(session?.access_token ?? null);
-        setCourts(courts);
-        applyVisibleDaysData(data);
-
-        if (membersRes.error) {
-          setMsg(membersRes.error.message);
-        } else {
-          setActiveMembers((membersRes.data ?? []) as MemberRow[]);
-        }
-      } catch (error) {
-        if (!active) return;
-
-        setMsg(error instanceof Error ? error.message : "No se han podido cargar los datos.");
-      } finally {
-        if (active) {
-          setLoadingPage(false);
-        }
+    const timeoutId = window.setTimeout(() => {
+      if (active) {
+        void loadAdminPage();
       }
-    }
-
-    void init();
+    }, 0);
 
     return () => {
       active = false;
+      window.clearTimeout(timeoutId);
     };
-  }, [visibleDays]);
+  }, [fetchDates]);
 
   function openCreateModal(match: SelectedMatch) {
     setMsg(null);
@@ -529,8 +468,8 @@ export default function AdminCrearPartidasPage() {
       return;
     }
 
-    if (!isDateWithin7Days(selectedMatch.date)) {
-      setMsg("Solo se puede crear con un máximo de 7 días de antelación.");
+    if (!canCreateAdminMatchOnDate(selectedMatch.date, currentRole)) {
+      setMsg(getAdvanceLimitMessage("crear"));
       return;
     }
 
@@ -598,45 +537,54 @@ export default function AdminCrearPartidasPage() {
   }
 
   const canSearchMembers = search.trim().length >= 2;
+  const maxSelectableDate = visibleDays[visibleDays.length - 1];
+  const isAdvancedDateSelected = !visibleDays.includes(date);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <PageHeaderCard title="Crear partidas">
-            <div className="horizontal-scroll-row -mx-1 px-1">
-              <div className="flex min-w-max gap-2">
-                {visibleDays.map((day) => {
-                  const selected = day === date;
-                  const sunday = isSundayISO(day);
+            <BookingDayChips
+            days={visibleDays}
+            selectedDay={date}
+            onSelect={setDate}
+            accentColor={CLUB_GREEN}
+          />
 
-                  return (
-                    <button
-                      key={day}
-                      onClick={() => setDate(day)}
-                      className={classNames(
-                        "min-w-[88px] rounded-2xl border px-3 py-2 text-left shadow-sm transition",
-                        selected
-                          ? "border-transparent text-white"
-                          : sunday
-                            ? "border-red-200 bg-red-50 text-red-800"
-                            : "border-gray-300 bg-white text-gray-900"
-                      )}
-                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
-                    >
-                      <div className="text-xs font-semibold">
-                        {getRelativeDayLabel(day)}
-                      </div>
-                      <div className="text-sm">{formatDayChip(day)}</div>
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,260px)] sm:items-end">
+            <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+              {isSuperadmin
+                ? "Como superadmin puedes crear partidas mas alla de la ventana general desde este selector de fecha."
+                : getAdvanceRangeMessage("crear")}
             </div>
+
+            <label className="rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm">
+              <div className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                Fecha
+              </div>
+              <input
+                type="date"
+                value={date}
+                min={visibleDays[0]}
+                max={isSuperadmin ? undefined : maxSelectableDate}
+                onChange={(event) => setDate(event.target.value)}
+                className="mt-2 w-full bg-transparent text-sm font-semibold text-gray-900 outline-none"
+              />
+            </label>
+          </div>
+
+          {isSuperadmin && isAdvancedDateSelected && (
+            <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+              <p className="text-sm font-semibold text-blue-900">
+                Fecha avanzada seleccionada desde el flujo de superadmin.
+              </p>
+            </div>
+          )}
 
           {isOutOfRange && (
             <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm font-semibold text-yellow-900">
-                Solo se puede crear con un máximo de 7 días de antelación.
+                {getAdvanceLimitMessage("crear")}
               </p>
             </div>
           )}
@@ -666,7 +614,7 @@ export default function AdminCrearPartidasPage() {
           <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
             <div className="text-lg font-bold text-gray-900">Fecha no disponible</div>
             <div className="mt-2 text-sm text-gray-600">
-              Solo se puede crear entre hoy y los próximos 7 días.
+              {getAdvanceRangeMessage("crear")}
             </div>
           </div>
         ) : isSunday ? (

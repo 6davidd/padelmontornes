@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
+import { getClientSession } from "@/lib/client-session";
+import { BookingDayChips } from "@/app/_components/BookingDayChips";
+import {
+  getTodayClubISODate,
+  getVisibleBookingDays,
+} from "@/lib/booking-window";
 import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
@@ -29,16 +35,20 @@ type MemberRow = {
   is_active: boolean;
 };
 
+type ReservationIdRow = {
+  reservation_id: string;
+};
+
+type ReservationPublicRow = {
+  id: string;
+  date: string;
+  slot_start: string;
+  slot_end: string;
+  court_id: number;
+};
+
 const CLUB_GREEN = "#0f5e2e";
 const toHM = (t: string) => t.slice(0, 5);
-
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 function capitalizeFirst(text: string) {
   if (!text) return text;
@@ -46,46 +56,13 @@ function capitalizeFirst(text: string) {
 }
 
 function formatDateES(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = new Date(`${dateStr}T00:00:00`);
   return d.toLocaleDateString("es-ES");
 }
 
 function weekdayES(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = new Date(`${dateStr}T00:00:00`);
   return d.toLocaleDateString("es-ES", { weekday: "long" });
-}
-
-function formatDayChip(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "short",
-  })
-    .format(d)
-    .replace(".", "");
-  const day = new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-  }).format(d);
-
-  return `${weekday} ${day}`;
-}
-
-function getRelativeDayLabel(dateISO: string) {
-  const today = todayISO();
-  const tomorrow = new Date(`${today}T12:00:00`);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowISO = `${tomorrow.getFullYear()}-${String(
-    tomorrow.getMonth() + 1
-  ).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
-
-  if (dateISO === today) return "Hoy";
-  if (dateISO === tomorrowISO) return "Mañana";
-
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-  }).format(d);
-
-  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
 function classNames(...xs: Array<string | false | null | undefined>) {
@@ -113,8 +90,6 @@ function Badge({
   );
 }
 
-type ViewMode = "all" | string;
-
 export default function MisReservasPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -122,9 +97,10 @@ export default function MisReservasPage() {
 
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedChip, setSelectedChip] = useState<ViewMode>("all");
+  const [selectedChip, setSelectedChip] = useState(getTodayClubISODate());
+  const visibleDays = useMemo(() => getVisibleBookingDays(), []);
 
-  async function load() {
+  const load = useCallback(async () => {
     setMsg(null);
     setLoading(true);
 
@@ -147,7 +123,9 @@ export default function MisReservasPage() {
       return;
     }
 
-    const ids = (rp.data ?? []).map((x: any) => x.reservation_id as string);
+    const ids = ((rp.data ?? []) as ReservationIdRow[]).map(
+      (row) => row.reservation_id
+    );
 
     if (ids.length === 0) {
       setItems([]);
@@ -161,7 +139,7 @@ export default function MisReservasPage() {
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
       .in("id", ids)
-      .gte("date", todayISO())
+      .in("date", visibleDays)
       .order("date", { ascending: true })
       .order("slot_start", { ascending: true });
 
@@ -171,14 +149,13 @@ export default function MisReservasPage() {
       return;
     }
 
-    const rows =
-      (r.data ?? []).map((x: any) => ({
-        reservation_id: x.id as string,
-        date: x.date as string,
-        slot_start: x.slot_start as string,
-        slot_end: x.slot_end as string,
-        court_id: x.court_id as number,
-      })) ?? [];
+    const rows = ((r.data ?? []) as ReservationPublicRow[]).map((row) => ({
+      reservation_id: row.id,
+      date: row.date,
+      slot_start: row.slot_start,
+      slot_end: row.slot_end,
+      court_id: row.court_id,
+    }));
 
     setItems(rows);
 
@@ -231,11 +208,17 @@ export default function MisReservasPage() {
     setMembersMap(map);
 
     setLoading(false);
-  }
+  }, [visibleDays]);
 
   useEffect(() => {
-    load();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [load]);
 
   const playersByReservation = useMemo(() => {
     const map = new Map<
@@ -286,20 +269,21 @@ export default function MisReservasPage() {
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [enrichedItems]);
 
-  const dayChips = useMemo(() => {
-    return groupedByDate.map(([date, list]) => ({
-      date,
-      count: list.length,
-    }));
-  }, [groupedByDate]);
+  const countsByDay = useMemo(() => {
+    const counts = new Map<string, number>();
 
-  const totalCount = enrichedItems.length;
-
-  const visibleSections = useMemo(() => {
-    if (selectedChip === "all") {
-      return groupedByDate;
+    for (const day of visibleDays) {
+      counts.set(day, 0);
     }
 
+    for (const [date, list] of groupedByDate) {
+      counts.set(date, list.length);
+    }
+
+    return counts;
+  }, [groupedByDate, visibleDays]);
+
+  const visibleSections = useMemo(() => {
     const match = groupedByDate.find(([date]) => date === selectedChip);
     return match ? [match] : [];
   }, [selectedChip, groupedByDate]);
@@ -307,18 +291,27 @@ export default function MisReservasPage() {
   async function leave(reservationId: string) {
     setMsg(null);
 
-    const ok = confirm("¿Quieres salir de esta partida?");
+    const ok = confirm("Quieres salir de esta partida?");
     if (!ok) return;
 
-    const member = await getCurrentMember();
-    if (!member) return setMsg("No hay sesión.");
+    const session = await getClientSession();
+    if (!session?.access_token) return setMsg("No hay sesion.");
 
-    const rpc = await supabase.rpc("leave_reservation", {
-      p_reservation_id: reservationId,
-      p_member: member.user_id,
+    const res = await fetch("/api/reservations/leave", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ reservationId }),
     });
 
-    if (rpc.error) return setMsg(rpc.error.message);
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      setMsg(String(data?.error ?? "No se ha podido salir de la partida."));
+      return;
+    }
 
     await load();
   }
@@ -327,73 +320,13 @@ export default function MisReservasPage() {
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <PageHeaderCard title="Mis reservas" contentClassName="space-y-3">
-            <div className="horizontal-scroll-row -mx-1 px-1">
-              <div className="flex gap-2 min-w-max">
-                <button
-                  onClick={() => setSelectedChip("all")}
-                  className={classNames(
-                    "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[108px]",
-                    selectedChip === "all"
-                      ? "text-white border-transparent"
-                      : "bg-white border-gray-300 text-gray-900"
-                  )}
-                  style={
-                    selectedChip === "all"
-                      ? { backgroundColor: CLUB_GREEN }
-                      : undefined
-                  }
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold">Todas</span>
-                    <span
-                      className={classNames(
-                        "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
-                        selectedChip === "all"
-                          ? "bg-white/20 text-white"
-                          : "bg-green-50 text-green-800 border border-green-200"
-                      )}
-                    >
-                      {totalCount}
-                    </span>
-                  </div>
-                </button>
-
-                {dayChips.map(({ date, count }) => {
-                  const selected = date === selectedChip;
-
-                  return (
-                    <button
-                      key={date}
-                      onClick={() => setSelectedChip(date)}
-                      className={classNames(
-                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[108px]",
-                        selected
-                          ? "text-white border-transparent"
-                          : "bg-white border-gray-300 text-gray-900"
-                      )}
-                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold">
-                          {getRelativeDayLabel(date)}
-                        </span>
-                        <span
-                          className={classNames(
-                            "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
-                            selected
-                              ? "bg-white/20 text-white"
-                              : "bg-green-50 text-green-800 border border-green-200"
-                          )}
-                        >
-                          {count}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-sm font-medium">{formatDayChip(date)}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <BookingDayChips
+            days={visibleDays}
+            selectedDay={selectedChip}
+            onSelect={setSelectedChip}
+            counts={countsByDay}
+            accentColor={CLUB_GREEN}
+          />
 
           {msg && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
@@ -427,16 +360,14 @@ export default function MisReservasPage() {
           <div className="space-y-6">
             {visibleSections.map(([date, list]) => (
               <div key={date} className="space-y-3">
-                {selectedChip === "all" && (
-                  <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                    <div className="text-base sm:text-lg font-bold text-gray-900">
-                      {capitalizeFirst(weekdayES(date))}
-                    </div>
-                    <div className="text-sm sm:text-base font-medium text-gray-600">
-                      {formatDateES(date)}
-                    </div>
+                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                  <div className="text-base sm:text-lg font-bold text-gray-900">
+                    {capitalizeFirst(weekdayES(date))}
                   </div>
-                )}
+                  <div className="text-sm sm:text-base font-medium text-gray-600">
+                    {formatDateES(date)}
+                  </div>
+                </div>
 
                 <div className="space-y-4">
                   {list.map((r) => {

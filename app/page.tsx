@@ -11,6 +11,7 @@ import {
 } from "@/lib/client-current-member";
 import { getDisplayName } from "../lib/display-name";
 import { syncSessionCookies } from "@/lib/auth-client";
+import { getVisibleBookingDays } from "@/lib/booking-window";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -84,23 +85,6 @@ function TileButton({
   );
 }
 
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function addDaysISO(baseISO: string, days: number) {
-  const d = new Date(`${baseISO}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function toHM(t: string) {
   return t?.length >= 5 ? t.slice(0, 5) : t;
 }
@@ -114,14 +98,12 @@ export default function HomePage() {
   const router = useRouter();
 
   async function loadOpenMatchesCount(currentUserId: string) {
-    const today = todayISO();
-    const until = addDaysISO(today, 7);
+    const visibleDays = getVisibleBookingDays();
 
     const reservationsRes = await supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
-      .gte("date", today)
-      .lte("date", until)
+      .in("date", visibleDays)
       .order("date", { ascending: true })
       .order("slot_start", { ascending: true });
 

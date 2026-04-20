@@ -1,8 +1,15 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
+import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
+import { BookingDayChips } from "@/app/_components/BookingDayChips";
+import {
+  getTodayClubISODate,
+  getVisibleBookingDays,
+  isSundayISO,
+} from "@/lib/booking-window";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
@@ -37,68 +44,6 @@ type CourtRow = {
   name: string;
 };
 
-type SupabaseLikeError = {
-  message?: string | null;
-  details?: string | null;
-  code?: string | null;
-};
-
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function addDaysISO(baseISO: string, days: number) {
-  const d = new Date(`${baseISO}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isSundayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 0;
-}
-
-function getVisibleDays() {
-  const base = todayISO();
-  return Array.from({ length: 8 }, (_, i) => addDaysISO(base, i));
-}
-
-function formatDayChip(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "short",
-  })
-    .format(d)
-    .replace(".", "");
-  const day = new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-  }).format(d);
-
-  return `${weekday} ${day}`;
-}
-
-function getRelativeDayLabel(dateISO: string) {
-  const today = todayISO();
-  const tomorrow = addDaysISO(today, 1);
-
-  if (dateISO === today) return "Hoy";
-  if (dateISO === tomorrow) return "Mañana";
-
-  const d = new Date(`${dateISO}T12:00:00`);
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-  }).format(d);
-
-  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
-}
-
 function toHM(t: string) {
   return t?.length >= 5 ? t.slice(0, 5) : t;
 }
@@ -111,40 +56,6 @@ function slotIsStillOpen(r: ReservationRow) {
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
-}
-
-function getReservationPlayersErrorMessage(error: SupabaseLikeError | null | undefined) {
-  const message = (error?.message ?? "").toUpperCase();
-  const details = (error?.details ?? "").toUpperCase();
-
-  if (
-    message.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
-    details.includes("DOUBLE_BOOKING_NOT_ALLOWED") ||
-    details.includes("YA ESTÁ APUNTADO EN OTRA PISTA PARA EL MISMO DÍA Y HORA") ||
-    details.includes("MISMO DÍA Y HORA")
-  ) {
-    return "Ya tienes una reserva en otra pista a esta misma hora.";
-  }
-
-  if (
-    message.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION") ||
-    details.includes("RESERVATION_PLAYERS_UNIQUE_MEMBER_PER_RESERVATION")
-  ) {
-    return "Ya estás apuntado en esta partida.";
-  }
-
-  if (
-    message.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION") ||
-    details.includes("RESERVATION_PLAYERS_UNIQUE_SEAT_PER_RESERVATION")
-  ) {
-    return "Ese hueco acaba de ocuparse. Actualiza e inténtalo de nuevo.";
-  }
-
-  if (message.includes("DUPLICATE KEY")) {
-    return "No se ha podido guardar porque ese hueco ya no está disponible.";
-  }
-
-  return error?.message || "No se ha podido completar la operación.";
 }
 
 function Badge({
@@ -168,7 +79,7 @@ function Badge({
 }
 
 export default function PartidasAbiertasPage() {
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(getTodayClubISODate());
   const [hasAutoSelectedDate, setHasAutoSelectedDate] = useState(false);
 
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
@@ -180,7 +91,7 @@ export default function PartidasAbiertasPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const visibleDays = useMemo(() => getVisibleDays(), []);
+  const visibleDays = useMemo(() => getVisibleBookingDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
 
   const slotsToShow = useMemo(() => {
@@ -264,18 +175,11 @@ export default function PartidasAbiertasPage() {
     return counts;
   }, [reservations, playersByReservation, visibleDays, currentUserId]);
 
-  const dayChips = useMemo(() => {
-    return visibleDays
-      .map((day) => ({
-        day,
-        count: openMatchesCountByDay.get(day) ?? 0,
-      }))
-      .filter(({ count }) => count > 0);
-  }, [visibleDays, openMatchesCountByDay]);
-
-  const hasAnyOpenMatches = dayChips.length > 0;
+  const hasAnyOpenMatches = visibleDays.some(
+    (day) => (openMatchesCountByDay.get(day) ?? 0) > 0
+  );
   const isSelectingFirstOpenDay =
-    hasAnyOpenMatches && !dayChips.some(({ day }) => day === date);
+    hasAnyOpenMatches && !hasAutoSelectedDate && (openMatchesCountByDay.get(date) ?? 0) === 0;
 
   useEffect(() => {
     if (hasAutoSelectedDate) return;
@@ -307,20 +211,16 @@ export default function PartidasAbiertasPage() {
     setDate(day);
   }
 
-  async function loadOpenMatches() {
+  const loadOpenMatches = useCallback(async () => {
     setMsg(null);
     setLoading(true);
-
-    const today = todayISO();
-    const until = addDaysISO(today, 7);
 
     try {
       const [reservationsRes, courts] = await Promise.all([
         supabase
           .from("reservations_public")
           .select("id,date,slot_start,slot_end,court_id")
-          .gte("date", today)
-          .lte("date", until)
+          .in("date", visibleDays)
           .order("date", { ascending: true })
           .order("slot_start", { ascending: true })
           .order("court_id", { ascending: true }),
@@ -392,7 +292,7 @@ export default function PartidasAbiertasPage() {
       setMsg(error instanceof Error ? error.message : "No se han podido cargar las partidas.");
       setLoading(false);
     }
-  }
+  }, [visibleDays]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -402,7 +302,7 @@ export default function PartidasAbiertasPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, []);
+  }, [loadOpenMatches]);
 
   async function getUserIdOrMsg() {
     const member = await getCurrentMember();
@@ -425,18 +325,32 @@ export default function PartidasAbiertasPage() {
     });
   }
 
-  async function joinSeat(resId: string, seat: number, memberUserId: string) {
+  async function joinSeat(resId: string, _seat: number | null, memberUserId: string) {
     setMsg(null);
 
+    const session = await getClientSession();
+    if (!session?.access_token) {
+      setMsg("No hay sesion. Vuelve a iniciar sesion.");
+      return;
+    }
+
     await restoreScrollAfter(async () => {
-      const ins = await supabase.from("reservation_players").insert({
-        reservation_id: resId,
-        seat,
-        member_user_id: memberUserId,
+      const res = await fetch("/api/reservations/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          reservationId: resId,
+          memberUserId,
+        }),
       });
 
-      if (ins.error) {
-        setMsg(getReservationPlayersErrorMessage(ins.error));
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setMsg(String(data?.error ?? "No se ha podido completar la operacion."));
         return;
       }
 
@@ -472,51 +386,13 @@ export default function PartidasAbiertasPage() {
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <PageHeaderCard title="Partidas abiertas" contentClassName="space-y-3">
-          {hasAnyOpenMatches && (
-            <div className="horizontal-scroll-row -mx-1 px-1">
-              <div className="flex gap-2 min-w-max">
-                {dayChips.map(({ day, count }) => {
-                  const selected = day === date;
-                  const sunday = isSundayISO(day);
-
-                  return (
-                    <button
-                      key={day}
-                      onClick={() => selectDate(day)}
-                      className={classNames(
-                        "rounded-2xl border px-3 py-2 text-left transition shadow-sm min-w-[88px]",
-                        selected
-                          ? "text-white border-transparent"
-                          : sunday
-                          ? "bg-red-50 border-red-200 text-red-800"
-                          : "bg-white border-gray-300 text-gray-900"
-                      )}
-                      style={selected ? { backgroundColor: CLUB_GREEN } : undefined}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold">
-                          {getRelativeDayLabel(day)}
-                        </span>
-                        {count > 0 && (
-                          <span
-                            className={classNames(
-                              "inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
-                              selected
-                                ? "bg-white/20 text-white"
-                                : "bg-green-50 text-green-800 border border-green-200"
-                            )}
-                          >
-                            {count}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm">{formatDayChip(day)}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <BookingDayChips
+            days={visibleDays}
+            selectedDay={date}
+            onSelect={selectDate}
+            counts={openMatchesCountByDay}
+            accentColor={CLUB_GREEN}
+          />
 
           {msg && (
             <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">

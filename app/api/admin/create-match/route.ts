@@ -2,8 +2,13 @@ import { after, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../../lib/slots";
 import { getDisplayName } from "../../../../lib/display-name";
-
-type MemberRole = "member" | "admin" | "superadmin";
+import {
+  canCreateAdminMatchOnDate,
+  getAdvanceLimitMessage,
+  isSaturdayISO,
+  isSundayISO,
+} from "../../../../lib/booking-window";
+import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 
 type Body = {
   date?: string;
@@ -39,39 +44,6 @@ type PlayerRow = {
   seat: number;
   member_user_id: string;
 };
-
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function addDaysISO(baseISO: string, days: number) {
-  const d = new Date(`${baseISO}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isSundayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 0;
-}
-
-function isSaturdayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 6;
-}
-
-function isDateWithin7Days(dateISO: string) {
-  const min = todayISO();
-  const max = addDaysISO(min, 7);
-  return dateISO >= min && dateISO <= max;
-}
 
 function isValidSlot(dateISO: string, slotStart: string, slotEnd: string) {
   const slots = isSaturdayISO(dateISO) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
@@ -160,49 +132,23 @@ async function sendMatchCompletedEmail(params: {
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "").trim();
+    const auth = await getAuthenticatedMemberFromRequest(req);
 
-    if (!token) {
+    if (!auth.ok) {
       return NextResponse.json(
-        { ok: false, error: "No autorizado." },
-        { status: 401 }
+        { ok: false, error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(token);
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { ok: false, error: "No autorizado." },
-        { status: 401 }
-      );
-    }
-
-    const meRes = await supabaseAdmin
-      .from("members")
-      .select("user_id,role,is_active,full_name,alias")
-      .eq("user_id", user.id)
-      .single();
-
-    const allowedRoles: MemberRole[] = ["admin", "superadmin"];
-
-    if (
-      meRes.error ||
-      !meRes.data ||
-      !meRes.data.is_active ||
-      !allowedRoles.includes(meRes.data.role as MemberRole)
-    ) {
+    if (auth.member.role !== "admin" && auth.member.role !== "superadmin") {
       return NextResponse.json(
         { ok: false, error: "No autorizado." },
         { status: 403 }
       );
     }
 
-    const adminDisplayName = getDisplayName(meRes.data);
+    const adminDisplayName = getDisplayName(auth.member);
 
     const body = (await req.json()) as Body;
 
@@ -243,11 +189,11 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!isDateWithin7Days(date)) {
+    if (!canCreateAdminMatchOnDate(date, auth.member.role)) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Solo se puede crear con un máximo de 7 días de antelación.",
+          error: getAdvanceLimitMessage("crear"),
         },
         { status: 400 }
       );
@@ -421,7 +367,7 @@ export async function POST(req: Request) {
         slot_start: slotStart,
         slot_end: slotEnd,
         court_id: courtId,
-        member_user_id: user.id,
+        member_user_id: auth.member.user_id,
         status: "active",
       })
       .select("id")
