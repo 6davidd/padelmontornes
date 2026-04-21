@@ -226,18 +226,16 @@ function ScreenshotGuide({
   alt: string;
 }) {
   return (
-    <figure className="rounded-[2rem] border border-gray-200 bg-gray-50 p-2 shadow-sm">
-      <div className="relative overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white">
-        <Image
-          src={src}
-          alt={alt}
-          width={945}
-          height={2048}
-          sizes="(min-width: 640px) 18rem, calc(100vw - 4rem)"
-          className="h-auto w-full select-none"
-        />
-      </div>
-    </figure>
+    <div className="relative overflow-hidden rounded-[2rem] border border-gray-200 bg-white shadow-sm">
+      <Image
+        src={src}
+        alt={alt}
+        width={945}
+        height={2048}
+        sizes="(min-width: 640px) 18rem, calc(100vw - 4rem)"
+        className="h-auto w-full select-none"
+      />
+    </div>
   );
 }
 
@@ -345,7 +343,7 @@ export default function AyudaPage() {
           <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                ¿Problema con la app?
+                ¿Problemas con la app?
               </h2>
               <p className="mt-1.5 text-sm leading-5 text-gray-700">
                 Contacta directamente con David.
