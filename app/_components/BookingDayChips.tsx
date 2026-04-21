@@ -49,7 +49,7 @@ export function BookingDayChips({
             )}
             style={selected ? { backgroundColor: accentColor } : undefined}
           >
-            <div className="flex h-full flex-col justify-between gap-1">
+            <div className="flex h-full flex-col gap-0.5">
               <span
                 className={classNames(
                   "text-xs font-semibold leading-tight",
