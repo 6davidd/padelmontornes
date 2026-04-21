@@ -122,8 +122,9 @@ export function formatDayChip(dateISO: string) {
     .format(date)
     .replace(".", "");
   const day = getFormatter("es-ES", { day: "2-digit" }).format(date);
+  const weekdayLabel = weekday.charAt(0).toUpperCase() + weekday.slice(1);
 
-  return `${weekday} ${day}`;
+  return `${weekdayLabel} ${day}`;
 }
 
 export function getRelativeDayLabel(

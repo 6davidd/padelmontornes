@@ -50,21 +50,6 @@ type ReservationPublicRow = {
 const CLUB_GREEN = "#0f5e2e";
 const toHM = (t: string) => t.slice(0, 5);
 
-function capitalizeFirst(text: string) {
-  if (!text) return text;
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function formatDateES(dateStr: string) {
-  const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString("es-ES");
-}
-
-function weekdayES(dateStr: string) {
-  const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString("es-ES", { weekday: "long" });
-}
-
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -272,16 +257,14 @@ export default function MisReservasPage() {
   const countsByDay = useMemo(() => {
     const counts = new Map<string, number>();
 
-    for (const day of visibleDays) {
-      counts.set(day, 0);
-    }
-
     for (const [date, list] of groupedByDate) {
-      counts.set(date, list.length);
+      if (list.length > 0) {
+        counts.set(date, list.length);
+      }
     }
 
     return counts;
-  }, [groupedByDate, visibleDays]);
+  }, [groupedByDate]);
 
   const visibleSections = useMemo(() => {
     const match = groupedByDate.find(([date]) => date === selectedChip);
@@ -359,16 +342,7 @@ export default function MisReservasPage() {
         ) : (
           <div className="space-y-6">
             {visibleSections.map(([date, list]) => (
-              <div key={date} className="space-y-3">
-                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                  <div className="text-base sm:text-lg font-bold text-gray-900">
-                    {capitalizeFirst(weekdayES(date))}
-                  </div>
-                  <div className="text-sm sm:text-base font-medium text-gray-600">
-                    {formatDateES(date)}
-                  </div>
-                </div>
-
+              <div key={date}>
                 <div className="space-y-4">
                   {list.map((r) => {
                     const isOpen = r.isOpen;

@@ -32,6 +32,27 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.app-form-control {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.app-date-input {
+  min-inline-size: 0;
+}
+
+.app-date-input::-webkit-date-and-time-value,
+.app-date-input::-webkit-datetime-edit {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  text-align: left;
+}
+
 .horizontal-scroll-row {
   overflow-x: auto;
   overflow-y: hidden;

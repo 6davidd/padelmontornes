@@ -200,26 +200,26 @@ export default function AdminBloqueosPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50 pb-8">
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <PageHeaderCard title="Bloquear pistas">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="min-w-0 space-y-2">
+      <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+        <PageHeaderCard title="Bloquear pistas" className="min-w-0 overflow-hidden">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="min-w-0 max-w-full space-y-2">
               <div className="text-sm font-semibold text-gray-900">Día del mes</div>
               <input
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
-                className="block w-full min-w-0 max-w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-green-200"
+                className="app-form-control app-date-input rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-green-200"
               />
             </label>
 
-            <label className="min-w-0 space-y-2">
+            <label className="min-w-0 max-w-full space-y-2">
               <div className="text-sm font-semibold text-gray-900">Motivo</div>
               <input
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
                 placeholder="Motivo del bloqueo"
-                className="block w-full min-w-0 max-w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
+                className="app-form-control rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
               />
             </label>
           </div>
