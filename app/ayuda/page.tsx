@@ -50,10 +50,10 @@ const helpSections = [
     title: "Inicio",
     description: "Acceso rápido a todas las secciones de la app.",
     steps: [
-      "Ver partidas abiertas",
+      "Ver partidas con huecos libres",
       "Reservar pista",
-      "Ver mis reservas",
-      "Abrir mi perfil",
+      "Ver mis proximas partidas",
+      "Cambiar tu alias",
     ],
     image: {
       src: "/help/ayuda-inicio.png",
@@ -93,7 +93,7 @@ const helpSections = [
     steps: [
       "Elegir día",
       "Elegir horario",
-      "Pulsar Ver",
+      "Ver integrantes",
       "Ver o unirme",
     ],
     image: {
@@ -134,8 +134,8 @@ const helpSections = [
     steps: [
       "Elegir día",
       "Elegir horario",
-      "Pulsar Unirme",
-      "Ver jugadores",
+      "Unirme a la partida",
+      "Ver integrantes",
     ],
     image: {
       src: "/help/ayuda-partidas-abiertas.png",
@@ -175,8 +175,8 @@ const helpSections = [
     steps: [
       "Elegir día",
       "Elegir horario",
-      "Ver jugadores",
-      "Pulsar Salir",
+      "Ver integrantes",
+      "Salir de la partida",
     ],
     image: {
       src: "/help/ayuda-mis-reservas.png",
@@ -251,16 +251,16 @@ function QuickHelpNav() {
         <Link
           key={link.href}
           href={link.href}
-          className="group flex min-h-24 flex-col justify-between rounded-3xl border border-gray-300 bg-white p-3 shadow-sm outline-none transition hover:-translate-y-0.5 hover:border-green-200 hover:bg-green-50/60 hover:shadow-md focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.99] sm:min-h-28 sm:p-4"
+          className="group flex min-h-24 flex-col justify-center gap-2 rounded-3xl border border-gray-300 bg-white p-3 shadow-sm outline-none transition hover:-translate-y-0.5 hover:border-green-200 hover:bg-green-50/60 hover:shadow-md focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.99] sm:min-h-28 sm:gap-2.5 sm:p-4"
         >
           <span
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm sm:h-7 sm:w-7"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm sm:h-8 sm:w-8"
             style={{ backgroundColor: CLUB_GREEN }}
           >
             {index + 1}
           </span>
 
-          <span className="block text-sm font-bold leading-4 text-gray-900 sm:text-[15px] sm:leading-5">
+          <span className="text-sm font-bold leading-4 text-gray-900 sm:text-base sm:leading-5">
             {link.label}
           </span>
         </Link>
