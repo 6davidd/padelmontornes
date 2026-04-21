@@ -554,9 +554,7 @@ export default function AdminCrearPartidasPage() {
 
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,260px)] sm:items-end">
             <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
-              {isSuperadmin
-                ? "Como superadmin puedes crear partidas mas alla de la ventana general desde este selector de fecha."
-                : getAdvanceRangeMessage("crear")}
+              {getAdvanceRangeMessage("crear")}
             </div>
 
             <label className="rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm">
