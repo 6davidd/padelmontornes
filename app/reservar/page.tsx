@@ -824,7 +824,7 @@ export default function ReservarPage() {
                             )}
                           >
                             <div className="p-4 sm:p-5">
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1">
                                   <div className="text-lg font-bold text-gray-900">
                                     {c.name}
@@ -842,17 +842,6 @@ export default function ReservarPage() {
                                     )}
                                   </div>
 
-                                  {!blocked && res ? (
-                                    <div className="mt-3">
-                                      <ReservationOccupancy
-                                        filled={filled}
-                                        total={4}
-                                        accentColor={CLUB_GREEN}
-                                        label={`${filled}/4`}
-                                      />
-                                    </div>
-                                  ) : null}
-
                                   {blocked && (
                                     <div className="mt-3 rounded-2xl border border-red-200 bg-red-100 px-3 py-2 text-sm font-medium text-red-700">
                                       {block?.reason || "Bloqueado"}
@@ -860,7 +849,7 @@ export default function ReservarPage() {
                                   )}
                                 </div>
 
-                                <div className="shrink-0 self-end flex items-center gap-2 sm:self-auto">
+                                <div className="shrink-0 flex items-center gap-2">
                                   {alreadyIn && !blocked && res && (
                                     <span title="Estás apuntado" className="text-3xl leading-none">
                                       🎾
@@ -895,6 +884,17 @@ export default function ReservarPage() {
                                     ))}
                                 </div>
                               </div>
+
+                              {!blocked && res ? (
+                                <div className="mt-3">
+                                  <ReservationOccupancy
+                                    filled={filled}
+                                    total={4}
+                                    accentColor={CLUB_GREEN}
+                                    label={`${filled}/4`}
+                                  />
+                                </div>
+                              ) : null}
 
                               {!blocked && res && expanded && (
                                 <div className="mt-4 border-t border-gray-200 pt-4 space-y-4">

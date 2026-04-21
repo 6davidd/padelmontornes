@@ -63,7 +63,6 @@ export function ReservationCard({
             ) : null}
 
             {status ? <div className="mt-3 flex flex-wrap items-center gap-2">{status}</div> : null}
-            {occupancy ? <div className="mt-3">{occupancy}</div> : null}
           </div>
 
           {topActions ? (
@@ -72,6 +71,8 @@ export function ReservationCard({
             </div>
           ) : null}
         </div>
+
+        {occupancy ? <div className="mt-3">{occupancy}</div> : null}
 
         {hasBottomSection ? (
           <div className="mt-4 space-y-4 border-t border-gray-200 pt-4">
