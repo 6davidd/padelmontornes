@@ -824,7 +824,7 @@ export default function ReservarPage() {
                             )}
                           >
                             <div className="p-4 sm:p-5">
-                              <div className="flex items-start justify-between gap-3">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0 flex-1">
                                   <div className="text-lg font-bold text-gray-900">
                                     {c.name}
@@ -860,7 +860,7 @@ export default function ReservarPage() {
                                   )}
                                 </div>
 
-                                <div className="shrink-0 flex items-center gap-2">
+                                <div className="shrink-0 self-end flex items-center gap-2 sm:self-auto">
                                   {alreadyIn && !blocked && res && (
                                     <span title="Estás apuntado" className="text-3xl leading-none">
                                       🎾

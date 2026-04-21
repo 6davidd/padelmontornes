@@ -455,6 +455,7 @@ export default function PartidasAbiertasPage() {
                               key={match.id}
                               title={courtName}
                               tone="open"
+                              stackHeaderOnMobile={false}
                               occupancy={
                                 <ReservationOccupancy
                                   filled={match.playersCount}
@@ -466,6 +467,7 @@ export default function PartidasAbiertasPage() {
                               topActions={
                                 <ReservationActionButton
                                   tone="primary"
+                                  size="sm"
                                   onClick={() => joinMe(match.id)}
                                 >
                                   Unirme

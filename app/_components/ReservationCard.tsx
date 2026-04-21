@@ -14,6 +14,7 @@ type ReservationCardProps = {
   topActions?: ReactNode;
   footerActions?: ReactNode;
   tone?: ReservationCardTone;
+  stackHeaderOnMobile?: boolean;
   className?: string;
   children?: ReactNode;
 };
@@ -33,6 +34,7 @@ export function ReservationCard({
   topActions,
   footerActions,
   tone = "default",
+  stackHeaderOnMobile = true,
   className,
   children,
 }: ReservationCardProps) {
@@ -47,7 +49,12 @@ export function ReservationCard({
       )}
     >
       <div className="p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div
+          className={classNames(
+            "gap-3 sm:items-start sm:justify-between",
+            stackHeaderOnMobile ? "flex flex-col sm:flex-row" : "flex items-start justify-between"
+          )}
+        >
           <div className="min-w-0 flex-1">
             <div className="text-lg font-bold text-gray-900">{title}</div>
 
@@ -123,8 +130,8 @@ export function ReservationOccupancy({
   accentColor?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-1.5">
+    <div className="flex flex-nowrap items-center gap-3">
+      <div className="flex shrink-0 items-center gap-1.5">
         {Array.from({ length: total }, (_, index) => {
           const isFilled = index < filled;
 
@@ -147,7 +154,7 @@ export function ReservationOccupancy({
       </div>
 
       <span
-        className="text-sm font-semibold"
+        className="shrink-0 whitespace-nowrap text-sm font-semibold"
         style={accentColor ? { color: accentColor } : { color: "#374151" }}
       >
         {label ?? `${filled}/${total}`}
