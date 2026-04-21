@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { CLUB_NAME } from "@/lib/brand";
 import { getCurrentMember } from "@/lib/client-current-member";
-import { isPublicPath } from "@/lib/auth-shared";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -230,9 +229,13 @@ function HeaderChrome({
   );
 }
 
-export default function Header() {
+export default function Header({
+  showAuthenticatedMenu = false,
+}: {
+  showAuthenticatedMenu?: boolean;
+}) {
   const pathname = usePathname() ?? "/";
-  const showMenu = pathname !== "/" && !isPublicPath(pathname);
+  const showMenu = pathname !== "/" && showAuthenticatedMenu;
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {

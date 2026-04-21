@@ -36,10 +36,13 @@ export default async function RootLayout({
 }) {
   const pathname = (await headers()).get("x-app-pathname") ?? "/";
   const isPublic = isPublicPath(pathname);
+  const isProtected = isProtectedPath(pathname);
+  const shouldResolveSession = isProtected || pathname === "/ayuda";
+  const session = shouldResolveSession
+    ? await resolveSessionFromServerCookies()
+    : null;
 
-  if (isProtectedPath(pathname)) {
-    const session = await resolveSessionFromServerCookies();
-
+  if (isProtected) {
     if (!session) {
       redirect(`/login?next=${encodeURIComponent(pathname)}`);
     }
@@ -66,7 +69,9 @@ export default async function RootLayout({
       <body className="bg-gray-50 text-gray-900">
         <AuthSessionSync />
         {isPublic ? (
-          <PublicLayoutFrame>{children}</PublicLayoutFrame>
+          <PublicLayoutFrame showAuthenticatedMenu={Boolean(session)}>
+            {children}
+          </PublicLayoutFrame>
         ) : (
           <PrivateLayoutFrame>{children}</PrivateLayoutFrame>
         )}

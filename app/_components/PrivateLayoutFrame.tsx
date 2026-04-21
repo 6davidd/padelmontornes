@@ -7,7 +7,7 @@ export default function PrivateLayoutFrame({
 }) {
   return (
     <>
-      <Header />
+      <Header showAuthenticatedMenu />
       {children}
     </>
   );
