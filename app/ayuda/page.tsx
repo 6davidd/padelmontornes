@@ -50,10 +50,10 @@ const helpSections = [
     title: "Inicio",
     description: "Acceso rápido a todas las secciones de la app.",
     steps: [
-      "Partidas abiertas: únete a una partida.",
-      "Reservar pista: crea una reserva.",
-      "Mis reservas: consulta tus partidas.",
-      "Ayuda: lee esta guía.",
+      "Ver partidas abiertas",
+      "Reservar pista",
+      "Ver mis reservas",
+      "Abrir mi perfil",
     ],
     image: {
       src: "/help/ayuda-inicio.png",
@@ -91,9 +91,10 @@ const helpSections = [
     title: "Reservar",
     description: "Reserva una pista en el día y hora que quieras.",
     steps: [
-      "Elige el día.",
-      "Selecciona la hora.",
-      "Pulsa Crear o Unirme.",
+      "Elegir día",
+      "Elegir horario",
+      "Pulsar Ver",
+      "Ver o unirme",
     ],
     image: {
       src: "/help/ayuda-reservar.png",
@@ -131,10 +132,10 @@ const helpSections = [
     title: "Partidas abiertas",
     description: "Únete a una partida que tenga plazas disponibles.",
     steps: [
-      "Elige un día con partidas.",
-      "Revisa la hora y plazas.",
-      "Mira quién está apuntado.",
-      "Pulsa Unirme.",
+      "Elegir día",
+      "Elegir horario",
+      "Pulsar Unirme",
+      "Ver jugadores",
     ],
     image: {
       src: "/help/ayuda-partidas-abiertas.png",
@@ -172,10 +173,10 @@ const helpSections = [
     title: "Mis reservas",
     description: "Consulta y gestiona tus reservas activas.",
     steps: [
-      "Selecciona el día.",
-      "Revisa la hora y pista.",
-      "Mira los jugadores apuntados.",
-      "Pulsa Salir si quieres abandonar.",
+      "Elegir día",
+      "Elegir horario",
+      "Ver jugadores",
+      "Pulsar Salir",
     ],
     image: {
       src: "/help/ayuda-mis-reservas.png",
@@ -219,17 +220,11 @@ function ScreenshotGuide({
   title,
   src,
   alt,
-  annotations,
 }: {
   title: string;
   src: string;
   alt: string;
-  annotations: ScreenshotAnnotation[];
 }) {
-  const arrowMarkerId = `help-arrow-${title
-    .toLowerCase()
-    .replace(/\s+/g, "-")}`;
-
   return (
     <figure className="rounded-[2rem] border border-gray-200 bg-gray-50 p-2 shadow-sm">
       <div className="relative overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white">
@@ -241,71 +236,6 @@ function ScreenshotGuide({
           sizes="(min-width: 640px) 18rem, calc(100vw - 4rem)"
           className="h-auto w-full select-none"
         />
-
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <marker
-              id={arrowMarkerId}
-              markerWidth="6"
-              markerHeight="6"
-              refX="5"
-              refY="3"
-              orient="auto"
-              markerUnits="strokeWidth"
-            >
-              <path d="M0,0 L6,3 L0,6 Z" fill={CLUB_GREEN} />
-            </marker>
-          </defs>
-
-          {annotations.map((annotation) =>
-            annotation.arrow ? (
-              <line
-                key={`arrow-${annotation.number}`}
-                x1={annotation.arrow.x1}
-                y1={annotation.arrow.y1}
-                x2={annotation.arrow.x2}
-                y2={annotation.arrow.y2}
-                stroke={CLUB_GREEN}
-                strokeWidth="0.75"
-                strokeLinecap="round"
-                markerEnd={`url(#${arrowMarkerId})`}
-                vectorEffect="non-scaling-stroke"
-              />
-            ) : null
-          )}
-        </svg>
-
-        {annotations.map((annotation) => (
-          <div key={`ring-${annotation.number}`}>
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute border-[3px] border-green-600/90 bg-green-300/10 shadow-[0_0_0_2px_rgba(255,255,255,0.9),0_10px_28px_rgba(15,94,46,0.22)]"
-              style={{
-                left: `${annotation.ring.left}%`,
-                top: `${annotation.ring.top}%`,
-                width: `${annotation.ring.width}%`,
-                height: `${annotation.ring.height}%`,
-                borderRadius: annotation.ring.radius ?? "9999px",
-              }}
-            />
-
-            <span
-              className="pointer-events-none absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-sm font-black text-white shadow-lg sm:h-9 sm:w-9 sm:text-base"
-              style={{
-                left: `${annotation.badge.left}%`,
-                top: `${annotation.badge.top}%`,
-                backgroundColor: CLUB_GREEN,
-              }}
-            >
-              {annotation.number}
-            </span>
-          </div>
-        ))}
       </div>
     </figure>
   );
@@ -330,16 +260,9 @@ function QuickHelpNav() {
             {index + 1}
           </span>
 
-          <span>
-            <span className="block text-sm font-bold leading-4 text-gray-900 sm:text-[15px] sm:leading-5">
-              {link.label}
-            </span>
-            <span className="mt-0.5 block text-xs font-medium leading-3 text-gray-500 sm:mt-1 sm:leading-4">
-              {link.helper}
-            </span>
+          <span className="block text-sm font-bold leading-4 text-gray-900 sm:text-[15px] sm:leading-5">
+            {link.label}
           </span>
-
-          <span className="mt-2 h-0.5 w-6 rounded-full bg-green-100 transition group-hover:w-full group-hover:bg-green-300 sm:mt-3 sm:h-1 sm:w-10" />
         </Link>
       ))}
     </nav>
@@ -394,7 +317,7 @@ function HelpSection({
           </ol>
         </div>
 
-        <ScreenshotGuide title={title} {...image} />
+        <ScreenshotGuide title={title} src={image.src} alt={image.alt} />
       </div>
     </section>
   );
