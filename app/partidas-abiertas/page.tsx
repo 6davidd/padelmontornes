@@ -14,6 +14,13 @@ import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
+import {
+  ReservationActionButton,
+  ReservationCard,
+  ReservationOccupancy,
+  ReservationPlayersPanel,
+  ReservationStatusBadge,
+} from "../_components/ReservationCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -52,30 +59,6 @@ function slotIsStillOpen(r: ReservationRow) {
   const now = new Date();
   const end = new Date(`${r.date}T${toHM(r.slot_end)}:00`);
   return end.getTime() > now.getTime();
-}
-
-function classNames(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(" ");
-}
-
-function Badge({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "green";
-}) {
-  return (
-    <span
-      className={classNames(
-        "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold border",
-        tone === "green" && "bg-green-50 text-green-800 border-green-200",
-        tone === "neutral" && "bg-gray-50 text-gray-700 border-gray-200"
-      )}
-    >
-      {children}
-    </span>
-  );
 }
 
 export default function PartidasAbiertasPage() {
@@ -469,52 +452,34 @@ export default function PartidasAbiertasPage() {
                             courtsMap.get(match.court_id) ?? `Pista ${match.court_id}`;
 
                           return (
-                            <div
+                            <ReservationCard
                               key={match.id}
-                              className="rounded-3xl border border-gray-300 bg-white shadow-sm overflow-hidden"
+                              title={courtName}
+                              tone="open"
+                              status={
+                                <ReservationStatusBadge tone="green">
+                                  Abierta · {match.playersCount}/4
+                                </ReservationStatusBadge>
+                              }
+                              occupancy={
+                                <ReservationOccupancy
+                                  filled={match.playersCount}
+                                  total={4}
+                                  tone="green"
+                                  label={`${match.playersCount}/4 socios`}
+                                />
+                              }
+                              topActions={
+                                <ReservationActionButton
+                                  tone="primary"
+                                  onClick={() => joinMe(match.id)}
+                                >
+                                  Unirme
+                                </ReservationActionButton>
+                              }
                             >
-                              <div className="p-4 sm:p-5">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 flex-1">
-                                    <div className="text-lg font-bold text-gray-900">
-                                      {courtName}
-                                    </div>
-
-                                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                                      <Badge tone="green">
-                                        {match.playersCount}/4
-                                      </Badge>
-                                    </div>
-                                  </div>
-
-                                  <div className="shrink-0">
-                                    <button
-                                      onClick={() => joinMe(match.id)}
-                                      className="rounded-full px-5 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
-                                      style={{ backgroundColor: CLUB_GREEN }}
-                                    >
-                                      Unirme
-                                    </button>
-                                  </div>
-                                </div>
-
-                                <div className="mt-4 border-t border-gray-200 pt-4">
-                                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
-                                    <div className="space-y-2">
-                                      {match.playersList.map((player) => (
-                                        <div
-                                          key={`${match.id}-${player.seat}-${player.userId}`}
-                                          className="flex items-center gap-2 text-[15px] text-gray-800"
-                                        >
-                                          <span className="text-lg leading-none">🎾</span>
-                                          <span>{player.name}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                              <ReservationPlayersPanel players={match.playersList} />
+                            </ReservationCard>
                           );
                         })}
                       </div>

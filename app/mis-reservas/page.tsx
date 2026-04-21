@@ -2,16 +2,32 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getCurrentMember } from "@/lib/client-current-member";
-import { getClientSession } from "@/lib/client-session";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
+import { getCurrentMember } from "@/lib/client-current-member";
 import {
+  queueBookingEmail,
+  queueBookingEmails,
+} from "@/lib/client-booking-email";
+import { getClientSession } from "@/lib/client-session";
+import { getCourts, type Court } from "@/lib/client-reference-data";
+import {
+  formatDateLong,
+  getRelativeDayLabel,
   getTodayClubISODate,
   getVisibleBookingDays,
 } from "@/lib/booking-window";
 import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
+import { MemberSearchDialog } from "../_components/MemberSearchDialog";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
+import {
+  ReservationActionButton,
+  ReservationCard,
+  ReservationOccupancy,
+  ReservationPlayersPanel,
+  ReservationStatusBadge,
+  type ReservationPlayerChip,
+} from "../_components/ReservationCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 type Item = {
@@ -32,6 +48,7 @@ type MemberRow = {
   user_id: string;
   full_name: string;
   alias?: string | null;
+  email?: string | null;
   is_active: boolean;
 };
 
@@ -47,152 +64,180 @@ type ReservationPublicRow = {
   court_id: number;
 };
 
+type EnrichedReservation = Item & {
+  courtName: string;
+  playersCount: number;
+  playersList: ReservationPlayerChip[];
+  isOpen: boolean;
+};
+
 const CLUB_GREEN = "#0f5e2e";
-const toHM = (t: string) => t.slice(0, 5);
 
-function classNames(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(" ");
-}
+const toHM = (value: string) => value.slice(0, 5);
 
-function Badge({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "green" | "red";
-}) {
-  return (
-    <span
-      className={classNames(
-        "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold border",
-        tone === "green" && "bg-green-50 text-green-800 border-green-200",
-        tone === "red" && "bg-red-50 text-red-800 border-red-200",
-        tone === "neutral" && "bg-gray-50 text-gray-700 border-gray-200"
-      )}
-    >
-      {children}
-    </span>
-  );
+function capitalizeFirst(text: string) {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 export default function MisReservasPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
+  const [courtsMap, setCourtsMap] = useState<Map<number, string>>(new Map());
 
   const [msg, setMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [selectedChip, setSelectedChip] = useState(getTodayClubISODate());
+  const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState(getTodayClubISODate());
+
+  const [addReservationId, setAddReservationId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<
+    Array<{ user_id: string; label: string }>
+  >([]);
+  const [searching, setSearching] = useState(false);
+
   const visibleDays = useMemo(() => getVisibleBookingDays(), []);
 
   const load = useCallback(async () => {
     setMsg(null);
     setLoading(true);
 
-    const member = await getCurrentMember();
+    try {
+      const member = await getCurrentMember();
 
-    if (!member) {
-      setMsg("No hay sesión. Vuelve a iniciar sesión.");
-      setLoading(false);
-      return;
-    }
+      if (!member) {
+        setItems([]);
+        setPlayers([]);
+        setMembersMap(new Map());
+        setCourtsMap(new Map());
+        setMsg("No hay sesion. Vuelve a iniciar sesion.");
+        return;
+      }
 
-    const rp = await supabase
-      .from("reservation_players")
-      .select("reservation_id")
-      .eq("member_user_id", member.user_id);
+      const courts = await getCourts();
+      const nextCourtsMap = new Map<number, string>();
 
-    if (rp.error) {
-      setMsg(rp.error.message);
-      setLoading(false);
-      return;
-    }
+      for (const court of courts as Court[]) {
+        nextCourtsMap.set(court.id, court.name);
+      }
 
-    const ids = ((rp.data ?? []) as ReservationIdRow[]).map(
-      (row) => row.reservation_id
-    );
+      setCourtsMap(nextCourtsMap);
 
-    if (ids.length === 0) {
+      const reservationIdsRes = await supabase
+        .from("reservation_players")
+        .select("reservation_id")
+        .eq("member_user_id", member.user_id);
+
+      if (reservationIdsRes.error) {
+        setMsg(reservationIdsRes.error.message);
+        setItems([]);
+        setPlayers([]);
+        setMembersMap(new Map());
+        return;
+      }
+
+      const reservationIds = ((reservationIdsRes.data ?? []) as ReservationIdRow[]).map(
+        (row) => row.reservation_id
+      );
+
+      if (reservationIds.length === 0) {
+        setItems([]);
+        setPlayers([]);
+        setMembersMap(new Map());
+        return;
+      }
+
+      const reservationsRes = await supabase
+        .from("reservations_public")
+        .select("id,date,slot_start,slot_end,court_id")
+        .in("id", reservationIds)
+        .in("date", visibleDays)
+        .order("date", { ascending: true })
+        .order("slot_start", { ascending: true })
+        .order("court_id", { ascending: true });
+
+      if (reservationsRes.error) {
+        setMsg(reservationsRes.error.message);
+        setItems([]);
+        setPlayers([]);
+        setMembersMap(new Map());
+        return;
+      }
+
+      const nextItems = ((reservationsRes.data ?? []) as ReservationPublicRow[]).map(
+        (row) => ({
+          reservation_id: row.id,
+          date: row.date,
+          slot_start: row.slot_start,
+          slot_end: row.slot_end,
+          court_id: row.court_id,
+        })
+      );
+
+      setItems(nextItems);
+
+      if (nextItems.length === 0) {
+        setPlayers([]);
+        setMembersMap(new Map());
+        return;
+      }
+
+      const playersRes = await supabase
+        .from("reservation_players")
+        .select("reservation_id,seat,member_user_id")
+        .in(
+          "reservation_id",
+          nextItems.map((item) => item.reservation_id)
+        );
+
+      if (playersRes.error) {
+        setMsg(playersRes.error.message);
+        setPlayers([]);
+        setMembersMap(new Map());
+        return;
+      }
+
+      const nextPlayers = (playersRes.data ?? []) as PlayerRow[];
+      setPlayers(nextPlayers);
+
+      const userIds = Array.from(new Set(nextPlayers.map((player) => player.member_user_id)));
+
+      if (userIds.length === 0) {
+        setMembersMap(new Map());
+        return;
+      }
+
+      const membersRes = await supabase
+        .from("members")
+        .select("user_id,full_name,alias,email,is_active")
+        .in("user_id", userIds);
+
+      if (membersRes.error) {
+        setMsg(membersRes.error.message);
+        setMembersMap(new Map());
+        return;
+      }
+
+      const nextMembersMap = new Map<string, string>();
+
+      for (const row of (membersRes.data ?? []) as MemberRow[]) {
+        nextMembersMap.set(row.user_id, getDisplayName(row));
+      }
+
+      setMembersMap(nextMembersMap);
+    } catch (error) {
+      setMsg(
+        error instanceof Error ? error.message : "No se han podido cargar tus reservas."
+      );
       setItems([]);
       setPlayers([]);
       setMembersMap(new Map());
+      setCourtsMap(new Map());
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const r = await supabase
-      .from("reservations_public")
-      .select("id,date,slot_start,slot_end,court_id")
-      .in("id", ids)
-      .in("date", visibleDays)
-      .order("date", { ascending: true })
-      .order("slot_start", { ascending: true });
-
-    if (r.error) {
-      setMsg(r.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const rows = ((r.data ?? []) as ReservationPublicRow[]).map((row) => ({
-      reservation_id: row.id,
-      date: row.date,
-      slot_start: row.slot_start,
-      slot_end: row.slot_end,
-      court_id: row.court_id,
-    }));
-
-    setItems(rows);
-
-    if (rows.length === 0) {
-      setPlayers([]);
-      setMembersMap(new Map());
-      setLoading(false);
-      return;
-    }
-
-    const reservationIds = rows.map((x) => x.reservation_id);
-
-    const playersRes = await supabase
-      .from("reservation_players")
-      .select("reservation_id,seat,member_user_id")
-      .in("reservation_id", reservationIds);
-
-    if (playersRes.error) {
-      setMsg(playersRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const playerRows = (playersRes.data ?? []) as PlayerRow[];
-    setPlayers(playerRows);
-
-    const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
-
-    if (userIds.length === 0) {
-      setMembersMap(new Map());
-      setLoading(false);
-      return;
-    }
-
-    const membersRes = await supabase
-      .from("members")
-      .select("user_id,full_name,alias,is_active")
-      .in("user_id", userIds);
-
-    if (membersRes.error) {
-      setMsg(membersRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const map = new Map<string, string>();
-    for (const row of (membersRes.data ?? []) as MemberRow[]) {
-      map.set(row.user_id, getDisplayName(row));
-    }
-    setMembersMap(map);
-
-    setLoading(false);
   }, [visibleDays]);
 
   useEffect(() => {
@@ -205,221 +250,561 @@ export default function MisReservasPage() {
     };
   }, [load]);
 
-  const playersByReservation = useMemo(() => {
-    const map = new Map<
-      string,
-      Array<{ seat: number; userId: string; name: string }>
-    >();
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 250);
 
-    for (const p of players) {
-      const arr = map.get(p.reservation_id) ?? [];
-      arr.push({
-        seat: p.seat,
-        userId: p.member_user_id,
-        name: membersMap.get(p.member_user_id) ?? "Socio",
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [query]);
+
+  const playersByReservation = useMemo(() => {
+    const map = new Map<string, ReservationPlayerChip[]>();
+
+    for (const player of players) {
+      const current = map.get(player.reservation_id) ?? [];
+      current.push({
+        seat: player.seat,
+        userId: player.member_user_id,
+        name: membersMap.get(player.member_user_id) ?? "Socio",
       });
-      map.set(p.reservation_id, arr);
+      map.set(player.reservation_id, current);
     }
 
-    for (const [key, arr] of map.entries()) {
-      arr.sort((a, b) => a.seat - b.seat);
-      map.set(key, arr);
+    for (const [reservationId, list] of map.entries()) {
+      list.sort((a, b) => (a.seat ?? 99) - (b.seat ?? 99));
+      map.set(reservationId, list);
     }
 
     return map;
   }, [players, membersMap]);
 
-  const enrichedItems = useMemo(() => {
+  const reservations = useMemo(() => {
     return items.map((item) => {
       const playersList = playersByReservation.get(item.reservation_id) ?? [];
-      const isOpen = playersList.length < 4;
+      const courtName = courtsMap.get(item.court_id) ?? `Pista ${item.court_id}`;
 
       return {
         ...item,
+        courtName,
         playersList,
-        isOpen,
+        playersCount: playersList.length,
+        isOpen: playersList.length < 4,
       };
     });
-  }, [items, playersByReservation]);
-
-  const groupedByDate = useMemo(() => {
-    const map = new Map<string, typeof enrichedItems>();
-
-    for (const it of enrichedItems) {
-      const arr = map.get(it.date) ?? [];
-      arr.push(it);
-      map.set(it.date, arr);
-    }
-
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [enrichedItems]);
+  }, [items, playersByReservation, courtsMap]);
 
   const countsByDay = useMemo(() => {
     const counts = new Map<string, number>();
 
-    for (const [date, list] of groupedByDate) {
-      if (list.length > 0) {
-        counts.set(date, list.length);
-      }
+    for (const reservation of reservations) {
+      counts.set(reservation.date, (counts.get(reservation.date) ?? 0) + 1);
     }
 
     return counts;
-  }, [groupedByDate]);
+  }, [reservations]);
 
-  const visibleSections = useMemo(() => {
-    const match = groupedByDate.find(([date]) => date === selectedChip);
-    return match ? [match] : [];
-  }, [selectedChip, groupedByDate]);
+  const selectedReservations = useMemo(() => {
+    return reservations
+      .filter((reservation) => reservation.date === selectedDay)
+      .sort((a, b) => {
+        const timeCompare = a.slot_start.localeCompare(b.slot_start);
+        if (timeCompare !== 0) return timeCompare;
+        return a.court_id - b.court_id;
+      });
+  }, [reservations, selectedDay]);
 
-  async function leave(reservationId: string) {
+  const slotSections = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        slotStart: string;
+        slotEnd: string;
+        reservations: EnrichedReservation[];
+      }
+    >();
+
+    for (const reservation of selectedReservations) {
+      const key = `${reservation.slot_start}-${reservation.slot_end}`;
+      const current = map.get(key) ?? {
+        slotStart: toHM(reservation.slot_start),
+        slotEnd: toHM(reservation.slot_end),
+        reservations: [],
+      };
+
+      current.reservations.push(reservation);
+      map.set(key, current);
+    }
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.slotStart.localeCompare(b.slotStart)
+    );
+  }, [selectedReservations]);
+
+  const selectedDayHeading = useMemo(() => {
+    return `${getRelativeDayLabel(selectedDay)} · ${capitalizeFirst(
+      formatDateLong(selectedDay)
+    )}`;
+  }, [selectedDay]);
+
+  const selectedReservationCountLabel = useMemo(() => {
+    const count = selectedReservations.length;
+    return `${count} reserva${count === 1 ? "" : "s"}`;
+  }, [selectedReservations.length]);
+
+  const addReservation = useMemo(() => {
+    if (!addReservationId) return null;
+    return reservations.find(
+      (reservation) => reservation.reservation_id === addReservationId
+    ) ?? null;
+  }, [addReservationId, reservations]);
+
+  const addReservationDescription = addReservation
+    ? `${addReservation.courtName} · ${toHM(addReservation.slot_start)} - ${toHM(
+        addReservation.slot_end
+      )}`
+    : undefined;
+
+  useEffect(() => {
+    let alive = true;
+
+    async function run() {
+      if (!addReservationId) {
+        setSearching(false);
+        setSuggestions([]);
+        return;
+      }
+
+      const term = debouncedQuery.trim();
+
+      if (term.length < 2) {
+        setSearching(false);
+        setSuggestions([]);
+        return;
+      }
+
+      setSearching(true);
+
+      const membersRes = await supabase
+        .from("members")
+        .select("user_id,full_name,alias,email,is_active")
+        .eq("is_active", true)
+        .or(`full_name.ilike.%${term}%,alias.ilike.%${term}%`)
+        .limit(8);
+
+      if (!alive) return;
+
+      setSearching(false);
+
+      if (membersRes.error) {
+        setMsg(membersRes.error.message);
+        setSuggestions([]);
+        return;
+      }
+
+      const blockedUserIds = new Set(
+        (playersByReservation.get(addReservationId) ?? []).map(
+          (player) => player.userId
+        )
+      );
+
+      const nextSuggestions = ((membersRes.data ?? []) as MemberRow[])
+        .filter((member) => !blockedUserIds.has(member.user_id))
+        .map((member) => ({
+          user_id: member.user_id,
+          label: getDisplayName(member),
+        }));
+
+      setSuggestions(nextSuggestions);
+    }
+
+    void run();
+
+    return () => {
+      alive = false;
+    };
+  }, [debouncedQuery, addReservationId, playersByReservation]);
+
+  function closeAddSocioDialog() {
+    setAddReservationId(null);
+    setQuery("");
+    setSuggestions([]);
+    setSearching(false);
+  }
+
+  async function restoreScrollAfter(action: () => Promise<void>) {
+    const y = window.scrollY;
+    await action();
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: y, behavior: "auto" });
+      });
+    });
+  }
+
+  async function leaveReservation(reservationId: string) {
     setMsg(null);
 
-    const ok = confirm("Quieres salir de esta partida?");
+    const ok = window.confirm("Quieres salir de esta reserva?");
     if (!ok) return;
 
     const session = await getClientSession();
-    if (!session?.access_token) return setMsg("No hay sesion.");
 
-    const res = await fetch("/api/reservations/leave", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ reservationId }),
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.ok) {
-      setMsg(String(data?.error ?? "No se ha podido salir de la partida."));
+    if (!session?.access_token) {
+      setMsg("No hay sesion.");
       return;
     }
 
-    await load();
+    await restoreScrollAfter(async () => {
+      const response = await fetch("/api/reservations/leave", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ reservationId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.ok) {
+        setMsg(String(data?.error ?? "No se ha podido salir de la reserva."));
+        return;
+      }
+
+      await load();
+    });
+  }
+
+  function openAddSocio(reservationId: string) {
+    const reservation = reservations.find(
+      (item) => item.reservation_id === reservationId
+    );
+
+    if (!reservation) {
+      setMsg("No se ha encontrado la reserva.");
+      return;
+    }
+
+    if (!reservation.isOpen) {
+      setMsg("Esta partida ya esta completa.");
+      return;
+    }
+
+    setAddReservationId(reservationId);
+    setQuery("");
+    setSuggestions([]);
+    setSearching(false);
+  }
+
+  async function notifyAddedSocio(
+    reservation: EnrichedReservation,
+    userId: string
+  ) {
+    const [memberRes, currentMember] = await Promise.all([
+      supabase
+        .from("members")
+        .select("user_id,full_name,alias,email,is_active")
+        .eq("user_id", userId)
+        .single(),
+      getCurrentMember(),
+    ]);
+
+    if (memberRes.error || !memberRes.data) {
+      return;
+    }
+
+    const member = memberRes.data as MemberRow;
+
+    if (!member.email) {
+      return;
+    }
+
+    queueBookingEmail({
+      type: "added_to_match",
+      to: member.email,
+      fullName: getDisplayName(member),
+      addedByName: currentMember ? getDisplayName(currentMember) : "",
+      date: reservation.date,
+      slotStart: toHM(reservation.slot_start),
+      slotEnd: toHM(reservation.slot_end),
+      courtName: reservation.courtName,
+    });
+  }
+
+  async function notifyMatchCompleted(reservation: EnrichedReservation) {
+    const playersRes = await supabase
+      .from("reservation_players")
+      .select("reservation_id,seat,member_user_id")
+      .eq("reservation_id", reservation.reservation_id);
+
+    if (playersRes.error || !playersRes.data) {
+      return;
+    }
+
+    const reservationPlayers = playersRes.data as PlayerRow[];
+
+    if (reservationPlayers.length !== 4) {
+      return;
+    }
+
+    const userIds = Array.from(
+      new Set(reservationPlayers.map((player) => player.member_user_id))
+    );
+
+    if (userIds.length === 0) {
+      return;
+    }
+
+    const membersRes = await supabase
+      .from("members")
+      .select("user_id,full_name,alias,email,is_active")
+      .in("user_id", userIds);
+
+    if (membersRes.error || !membersRes.data) {
+      return;
+    }
+
+    const orderedMembers = (membersRes.data as MemberRow[]).sort((a, b) => {
+      const seatA =
+        reservationPlayers.find((player) => player.member_user_id === a.user_id)?.seat ??
+        99;
+      const seatB =
+        reservationPlayers.find((player) => player.member_user_id === b.user_id)?.seat ??
+        99;
+
+      return seatA - seatB;
+    });
+
+    const playerNames = orderedMembers.map((member) => getDisplayName(member));
+
+    queueBookingEmails(
+      orderedMembers
+        .filter((member) => !!member.email)
+        .map((member) => ({
+          type: "match_completed" as const,
+          to: member.email ?? "",
+          fullName: getDisplayName(member),
+          date: reservation.date,
+          slotStart: toHM(reservation.slot_start),
+          slotEnd: toHM(reservation.slot_end),
+          courtName: reservation.courtName,
+          playersCount: 4,
+          players: playerNames,
+        }))
+    );
+  }
+
+  async function addSocio(userId: string) {
+    if (!addReservationId) return;
+
+    const reservation = reservations.find(
+      (item) => item.reservation_id === addReservationId
+    );
+
+    if (!reservation) {
+      setMsg("No se ha encontrado la reserva.");
+      return;
+    }
+
+    const alreadyIn = (playersByReservation.get(addReservationId) ?? []).some(
+      (player) => player.userId === userId
+    );
+
+    if (alreadyIn) {
+      setMsg("Ese socio ya esta apuntado en esta partida.");
+      return;
+    }
+
+    if (!reservation.isOpen) {
+      setMsg("Esta partida ya esta completa.");
+      return;
+    }
+
+    const session = await getClientSession();
+
+    if (!session?.access_token) {
+      setMsg("No hay sesion.");
+      return;
+    }
+
+    const reservationId = addReservationId;
+    let joined = false;
+
+    await restoreScrollAfter(async () => {
+      const response = await fetch("/api/reservations/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          reservationId,
+          memberUserId: userId,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.ok) {
+        setMsg(String(data?.error ?? "No se ha podido completar la operacion."));
+        return;
+      }
+
+      joined = true;
+      await load();
+    });
+
+    if (!joined) return;
+
+    closeAddSocioDialog();
+    void notifyAddedSocio(reservation, userId);
+    void notifyMatchCompleted(reservation);
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <PageHeaderCard title="Mis reservas" contentClassName="space-y-3">
-            <BookingDayChips
+          <BookingDayChips
             days={visibleDays}
-            selectedDay={selectedChip}
-            onSelect={setSelectedChip}
+            selectedDay={selectedDay}
+            onSelect={setSelectedDay}
             counts={countsByDay}
             accentColor={CLUB_GREEN}
           />
 
-          {msg && (
-            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
+          {msg ? (
+            <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
-          )}
+          ) : null}
         </PageHeaderCard>
 
         {loading ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
-            Cargando…
+          <div className="rounded-3xl border border-gray-300 bg-white p-5 text-gray-700 shadow-sm">
+            Cargando...
           </div>
         ) : items.length === 0 ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
-            <p className="text-gray-700 font-semibold">No tienes reservas activas.</p>
+          <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
+            <p className="font-semibold text-gray-700">No tienes reservas activas.</p>
             <Link
               href="/reservar"
-              className="inline-flex mt-4 rounded-2xl px-5 py-3 text-white font-semibold"
+              className="mt-4 inline-flex rounded-2xl px-5 py-3 font-semibold text-white"
               style={{ backgroundColor: CLUB_GREEN }}
             >
               Ir a reservar
             </Link>
           </div>
-        ) : visibleSections.length === 0 ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
-            <p className="text-gray-700 font-semibold">
-              No hay partidas para este día.
-            </p>
-          </div>
         ) : (
-          <div className="space-y-6">
-            {visibleSections.map(([date, list]) => (
-              <div key={date}>
-                <div className="space-y-4">
-                  {list.map((r) => {
-                    const isOpen = r.isOpen;
-
-                    return (
-                      <div
-                        key={r.reservation_id}
-                        className={classNames(
-                          "rounded-3xl border shadow-sm overflow-hidden",
-                          isOpen
-                            ? "bg-green-50 border-green-200"
-                            : "bg-red-50 border-red-200"
-                        )}
-                      >
-                        <div className="p-4 sm:p-5">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <TimeRangeDisplay
-                                start={toHM(r.slot_start)}
-                                end={toHM(r.slot_end)}
-                              />
-
-                              <div className="text-sm text-gray-700 mt-2">
-                                Pista {r.court_id}
-                              </div>
-
-                              <div className="mt-3 flex flex-wrap items-center gap-2">
-                                {isOpen ? (
-                                  <Badge tone="green">
-                                    Abierta · {r.playersList.length}/4
-                                  </Badge>
-                                ) : (
-                                  <Badge tone="red">Cerrada · 4/4</Badge>
-                                )}
-                              </div>
-                            </div>
-
-                            <button
-                              className="rounded-2xl px-4 py-2 border border-gray-300 bg-white font-semibold text-gray-900 active:scale-[0.99] transition shadow-sm"
-                              onClick={() => leave(r.reservation_id)}
-                              title="Salir de la partida"
-                            >
-                              Salir
-                            </button>
-                          </div>
-
-                          <div
-                            className={classNames(
-                              "mt-4 rounded-2xl border px-4 py-3",
-                              isOpen
-                                ? "border-green-200 bg-white/70"
-                                : "border-red-200 bg-white/70"
-                            )}
-                          >
-                            <div className="space-y-2">
-                              {r.playersList.map((p) => (
-                                <div
-                                  key={`${r.reservation_id}-${p.userId}`}
-                                  className="flex items-center gap-2 text-[15px] text-gray-800"
-                                >
-                                  <span className="text-lg leading-none">🎾</span>
-                                  <span>{p.name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+          <div className="space-y-5">
+            <div className="flex items-end justify-between gap-3 px-1">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold uppercase tracking-[0.08em] text-gray-500">
+                  {getRelativeDayLabel(selectedDay)}
+                </div>
+                <div className="mt-1 text-lg font-bold text-gray-900">
+                  {capitalizeFirst(formatDateLong(selectedDay))}
                 </div>
               </div>
-            ))}
+
+              <div className="shrink-0 text-sm font-semibold text-gray-600">
+                {selectedReservationCountLabel}
+              </div>
+            </div>
+
+            {slotSections.length === 0 ? (
+              <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
+                <div className="text-sm font-semibold text-gray-700">
+                  No tienes reservas para este dia.
+                </div>
+                <div className="mt-2 text-sm text-gray-500">{selectedDayHeading}</div>
+              </div>
+            ) : (
+              slotSections.map((section) => (
+                <div
+                  key={`${section.slotStart}-${section.slotEnd}`}
+                  className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm"
+                >
+                  <div className="border-b border-gray-200 px-4 py-4 sm:px-5">
+                    <TimeRangeDisplay
+                      start={section.slotStart}
+                      end={section.slotEnd}
+                    />
+                  </div>
+
+                  <div className="p-5">
+                    <div className="grid grid-cols-1 gap-4">
+                      {section.reservations.map((reservation) => (
+                        <ReservationCard
+                          key={reservation.reservation_id}
+                          title={reservation.courtName}
+                          tone={reservation.isOpen ? "open" : "default"}
+                          status={
+                            <ReservationStatusBadge
+                              tone={reservation.isOpen ? "green" : "neutral"}
+                            >
+                              {reservation.isOpen
+                                ? `Abierta · ${reservation.playersCount}/4`
+                                : `Completa · ${reservation.playersCount}/4`}
+                            </ReservationStatusBadge>
+                          }
+                          occupancy={
+                            <ReservationOccupancy
+                              filled={reservation.playersCount}
+                              total={4}
+                              tone={reservation.isOpen ? "green" : "neutral"}
+                              label={`${reservation.playersCount}/4 socios`}
+                            />
+                          }
+                          footerActions={
+                            <>
+                              {reservation.isOpen ? (
+                                <ReservationActionButton
+                                  size="sm"
+                                  onClick={() => openAddSocio(reservation.reservation_id)}
+                                >
+                                  + Socio
+                                </ReservationActionButton>
+                              ) : null}
+                              <ReservationActionButton
+                                tone="danger"
+                                size="sm"
+                                onClick={() =>
+                                  leaveReservation(reservation.reservation_id)
+                                }
+                              >
+                                Salir
+                              </ReservationActionButton>
+                            </>
+                          }
+                        >
+                          <ReservationPlayersPanel players={reservation.playersList} />
+                        </ReservationCard>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
 
+      <MemberSearchDialog
+        open={!!addReservationId}
+        title="Anadir socio"
+        description={addReservationDescription}
+        query={query}
+        onQueryChange={setQuery}
+        onClose={closeAddSocioDialog}
+        onSelect={addSocio}
+        suggestions={suggestions}
+        searching={searching}
+      />
     </div>
   );
 }

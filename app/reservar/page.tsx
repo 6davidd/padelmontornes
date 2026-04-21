@@ -18,6 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
+import { ReservationStatusBadge } from "../_components/ReservationCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -75,18 +76,7 @@ function Badge({
   children: React.ReactNode;
   tone?: "neutral" | "green" | "red";
 }) {
-  return (
-    <span
-      className={classNames(
-        "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold border",
-        tone === "green" && "bg-green-50 text-green-800 border-green-200",
-        tone === "red" && "bg-red-50 text-red-800 border-red-200",
-        tone === "neutral" && "bg-gray-50 text-gray-700 border-gray-200"
-      )}
-    >
-      {children}
-    </span>
-  );
+  return <ReservationStatusBadge tone={tone}>{children}</ReservationStatusBadge>;
 }
 
 function Modal({
@@ -109,7 +99,7 @@ function Modal({
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-200 p-5 sm:p-6">
+      <div className="relative w-full max-w-md rounded-3xl border border-gray-200 bg-white p-5 shadow-xl sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold text-gray-900">{title}</div>
           <button
@@ -624,6 +614,13 @@ export default function ReservarPage() {
     setSuggestions([]);
   }
 
+  function closeAddSocioDialog() {
+    setAddResId(null);
+    setAddSeat(null);
+    setQ("");
+    setSuggestions([]);
+  }
+
   useEffect(() => {
     let alive = true;
 
@@ -694,14 +691,12 @@ export default function ReservarPage() {
       return;
     }
 
-    const ok = await joinSeat(addResId, addSeat, userId);
+    const reservationId = addResId;
+    const ok = await joinSeat(reservationId, addSeat, userId);
     if (!ok) return;
 
-    setAddResId(null);
-    setAddSeat(null);
-    setQ("");
-    setSuggestions([]);
-    setExpandedResId(addResId);
+    closeAddSocioDialog();
+    setExpandedResId(reservationId);
 
     void (async () => {
       const [memberRes, currentMember] = await Promise.all([
@@ -910,19 +905,18 @@ export default function ReservarPage() {
                                   </div>
 
                                   {!full && (
-                                    <div>
+                                    <div className="flex flex-wrap justify-end gap-2">
                                       {alreadyIn ? (
                                         <button
                                           onClick={() => openAddSocio(res.id)}
-                                          className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition"
-                                          style={{ backgroundColor: CLUB_GREEN }}
+                                          className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
                                         >
-                                          Añadir socio
+                                          + Socio
                                         </button>
                                       ) : (
                                         <button
                                           onClick={() => joinMe(res.id)}
-                                          className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition"
+                                          className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] hover:brightness-[0.97]"
                                           style={{ backgroundColor: CLUB_GREEN }}
                                         >
                                           Unirme
@@ -947,12 +941,7 @@ export default function ReservarPage() {
 
       <Modal
         open={!!addResId && !!addSeat}
-        onClose={() => {
-          setAddResId(null);
-          setAddSeat(null);
-          setQ("");
-          setSuggestions([]);
-        }}
+        onClose={closeAddSocioDialog}
         title="Añadir socio"
       >
         <div className="space-y-4">
