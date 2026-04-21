@@ -40,7 +40,7 @@ export function BookingDayChips({
             onClick={() => onSelect(day)}
             aria-pressed={selected}
             className={classNames(
-              "min-h-[76px] w-full rounded-2xl border px-3.5 py-3 text-left shadow-sm transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-2",
+              "min-h-[68px] w-full rounded-2xl border px-3.5 py-3 text-left shadow-sm transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-2",
               selected
                 ? "border-transparent text-white shadow-md"
                 : sunday
@@ -49,7 +49,7 @@ export function BookingDayChips({
             )}
             style={selected ? { backgroundColor: accentColor } : undefined}
           >
-            <div className="flex h-full flex-col justify-between gap-2">
+            <div className="flex h-full flex-col justify-between gap-1">
               <span
                 className={classNames(
                   "text-xs font-semibold leading-tight",
