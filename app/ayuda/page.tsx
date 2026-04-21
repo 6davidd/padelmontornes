@@ -87,47 +87,6 @@ const helpSections = [
     },
   },
   {
-    id: "reservar",
-    title: "Reservar",
-    description: "Reserva una pista en el día y hora que quieras.",
-    steps: [
-      "Elegir día",
-      "Elegir horario",
-      "Ver integrantes",
-      "Ver o unirme",
-    ],
-    image: {
-      src: "/help/ayuda-reservar.png",
-      alt: "Pantalla de reservar pista con selector de día, horario y botones para crear o unirse.",
-      annotations: [
-        {
-          number: 1,
-          ring: { left: 7.8, top: 25.3, width: 41.6, height: 9.1 },
-          badge: { left: 8.3, top: 25 },
-          arrow: { x1: 10.1, y1: 26.1, x2: 22, y2: 29.8 },
-        },
-        {
-          number: 2,
-          ring: { left: 7.6, top: 51.9, width: 43.8, height: 5.4 },
-          badge: { left: 8.8, top: 50.8 },
-          arrow: { x1: 10.6, y1: 52, x2: 20.5, y2: 54.5 },
-        },
-        {
-          number: 3,
-          ring: { left: 63.1, top: 64, width: 23.5, height: 5.5 },
-          badge: { left: 86.5, top: 61.8 },
-          arrow: { x1: 86.8, y1: 63.2, x2: 74.8, y2: 66.8 },
-        },
-        {
-          number: 4,
-          ring: { left: 52.4, top: 78, width: 34.4, height: 5.6 },
-          badge: { left: 88, top: 76.2 },
-          arrow: { x1: 88, y1: 77.8, x2: 70, y2: 80.8 },
-        },
-      ],
-    },
-  },
-  {
     id: "partidas-abiertas",
     title: "Partidas abiertas",
     description: "Únete a una partida que tenga plazas disponibles.",
@@ -164,6 +123,47 @@ const helpSections = [
           ring: { left: 62, top: 63.3, width: 24.6, height: 5.5 },
           badge: { left: 86.5, top: 61.4 },
           arrow: { x1: 86.6, y1: 62.8, x2: 74.2, y2: 66 },
+        },
+      ],
+    },
+  },
+  {
+    id: "reservar",
+    title: "Reservar",
+    description: "Reserva una pista en el día y hora que quieras.",
+    steps: [
+      "Elegir día",
+      "Elegir horario",
+      "Ver integrantes",
+      "Ver o unirme",
+    ],
+    image: {
+      src: "/help/ayuda-reservar.png",
+      alt: "Pantalla de reservar pista con selector de día, horario y botones para crear o unirse.",
+      annotations: [
+        {
+          number: 1,
+          ring: { left: 7.8, top: 25.3, width: 41.6, height: 9.1 },
+          badge: { left: 8.3, top: 25 },
+          arrow: { x1: 10.1, y1: 26.1, x2: 22, y2: 29.8 },
+        },
+        {
+          number: 2,
+          ring: { left: 7.6, top: 51.9, width: 43.8, height: 5.4 },
+          badge: { left: 8.8, top: 50.8 },
+          arrow: { x1: 10.6, y1: 52, x2: 20.5, y2: 54.5 },
+        },
+        {
+          number: 3,
+          ring: { left: 63.1, top: 64, width: 23.5, height: 5.5 },
+          badge: { left: 86.5, top: 61.8 },
+          arrow: { x1: 86.8, y1: 63.2, x2: 74.8, y2: 66.8 },
+        },
+        {
+          number: 4,
+          ring: { left: 52.4, top: 78, width: 34.4, height: 5.6 },
+          badge: { left: 88, top: 76.2 },
+          arrow: { x1: 88, y1: 77.8, x2: 70, y2: 80.8 },
         },
       ],
     },
