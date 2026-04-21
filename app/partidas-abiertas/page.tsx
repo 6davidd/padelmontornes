@@ -19,7 +19,6 @@ import {
   ReservationCard,
   ReservationOccupancy,
   ReservationPlayersPanel,
-  ReservationStatusBadge,
 } from "../_components/ReservationCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
@@ -456,17 +455,12 @@ export default function PartidasAbiertasPage() {
                               key={match.id}
                               title={courtName}
                               tone="open"
-                              status={
-                                <ReservationStatusBadge tone="green">
-                                  Abierta · {match.playersCount}/4
-                                </ReservationStatusBadge>
-                              }
                               occupancy={
                                 <ReservationOccupancy
                                   filled={match.playersCount}
                                   total={4}
-                                  tone="green"
-                                  label={`${match.playersCount}/4 socios`}
+                                  accentColor={CLUB_GREEN}
+                                  label={`${match.playersCount}/4`}
                                 />
                               }
                               topActions={

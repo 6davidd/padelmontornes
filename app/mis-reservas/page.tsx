@@ -11,8 +11,6 @@ import {
 import { getClientSession } from "@/lib/client-session";
 import { getCourts, type Court } from "@/lib/client-reference-data";
 import {
-  formatDateLong,
-  getRelativeDayLabel,
   getTodayClubISODate,
   getVisibleBookingDays,
 } from "@/lib/booking-window";
@@ -25,7 +23,6 @@ import {
   ReservationCard,
   ReservationOccupancy,
   ReservationPlayersPanel,
-  ReservationStatusBadge,
   type ReservationPlayerChip,
 } from "../_components/ReservationCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
@@ -74,11 +71,6 @@ type EnrichedReservation = Item & {
 const CLUB_GREEN = "#0f5e2e";
 
 const toHM = (value: string) => value.slice(0, 5);
-
-function capitalizeFirst(text: string) {
-  if (!text) return text;
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 export default function MisReservasPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -342,17 +334,6 @@ export default function MisReservasPage() {
       a.slotStart.localeCompare(b.slotStart)
     );
   }, [selectedReservations]);
-
-  const selectedDayHeading = useMemo(() => {
-    return `${getRelativeDayLabel(selectedDay)} · ${capitalizeFirst(
-      formatDateLong(selectedDay)
-    )}`;
-  }, [selectedDay]);
-
-  const selectedReservationCountLabel = useMemo(() => {
-    const count = selectedReservations.length;
-    return `${count} reserva${count === 1 ? "" : "s"}`;
-  }, [selectedReservations.length]);
 
   const addReservation = useMemo(() => {
     if (!addReservationId) return null;
@@ -701,27 +682,11 @@ export default function MisReservasPage() {
           </div>
         ) : (
           <div className="space-y-5">
-            <div className="flex items-end justify-between gap-3 px-1">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold uppercase tracking-[0.08em] text-gray-500">
-                  {getRelativeDayLabel(selectedDay)}
-                </div>
-                <div className="mt-1 text-lg font-bold text-gray-900">
-                  {capitalizeFirst(formatDateLong(selectedDay))}
-                </div>
-              </div>
-
-              <div className="shrink-0 text-sm font-semibold text-gray-600">
-                {selectedReservationCountLabel}
-              </div>
-            </div>
-
             {slotSections.length === 0 ? (
               <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
                 <div className="text-sm font-semibold text-gray-700">
                   No tienes reservas para este dia.
                 </div>
-                <div className="mt-2 text-sm text-gray-500">{selectedDayHeading}</div>
               </div>
             ) : (
               slotSections.map((section) => (
@@ -743,21 +708,12 @@ export default function MisReservasPage() {
                           key={reservation.reservation_id}
                           title={reservation.courtName}
                           tone={reservation.isOpen ? "open" : "default"}
-                          status={
-                            <ReservationStatusBadge
-                              tone={reservation.isOpen ? "green" : "neutral"}
-                            >
-                              {reservation.isOpen
-                                ? `Abierta · ${reservation.playersCount}/4`
-                                : `Completa · ${reservation.playersCount}/4`}
-                            </ReservationStatusBadge>
-                          }
                           occupancy={
                             <ReservationOccupancy
                               filled={reservation.playersCount}
                               total={4}
-                              tone={reservation.isOpen ? "green" : "neutral"}
-                              label={`${reservation.playersCount}/4 socios`}
+                              accentColor={CLUB_GREEN}
+                              label={`${reservation.playersCount}/4`}
                             />
                           }
                           footerActions={

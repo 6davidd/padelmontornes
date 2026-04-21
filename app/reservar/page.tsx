@@ -18,7 +18,10 @@ import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
-import { ReservationStatusBadge } from "../_components/ReservationCard";
+import {
+  ReservationOccupancy,
+  ReservationStatusBadge,
+} from "../_components/ReservationCard";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -833,11 +836,22 @@ export default function ReservarPage() {
                                     ) : !res ? (
                                       <Badge tone="green">Libre</Badge>
                                     ) : full ? (
-                                      <Badge tone="red">Ocupada · 4/4</Badge>
+                                      <Badge tone="red">Ocupada</Badge>
                                     ) : (
-                                      <Badge tone="green">Abierta · {filled}/4</Badge>
+                                      <Badge tone="green">Abierta</Badge>
                                     )}
                                   </div>
+
+                                  {!blocked && res ? (
+                                    <div className="mt-3">
+                                      <ReservationOccupancy
+                                        filled={filled}
+                                        total={4}
+                                        accentColor={CLUB_GREEN}
+                                        label={`${filled}/4`}
+                                      />
+                                    </div>
+                                  ) : null}
 
                                   {blocked && (
                                     <div className="mt-3 rounded-2xl border border-red-200 bg-red-100 px-3 py-2 text-sm font-medium text-red-700">

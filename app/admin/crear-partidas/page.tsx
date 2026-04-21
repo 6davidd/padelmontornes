@@ -19,6 +19,7 @@ import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 import { getDisplayName } from "../../../lib/display-name";
 import { PageHeaderCard } from "../../_components/PageHeaderCard";
+import { ReservationOccupancy } from "../../_components/ReservationCard";
 import { TimeRangeDisplay } from "../../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -681,15 +682,22 @@ export default function AdminCrearPartidasPage() {
                                   ) : !reservation ? (
                                     <Badge tone="green">Libre</Badge>
                                   ) : full ? (
-                                    <Badge tone="red">
-                                      Cerrada · {occupiedPlayers.length}/4
-                                    </Badge>
+                                    <Badge tone="red">Cerrada</Badge>
                                   ) : (
-                                    <Badge tone="green">
-                                      Abierta · {occupiedPlayers.length}/4
-                                    </Badge>
+                                    <Badge tone="green">Abierta</Badge>
                                   )}
                                 </div>
+
+                                {reservation && !blocked ? (
+                                  <div className="mt-3">
+                                    <ReservationOccupancy
+                                      filled={occupiedPlayers.length}
+                                      total={4}
+                                      accentColor={CLUB_GREEN}
+                                      label={`${occupiedPlayers.length}/4`}
+                                    />
+                                  </div>
+                                ) : null}
 
                                 {blocked ? (
                                   <div className="mt-4 rounded-2xl border border-red-200 bg-red-100 px-4 py-3">

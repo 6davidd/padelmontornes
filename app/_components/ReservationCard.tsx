@@ -20,8 +20,8 @@ type ReservationCardProps = {
 
 const cardToneStyles: Record<ReservationCardTone, string> = {
   default: "border-gray-300 bg-white",
-  open: "border-green-200 bg-white",
-  available: "border-green-200 bg-green-50/70",
+  open: "border-gray-300 bg-white",
+  available: "border-gray-300 bg-green-50/70",
   blocked: "border-red-200 bg-red-50",
 };
 
@@ -93,10 +93,18 @@ export function ReservationStatusBadge({
     <span
       className={classNames(
         "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold",
-        tone === "green" && "border-green-200 bg-green-50 text-green-800",
         tone === "red" && "border-red-200 bg-red-100 text-red-800",
         tone === "neutral" && "border-gray-200 bg-gray-50 text-gray-700"
       )}
+      style={
+        tone === "green"
+          ? {
+              borderColor: "rgba(15, 94, 46, 0.18)",
+              backgroundColor: "rgba(15, 94, 46, 0.08)",
+              color: "#0f5e2e",
+            }
+          : undefined
+      }
     >
       {children}
     </span>
@@ -106,21 +114,14 @@ export function ReservationStatusBadge({
 export function ReservationOccupancy({
   filled,
   total = 4,
-  tone = "neutral",
   label,
+  accentColor,
 }: {
   filled: number;
   total?: number;
-  tone?: "neutral" | "green" | "red";
   label?: string;
+  accentColor?: string;
 }) {
-  const activeStyles =
-    tone === "red"
-      ? "border-red-200 bg-red-200"
-      : tone === "green"
-      ? "border-green-300 bg-green-500"
-      : "border-gray-300 bg-gray-700";
-
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-1.5">
@@ -131,17 +132,25 @@ export function ReservationOccupancy({
             <span
               key={index}
               aria-hidden="true"
-              className={classNames(
-                "h-2.5 w-7 rounded-full border",
-                isFilled ? activeStyles : "border-gray-200 bg-white"
-              )}
+              className="h-2.5 w-7 rounded-full border border-gray-200 bg-white"
+              style={
+                isFilled
+                  ? {
+                      backgroundColor: accentColor,
+                      borderColor: accentColor,
+                    }
+                  : undefined
+              }
             />
           );
         })}
       </div>
 
-      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
-        {label ?? `${filled}/${total} plazas`}
+      <span
+        className="text-sm font-semibold"
+        style={accentColor ? { color: accentColor } : { color: "#374151" }}
+      >
+        {label ?? `${filled}/${total}`}
       </span>
     </div>
   );
@@ -165,18 +174,14 @@ export function ReservationPlayersPanel({
       {players.length === 0 ? (
         <div className="text-sm text-gray-600">{emptyLabel}</div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-2">
           {players.map((player, index) => (
             <div
               key={`${player.userId ?? player.name}-${player.seat ?? index}`}
-              className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm"
+              className="flex items-center gap-2 text-[15px] text-gray-800"
             >
-              {player.seat ? (
-                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-[11px] font-bold text-green-900">
-                  {player.seat}
-                </span>
-              ) : null}
-              <span className="truncate">{player.name}</span>
+              <span className="text-lg leading-none">🎾</span>
+              <span>{player.name}</span>
             </div>
           ))}
         </div>
