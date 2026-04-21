@@ -224,6 +224,7 @@ export default function HomePage() {
           <TileLink href="/reservar" title="Reservar pista" />
           <TileLink href="/mis-reservas" title="Mis reservas" />
           <TileLink href="/mi-perfil" title="Mi perfil" />
+          <TileLink href="/ayuda" title="Ayuda" />
 
           {isAdmin && <TileLink href="/admin" title="Panel de administrador" />}
 

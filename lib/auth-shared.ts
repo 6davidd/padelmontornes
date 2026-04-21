@@ -5,6 +5,7 @@ export type MemberRole = "member" | "admin" | "superadmin";
 
 export function isPublicPath(pathname: string) {
   return (
+    pathname === "/ayuda" ||
     pathname === "/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||

@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/partidas-abiertas", label: "Partidas abiertas" },
   { href: "/reservar", label: "Reservar pista" },
   { href: "/mis-reservas", label: "Mis reservas" },
+  { href: "/ayuda", label: "Ayuda" },
   {
     href: "/admin",
     label: "Panel de administrador",
