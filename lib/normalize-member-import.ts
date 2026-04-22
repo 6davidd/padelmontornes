@@ -115,7 +115,7 @@ export function buildMemberImportPreview(rows: {
         normalizedFullName,
         normalizedEmail,
         status: "duplicate_csv",
-        detail: "Duplicado dentro del CSV.",
+        detail: "Duplicado dentro del CSV. Se omitira.",
         canImport: false,
       };
     }
@@ -133,7 +133,7 @@ export function buildMemberImportPreview(rows: {
         normalizedFullName,
         normalizedEmail,
         status: "duplicate_system",
-        detail: systemDuplicateMessage,
+        detail: "Correo ya existente. Se omitira.",
         canImport: false,
       };
     }

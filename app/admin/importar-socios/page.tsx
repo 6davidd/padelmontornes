@@ -200,7 +200,7 @@ export default function AdminImportarSociosPage() {
     }
   }
 
-  const readyRows = previewSummary?.ready ?? 0;
+  const hasPreview = previewRows.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
@@ -265,7 +265,7 @@ export default function AdminImportarSociosPage() {
                 <button
                   type="button"
                   onClick={handleImport}
-                  disabled={!file || readyRows === 0 || loadingPreview || importing}
+                  disabled={!file || !hasPreview || loadingPreview || importing}
                   className="rounded-2xl border border-gray-300 bg-white px-5 py-3 font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
                 >
                   {importing ? "Importando..." : "Confirmar importacion"}
@@ -279,7 +279,7 @@ export default function AdminImportarSociosPage() {
               </div>
               <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700">
                 <li>Sube el CSV y genera la previsualizacion.</li>
-                <li>Revisa nombres, correos, duplicados y errores.</li>
+                <li>Revisa nombres, correos, socios ya existentes y errores.</li>
                 <li>Confirma la importacion.</li>
                 <li>
                   El sistema procesara fila por fila reutilizando el mismo flujo
@@ -310,8 +310,8 @@ export default function AdminImportarSociosPage() {
           <section className="space-y-4">
             <div className="grid gap-4 md:grid-cols-4">
               <SummaryCard label="Filas totales" value={previewSummary.total} />
-              <SummaryCard label="Listas para importar" value={previewSummary.ready} />
-              <SummaryCard label="Duplicados" value={previewSummary.duplicates} />
+              <SummaryCard label="Nuevos a crear" value={previewSummary.ready} />
+              <SummaryCard label="Omitidos" value={previewSummary.duplicates} />
               <SummaryCard label="Errores" value={previewSummary.errors} />
             </div>
 
@@ -368,7 +368,7 @@ export default function AdminImportarSociosPage() {
             <div className="grid gap-4 md:grid-cols-5">
               <SummaryCard label="Filas procesadas" value={resultSummary.total} />
               <SummaryCard label="Creados" value={resultSummary.created} />
-              <SummaryCard label="Duplicados" value={resultSummary.duplicates} />
+              <SummaryCard label="Omitidos" value={resultSummary.duplicates} />
               <SummaryCard label="Errores" value={resultSummary.errors} />
               <SummaryCard
                 label="Invitaciones enviadas"

@@ -44,6 +44,10 @@ function describeCreateMemberFailure(result: Extract<CreateMemberResult, { ok: f
   return result.error;
 }
 
+function getSkippedExistingMemberDetail() {
+  return "Correo ya existente. Se omite.";
+}
+
 function buildImportSummary(rows: MemberImportResultRow[]): MemberImportResultSummary {
   return {
     total: rows.length,
@@ -173,7 +177,10 @@ export async function POST(req: Request) {
               row.status === "duplicate_csv" || row.status === "duplicate_system"
                 ? "duplicate"
                 : "error",
-            detail: row.detail,
+            detail:
+              row.status === "duplicate_system"
+                ? getSkippedExistingMemberDetail()
+                : row.detail,
             inviteEmailSent: false,
           });
           continue;
@@ -190,7 +197,7 @@ export async function POST(req: Request) {
             fullName: row.normalizedFullName,
             email: row.normalizedEmail,
             status: "duplicate",
-            detail: duplicateMessage,
+            detail: getSkippedExistingMemberDetail(),
             inviteEmailSent: false,
           });
           continue;
@@ -209,7 +216,10 @@ export async function POST(req: Request) {
             fullName: row.normalizedFullName,
             email: row.normalizedEmail,
             status: result.code === "duplicate" ? "duplicate" : "error",
-            detail: describeCreateMemberFailure(result),
+            detail:
+              result.code === "duplicate"
+                ? getSkippedExistingMemberDetail()
+                : describeCreateMemberFailure(result),
             inviteEmailSent: false,
             userId: result.userId,
           });

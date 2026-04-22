@@ -51,7 +51,7 @@ export function getMemberImportPreviewStatusLabel(
     case "duplicate_csv":
       return "Duplicado CSV";
     case "duplicate_system":
-      return "Duplicado sistema";
+      return "Ya existe";
     case "error":
       return "Error";
   }
@@ -64,7 +64,7 @@ export function getMemberImportResultStatusLabel(
     case "created":
       return "Creado";
     case "duplicate":
-      return "Duplicado";
+      return "Omitido";
     case "error":
       return "Error";
   }
