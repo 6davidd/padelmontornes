@@ -346,10 +346,10 @@ export default function AyudaPage() {
                 ¿Problemas con la app?
               </h2>
               <p className="mt-1.5 text-sm leading-5 text-gray-700">
-                Contacta directamente con David.
+                Contacta directamente con el desarrollador.
               </p>
               <p className="mt-1 text-sm font-semibold text-green-900">
-                +34 691 653 518
+                +34 691 653 518 - David
               </p>
             </div>
 

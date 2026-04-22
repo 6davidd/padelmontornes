@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 import { CLUB_NAME } from "@/lib/brand";
+import { emailShell, escapeHtml, matchInfoRow, EMAIL_COLORS } from "@/lib/email-templates";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -57,21 +58,8 @@ type ClosedMatch = {
   }>;
 };
 
-const CLUB_GREEN = "#0f5e2e";
-const CLUB_GREEN_DARK = "#0b4723";
-const SOFT_BG = "#f6f7f8";
-const CARD_BG = "#ffffff";
-const BORDER = "#e5e7eb";
-const TEXT = "#111827";
-const MUTED = "#6b7280";
-
 function esc(s: string) {
-  return s
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return escapeHtml(s);
 }
 
 function toISODateLocal(d: Date) {
@@ -132,132 +120,21 @@ function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-function infoRow(label: string, value: string) {
-  return `
-    <tr>
-      <td style="padding: 10px 0; color: ${MUTED}; font-size: 14px; vertical-align: top; width: 92px;">
-        ${esc(label)}
-      </td>
-      <td style="padding: 10px 0; color: ${TEXT}; font-size: 15px; font-weight: 600;">
-        ${esc(value)}
-      </td>
-    </tr>
-  `;
-}
-
-function emailShell(params: {
-  preheader: string;
-  title: string;
-  intro: string;
-  badge?: string;
-  detailsHtml: string;
-  extraHtml?: string;
-  footer?: string;
-}) {
-  const { preheader, title, intro, badge, detailsHtml, extraHtml = "", footer } = params;
-
-  return `
-    <!doctype html>
-    <html lang="es">
-      <head>
-        <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>${esc(title)}</title>
-      </head>
-      <body style="margin: 0; padding: 0; background: ${SOFT_BG}; font-family: Arial, Helvetica, sans-serif; color: ${TEXT};">
-        <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
-          ${esc(preheader)}
-        </div>
-
-        <table role="presentation" width="100%" cellPadding="0" cellSpacing="0" style="background: ${SOFT_BG}; padding: 24px 12px;">
-          <tr>
-            <td align="center">
-              <table role="presentation" width="100%" cellPadding="0" cellSpacing="0" style="max-width: 620px;">
-                <tr>
-                  <td style="padding-bottom: 14px; text-align: center;">
-                    <div style="font-size: 14px; font-weight: 700; color: ${CLUB_GREEN_DARK}; letter-spacing: 0.2px;">
-                      🎾 ${esc(CLUB_NAME)}
-                    </div>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="background: ${CARD_BG}; border: 1px solid ${BORDER}; border-radius: 24px; overflow: hidden;">
-                    <div style="background: ${CLUB_GREEN}; padding: 22px 24px;">
-                      <div style="margin-top: 8px; font-size: 28px; line-height: 1.2; font-weight: 800; color: #ffffff;">
-                        ${esc(title)}
-                      </div>
-                    </div>
-
-                    <div style="padding: 24px;">
-                      ${
-                        badge
-                          ? `
-                            <div style="margin-bottom: 16px;">
-                              <span style="
-                                display: inline-block;
-                                padding: 8px 12px;
-                                border-radius: 999px;
-                                background: #ecfdf5;
-                                border: 1px solid #bbf7d0;
-                                color: #166534;
-                                font-size: 13px;
-                                font-weight: 700;
-                              ">
-                                ${esc(badge)}
-                              </span>
-                            </div>
-                          `
-                          : ""
-                      }
-
-                      <p style="margin: 0 0 18px; font-size: 16px; line-height: 1.6; color: ${TEXT};">
-                        ${intro}
-                      </p>
-
-                      <div style="border: 1px solid ${BORDER}; border-radius: 18px; padding: 18px 18px 10px; background: #fcfcfd;">
-                        <table role="presentation" width="100%" cellPadding="0" cellSpacing="0">
-                          ${detailsHtml}
-                        </table>
-                      </div>
-
-                      ${extraHtml}
-
-                      <div style="margin-top: 22px; font-size: 13px; line-height: 1.6; color: ${MUTED};">
-                        ${footer ?? "Nos vemos en la pista. 🎾"}
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding-top: 14px; text-align: center; font-size: 12px; color: ${MUTED};">
-                    ${esc(CLUB_NAME)}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `;
-}
-
 function renderReminderPlayers(players: string[]) {
   if (!players || players.length === 0) return "";
 
   return `
-    <div style="margin-top: 18px;">
-      <div style="font-size: 14px; font-weight: 700; color: ${TEXT}; margin-bottom: 10px;">
+    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+      <div style="font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 10px;">
         Integrantes
       </div>
-      <div>
+      <div style="display: grid; gap: 8px;">
         ${players
           .map(
             (player) => `
-              <div style="margin: 0 0 10px; font-size: 15px; color: ${TEXT};">
-                🎾 ${esc(player)}
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 15px; color: #111827;">
+                <span style="color: #0f5e2e; font-weight: 600;">•</span>
+                <span>${esc(player)}</span>
               </div>
             `
           )
@@ -330,55 +207,37 @@ function buildEmailHtml(params: {
 }) {
   const { targetDate, messageText, openCount, closedCount, openUrl } = params;
 
+  const detailsHtml = `
+    ${matchInfoRow("Abiertas", String(openCount))}
+    ${matchInfoRow("Cerradas", String(closedCount))}
+  `;
+
+  const extraHtml = `
+    <div style="margin-top: 20px;">
+      <a href="${esc(openUrl)}" style="display: inline-block; background: #0f5e2e; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 999px; font-weight: 700; font-size: 14px;">
+        Abrir para copiar
+      </a>
+    </div>
+
+    <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+      <div style="font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 10px;">
+        Vista previa
+      </div>
+      <pre style="white-space: pre-wrap; word-break: break-word; background: #fcfcfd; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; font-family: monospace; font-size: 13px; margin: 0; color: #111827; line-height: 1.5;">
+${esc(messageText)}
+      </pre>
+    </div>
+  `;
+
   return emailShell({
     preheader: "Aquí tienes el resumen diario del club.",
-    title: "Resumen diario del club 🎾",
+    title: "Resumen de partidas",
+    intro: `Resumen de partidas para <strong>${esc(capitalize(formatDateLongES(targetDate)))}</strong>.`,
     badge: `${openCount} abiertas · ${closedCount} cerradas`,
-    intro: `Aquí tienes el resumen de partidas de <strong>${esc(
-      capitalize(formatDateLongES(targetDate))
-    )}</strong>.`,
-    detailsHtml: `
-      ${infoRow("Abiertas", String(openCount))}
-      ${infoRow("Cerradas", String(closedCount))}
-    `,
-    extraHtml: `
-      <div style="margin-top: 20px;">
-        <a
-          href="${esc(openUrl)}"
-          style="
-            display: inline-block;
-            background: #0f5e2e;
-            color: #ffffff;
-            text-decoration: none;
-            padding: 12px 18px;
-            border-radius: 999px;
-            font-weight: 700;
-          "
-        >
-          Abrir para copiar
-        </a>
-      </div>
-
-      <div style="margin-top: 18px;">
-        <div style="font-size: 14px; font-weight: 700; color: ${TEXT}; margin-bottom: 10px;">
-          Vista previa del mensaje
-        </div>
-
-        <pre style="
-          white-space: pre-wrap;
-          word-break: break-word;
-          background: #f6f7f8;
-          border: 1px solid #e5e7eb;
-          border-radius: 16px;
-          padding: 16px;
-          font-family: Arial, sans-serif;
-          font-size: 14px;
-          margin: 0;
-          color: ${TEXT};
-        ">${esc(messageText)}</pre>
-      </div>
-    `,
-    footer: "Puedes abrirlo y copiarlo directamente para enviarlo por WhatsApp. 🎾",
+    matchDetailsHtml: detailsHtml,
+    extraHtml,
+    footer: "Puedes copiar el mensaje y enviarlo por WhatsApp. 🎾",
+    clubName: CLUB_NAME,
   });
 }
 
@@ -392,18 +251,23 @@ function buildReminderEmailHtml(params: {
 }) {
   const { fullName, targetDate, slotStart, slotEnd, courtName, players } = params;
 
+  const detailsHtml = `
+    ${matchInfoRow("Fecha", capitalize(formatDateLongES(targetDate)))}
+    ${matchInfoRow("Horario", `${slotStart} - ${slotEnd}`)}
+    ${matchInfoRow("Pista", courtName)}
+  `;
+
+  const extraHtml = renderReminderPlayers(players);
+
   return emailShell({
     preheader: "Te recordamos tu partida de mañana en el club.",
-    title: "Recordatorio de partida 🎾",
+    title: "Recordatorio de partida",
     badge: "Mañana",
     intro: `Hola ${esc(fullName)}. Te recordamos que mañana tienes una partida cerrada en el club.`,
-    detailsHtml: `
-      ${infoRow("Fecha", capitalize(formatDateLongES(targetDate)))}
-      ${infoRow("Horario", `${slotStart} - ${slotEnd}`)}
-      ${infoRow("Pista", courtName)}
-    `,
-    extraHtml: renderReminderPlayers(players),
+    matchDetailsHtml: detailsHtml,
+    extraHtml,
     footer: "Nos vemos en la pista. 🎾",
+    clubName: CLUB_NAME,
   });
 }
 
