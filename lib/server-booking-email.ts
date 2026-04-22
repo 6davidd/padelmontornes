@@ -59,7 +59,6 @@ function buildBookingEmail(payload: BookingEmailPayload) {
         preheader: "Tu reserva ha sido confirmada correctamente.",
         title: "Reserva confirmada",
         intro: `Tu reserva está guardada${helloName}. Esperamos que se apunte más gente para completar la partida.`,
-        badge: "Todo listo",
         matchDetailsHtml: matchDetails,
         footer:
           "Si se apunta más gente, la partida irá cogiendo forma. ¡A disfrutar! 🎾",
