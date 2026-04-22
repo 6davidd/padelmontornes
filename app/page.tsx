@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabase";
+import { syncSessionCookies } from "@/lib/auth-client";
 import { setCachedClientSession } from "@/lib/client-session";
 import {
   getCurrentMember,
   resetCachedCurrentMember,
 } from "@/lib/client-current-member";
 import { getDisplayName } from "../lib/display-name";
-import { syncSessionCookies } from "@/lib/auth-client";
 import { getVisibleBookingDays } from "@/lib/booking-window";
+import { supabase } from "../lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -41,7 +41,7 @@ function TileLink({
   return (
     <Link
       href={href}
-      className="flex items-center rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5 transition hover:bg-gray-50 hover:ring-black/10 active:scale-[0.99]"
+      className="flex items-center rounded-3xl border border-gray-300 bg-white px-5 py-4 shadow-sm transition hover:border-green-200 hover:bg-green-50/40 active:scale-[0.99]"
     >
       <div className="flex min-w-0 items-center gap-3">
         <span className="text-base font-semibold text-gray-900 sm:text-lg">
@@ -68,14 +68,15 @@ function TileButton({
   variant?: "solid" | "light";
 }) {
   const base =
-    "flex w-full items-center rounded-3xl px-5 py-4 shadow-sm transition active:scale-[0.99]";
+    "flex w-full items-center rounded-3xl border px-5 py-4 shadow-sm transition active:scale-[0.99]";
 
   const light =
-    "bg-white text-gray-900 ring-1 ring-black/5 hover:bg-gray-50 hover:ring-black/10";
-  const solid = "text-white ring-1 ring-black/5 hover:brightness-[0.95]";
+    "border-gray-300 bg-white text-gray-900 hover:border-green-200 hover:bg-green-50/40";
+  const solid = "border-transparent text-white hover:brightness-[0.95]";
 
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`${base} ${variant === "light" ? light : solid}`}
       style={variant === "solid" ? { backgroundColor: CLUB_GREEN } : undefined}
@@ -178,7 +179,7 @@ export default function HomePage() {
       await loadOpenMatchesCount(member.user_id);
     }
 
-    init();
+    void init();
   }, []);
 
   async function logout() {
@@ -193,7 +194,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto max-w-3xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8">
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
+        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
           <h1
             className="text-3xl font-bold sm:text-4xl"
             style={{ color: CLUB_GREEN }}
@@ -223,7 +224,6 @@ export default function HomePage() {
           />
           <TileLink href="/reservar" title="Reservar pista" />
           <TileLink href="/mis-reservas" title="Mis reservas" />
-          <TileLink href="/mi-perfil" title="Mi perfil" />
           <TileLink href="/ayuda" title="Ayuda" />
 
           {isAdmin && <TileLink href="/admin" title="Panel de administrador" />}

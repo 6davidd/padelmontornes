@@ -1,13 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { CLUB_NAME } from "@/lib/brand";
 import { getCurrentMember } from "@/lib/client-current-member";
 
 const CLUB_GREEN = "#0f5e2e";
+const HEADER_ACTION_CLASS_NAME =
+  "relative z-20 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-green-200 bg-white text-green-900 shadow-sm outline-none transition hover:bg-green-50 focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.98]";
 
 type NavItem = {
   href: string;
@@ -36,13 +38,73 @@ function isNavItemActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function MenuButton({
+  isOpen,
+  onClick,
+}: {
+  isOpen: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+      aria-controls="app-header-menu"
+      aria-expanded={isOpen}
+      onClick={onClick}
+      className={HEADER_ACTION_CLASS_NAME}
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="h-6 w-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+      >
+        <path d="M4 7h16" />
+        <path d="M4 12h16" />
+        <path d="M4 17h16" />
+      </svg>
+    </button>
+  );
+}
+
+function ProfileShortcutLink() {
+  return (
+    <Link
+      href="/mi-perfil"
+      aria-label="Ir a mi perfil"
+      title="Mi perfil"
+      className={HEADER_ACTION_CLASS_NAME}
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="h-6 w-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M15.75 7a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+        <path d="M4.75 19.25a7.25 7.25 0 0 1 14.5 0" />
+      </svg>
+    </Link>
+  );
+}
+
 function HeaderChrome({
   pathname,
   showMenu,
+  showProfileShortcut,
   isAdmin,
 }: {
   pathname: string;
   showMenu: boolean;
+  showProfileShortcut: boolean;
   isAdmin: boolean;
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -105,29 +167,16 @@ function HeaderChrome({
               </span>
             </Link>
 
-            {showMenu ? (
-              <button
-                type="button"
-                aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
-                aria-controls="app-header-menu"
-                aria-expanded={isMenuOpen}
-                onClick={() => setIsMenuOpen((open) => !open)}
-                className="relative z-20 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-green-200 bg-white text-green-900 shadow-sm outline-none transition hover:bg-green-50 focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.98]"
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.25"
-                  strokeLinecap="round"
-                >
-                  <path d="M4 7h16" />
-                  <path d="M4 12h16" />
-                  <path d="M4 17h16" />
-                </svg>
-              </button>
+            {showMenu || showProfileShortcut ? (
+              <div className="flex shrink-0 items-center gap-2">
+                {showProfileShortcut ? <ProfileShortcutLink /> : null}
+                {showMenu ? (
+                  <MenuButton
+                    isOpen={isMenuOpen}
+                    onClick={() => setIsMenuOpen((open) => !open)}
+                  />
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>
@@ -159,68 +208,68 @@ function HeaderChrome({
             <div className="overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl ring-1 ring-black/5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-                <Image
-                  src="/logo.png"
-                  alt={CLUB_NAME}
-                  width={1024}
-                  height={1536}
-                  priority
-                  quality={100}
-                  sizes="40px"
-                  className="h-12 w-auto shrink-0 object-contain"
-                />
+                  <Image
+                    src="/logo.png"
+                    alt={CLUB_NAME}
+                    width={1024}
+                    height={1536}
+                    priority
+                    quality={100}
+                    sizes="40px"
+                    className="h-12 w-auto shrink-0 object-contain"
+                  />
 
-                <p
-                  id="app-header-menu-title"
-                  className="truncate text-xl font-bold leading-tight sm:text-2xl"
-                  style={{ color: CLUB_GREEN }}
+                  <p
+                    id="app-header-menu-title"
+                    className="truncate text-xl font-bold leading-tight sm:text-2xl"
+                    style={{ color: CLUB_GREEN }}
+                  >
+                    Menú
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="Cerrar menú"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/10 text-gray-900 outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-green-200"
                 >
-                  Menú
-                </p>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  >
+                    <path d="M6 6l12 12" />
+                    <path d="M18 6L6 18" />
+                  </svg>
+                </button>
               </div>
 
-              <button
-                type="button"
-                aria-label="Cerrar menú"
-                onClick={() => setIsMenuOpen(false)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/10 text-gray-900 outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-green-200"
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                >
-                  <path d="M6 6l12 12" />
-                  <path d="M18 6L6 18" />
-                </svg>
-              </button>
-            </div>
+              <nav className="mt-4 flex flex-col gap-2 border-t border-black/5 pt-3">
+                {navItems.map((item) => {
+                  const isActive = isNavItemActive(pathname, item.href);
 
-            <nav className="mt-4 flex flex-col gap-2 border-t border-black/5 pt-3">
-              {navItems.map((item) => {
-                const isActive = isNavItemActive(pathname, item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`flex items-center rounded-2xl px-4 py-4 text-base sm:text-[17px] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 ${
-                      isActive
-                        ? "bg-green-50 text-green-900 ring-1 ring-green-200"
-                        : "text-gray-800 hover:bg-gray-50"
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`flex items-center rounded-2xl px-4 py-4 text-base font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 sm:text-[17px] ${
+                        isActive
+                          ? "bg-green-50 text-green-900 ring-1 ring-green-200"
+                          : "text-gray-800 hover:bg-gray-50"
+                      }`}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
             </div>
           </aside>
         </>
@@ -235,6 +284,7 @@ export default function Header({
   showAuthenticatedMenu?: boolean;
 }) {
   const pathname = usePathname() ?? "/";
+  const showProfileShortcut = pathname === "/" && showAuthenticatedMenu;
   const showMenu = pathname !== "/" && showAuthenticatedMenu;
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -268,6 +318,7 @@ export default function Header({
       key={pathname}
       pathname={pathname}
       showMenu={showMenu}
+      showProfileShortcut={showProfileShortcut}
       isAdmin={isAdmin}
     />
   );
