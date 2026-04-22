@@ -4,10 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
 import { getCurrentMember } from "@/lib/client-current-member";
-import {
-  queueBookingEmail,
-  queueBookingEmails,
-} from "@/lib/client-booking-email";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts, type Court } from "@/lib/client-reference-data";
 import {
@@ -481,104 +477,6 @@ export default function MisReservasPage() {
     setSearching(false);
   }
 
-  async function notifyAddedSocio(
-    reservation: EnrichedReservation,
-    userId: string
-  ) {
-    const [memberRes, currentMember] = await Promise.all([
-      supabase
-        .from("members")
-        .select("user_id,full_name,alias,email,is_active")
-        .eq("user_id", userId)
-        .single(),
-      getCurrentMember(),
-    ]);
-
-    if (memberRes.error || !memberRes.data) {
-      return;
-    }
-
-    const member = memberRes.data as MemberRow;
-
-    if (!member.email) {
-      return;
-    }
-
-    queueBookingEmail({
-      type: "added_to_match",
-      to: member.email,
-      fullName: getDisplayName(member),
-      addedByName: currentMember ? getDisplayName(currentMember) : "",
-      date: reservation.date,
-      slotStart: toHM(reservation.slot_start),
-      slotEnd: toHM(reservation.slot_end),
-      courtName: reservation.courtName,
-    });
-  }
-
-  async function notifyMatchCompleted(reservation: EnrichedReservation) {
-    const playersRes = await supabase
-      .from("reservation_players")
-      .select("reservation_id,seat,member_user_id")
-      .eq("reservation_id", reservation.reservation_id);
-
-    if (playersRes.error || !playersRes.data) {
-      return;
-    }
-
-    const reservationPlayers = playersRes.data as PlayerRow[];
-
-    if (reservationPlayers.length !== 4) {
-      return;
-    }
-
-    const userIds = Array.from(
-      new Set(reservationPlayers.map((player) => player.member_user_id))
-    );
-
-    if (userIds.length === 0) {
-      return;
-    }
-
-    const membersRes = await supabase
-      .from("members")
-      .select("user_id,full_name,alias,email,is_active")
-      .in("user_id", userIds);
-
-    if (membersRes.error || !membersRes.data) {
-      return;
-    }
-
-    const orderedMembers = (membersRes.data as MemberRow[]).sort((a, b) => {
-      const seatA =
-        reservationPlayers.find((player) => player.member_user_id === a.user_id)?.seat ??
-        99;
-      const seatB =
-        reservationPlayers.find((player) => player.member_user_id === b.user_id)?.seat ??
-        99;
-
-      return seatA - seatB;
-    });
-
-    const playerNames = orderedMembers.map((member) => getDisplayName(member));
-
-    queueBookingEmails(
-      orderedMembers
-        .filter((member) => !!member.email)
-        .map((member) => ({
-          type: "match_completed" as const,
-          to: member.email ?? "",
-          fullName: getDisplayName(member),
-          date: reservation.date,
-          slotStart: toHM(reservation.slot_start),
-          slotEnd: toHM(reservation.slot_end),
-          courtName: reservation.courtName,
-          playersCount: 4,
-          players: playerNames,
-        }))
-    );
-  }
-
   async function addSocio(userId: string) {
     if (!addReservationId) return;
 
@@ -642,8 +540,6 @@ export default function MisReservasPage() {
     if (!joined) return;
 
     closeAddSocioDialog();
-    void notifyAddedSocio(reservation, userId);
-    void notifyMatchCompleted(reservation);
   }
 
   return (

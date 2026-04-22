@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
@@ -19,6 +19,7 @@ import { supabase } from "../../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
 import { getDisplayName } from "../../../lib/display-name";
 import { PageHeaderCard } from "../../_components/PageHeaderCard";
+import { LoadingButton } from "../../_components/LoadingButton";
 import { ReservationOccupancy } from "../../_components/ReservationCard";
 import { TimeRangeDisplay } from "../../_components/time-range-display";
 
@@ -174,6 +175,7 @@ function Modal({
 export default function AdminCrearPartidasPage() {
   const [loadingPage, setLoadingPage] = useState(true);
   const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   const [date, setDate] = useState(getTodayClubISODate());
 
@@ -459,7 +461,7 @@ export default function AdminCrearPartidasPage() {
   }
 
   async function createMatch() {
-    if (!selectedMatch) return;
+    if (!selectedMatch || creatingRef.current) return;
 
     setMsg(null);
     setOk(null);
@@ -484,7 +486,9 @@ export default function AdminCrearPartidasPage() {
       return;
     }
 
+    creatingRef.current = true;
     setCreating(true);
+    let shouldCloseModal = false;
 
     try {
       const res = await fetch("/api/admin/create-match", {
@@ -506,7 +510,6 @@ export default function AdminCrearPartidasPage() {
 
       if (!res.ok || !data?.ok) {
         setMsg(getCreateMatchErrorMessage(data?.error));
-        setCreating(false);
         return;
       }
 
@@ -517,11 +520,16 @@ export default function AdminCrearPartidasPage() {
       );
 
       await refreshVisibleDaysData();
-      setCreating(false);
-      resetModalState();
+      shouldCloseModal = true;
     } catch (error) {
       setMsg(getCreateMatchErrorMessage(error));
+    } finally {
+      creatingRef.current = false;
       setCreating(false);
+
+      if (shouldCloseModal) {
+        resetModalState();
+      }
     }
   }
 
@@ -898,15 +906,16 @@ export default function AdminCrearPartidasPage() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
-              <button
+              <LoadingButton
                 type="button"
+                loading={creating}
                 onClick={createMatch}
                 disabled={creating || selectedPlayerIds.length === 0}
                 className="rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-70"
                 style={{ backgroundColor: CLUB_GREEN }}
               >
-                {creating ? "Creando..." : "Crear partida"}
-              </button>
+                Crear partida
+              </LoadingButton>
 
               <button
                 type="button"

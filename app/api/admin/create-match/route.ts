@@ -9,6 +9,7 @@ import {
   isSundayISO,
 } from "../../../../lib/booking-window";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
+import { sendBookingEmail } from "../../../../lib/server-booking-email";
 
 type Body = {
   date?: string;
@@ -64,28 +65,17 @@ async function sendAdminOpenedMatchEmail(params: {
   courtName: string;
   players: string[];
 }) {
-  const appUrl =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000";
-
   try {
-    await fetch(`${appUrl}/api/send-booking-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        type: "admin_opened_match",
-        to: params.to,
-        fullName: params.fullName ?? "",
-        openedByName: params.openedByName ?? "",
-        date: params.date,
-        slotStart: params.slotStart,
-        slotEnd: params.slotEnd,
-        courtName: params.courtName,
-        players: params.players,
-      }),
+    await sendBookingEmail({
+      type: "admin_opened_match",
+      to: params.to,
+      fullName: params.fullName ?? "",
+      openedByName: params.openedByName ?? "",
+      date: params.date,
+      slotStart: params.slotStart,
+      slotEnd: params.slotEnd,
+      courtName: params.courtName,
+      players: params.players,
     });
   } catch (error) {
     console.error("Error enviando email de partida creada por admin:", error);
@@ -102,28 +92,17 @@ async function sendMatchCompletedEmail(params: {
   playersCount: number;
   players: string[];
 }) {
-  const appUrl =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000";
-
   try {
-    await fetch(`${appUrl}/api/send-booking-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        type: "match_completed",
-        to: params.to,
-        fullName: params.fullName ?? "",
-        date: params.date,
-        slotStart: params.slotStart,
-        slotEnd: params.slotEnd,
-        courtName: params.courtName,
-        playersCount: params.playersCount,
-        players: params.players,
-      }),
+    await sendBookingEmail({
+      type: "match_completed",
+      to: params.to,
+      fullName: params.fullName ?? "",
+      date: params.date,
+      slotStart: params.slotStart,
+      slotEnd: params.slotEnd,
+      courtName: params.courtName,
+      playersCount: params.playersCount,
+      players: params.players,
     });
   } catch (error) {
     console.error("Error enviando email de partida completa:", error);

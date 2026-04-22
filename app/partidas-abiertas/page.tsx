@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
@@ -72,6 +72,8 @@ export default function PartidasAbiertasPage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [joiningReservationIds, setJoiningReservationIds] = useState<string[]>([]);
+  const joiningReservationIdsRef = useRef(new Set<string>());
 
   const visibleDays = useMemo(() => getVisibleBookingDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
@@ -341,27 +343,41 @@ export default function PartidasAbiertasPage() {
   }
 
   async function joinMe(resId: string) {
-    const userId = await getUserIdOrMsg();
-    if (!userId) return;
-
-    const alreadyIn = (playersByReservation.get(resId) ?? []).some(
-      (x) => x.userId === userId
-    );
-
-    if (alreadyIn) {
-      setMsg("Ya estás apuntado en esta partida.");
+    if (joiningReservationIdsRef.current.has(resId)) {
       return;
     }
 
-    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
-    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+    joiningReservationIdsRef.current.add(resId);
+    setJoiningReservationIds((prev) => [...prev, resId]);
 
-    if (!freeSeat) {
-      setMsg("Esta partida ya está completa.");
-      return;
+    try {
+      const userId = await getUserIdOrMsg();
+      if (!userId) return;
+
+      const alreadyIn = (playersByReservation.get(resId) ?? []).some(
+        (x) => x.userId === userId
+      );
+
+      if (alreadyIn) {
+        setMsg("Ya estás apuntado en esta partida.");
+        return;
+      }
+
+      const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
+      const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+
+      if (!freeSeat) {
+        setMsg("Esta partida ya está completa.");
+        return;
+      }
+
+      await joinSeat(resId, freeSeat, userId);
+    } finally {
+      joiningReservationIdsRef.current.delete(resId);
+      setJoiningReservationIds((prev) =>
+        prev.filter((currentId) => currentId !== resId)
+      );
     }
-
-    await joinSeat(resId, freeSeat, userId);
   }
 
   return (
@@ -468,6 +484,7 @@ export default function PartidasAbiertasPage() {
                                 <ReservationActionButton
                                   tone="primary"
                                   size="sm"
+                                  loading={joiningReservationIds.includes(match.id)}
                                   onClick={() => joinMe(match.id)}
                                 >
                                   Unirme
@@ -490,5 +507,3 @@ export default function PartidasAbiertasPage() {
     </div>
   );
 }
-
-

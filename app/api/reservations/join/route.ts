@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import {
   getAdvanceLimitMessage,
@@ -6,6 +6,8 @@ import {
   isSundayISO,
 } from "../../../../lib/booking-window";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
+import { getDisplayName } from "../../../../lib/display-name";
+import { sendBookingEmail } from "../../../../lib/server-booking-email";
 
 type Body = {
   reservationId?: string;
@@ -15,12 +17,32 @@ type Body = {
 type ReservationRow = {
   id: string;
   date: string;
+  slot_start: string;
+  slot_end: string;
+  court_id: number;
 };
 
 type PlayerRow = {
   seat: number;
   member_user_id: string;
 };
+
+type MemberRow = {
+  user_id: string;
+  full_name: string;
+  alias?: string | null;
+  email?: string | null;
+  is_active: boolean;
+};
+
+type CourtRow = {
+  id: number;
+  name: string;
+};
+
+function toHM(value: string) {
+  return value?.length >= 5 ? value.slice(0, 5) : value;
+}
 
 function getJoinReservationErrorMessage(error: {
   message?: string | null;
@@ -83,7 +105,7 @@ export async function POST(req: Request) {
 
     const reservationRes = await supabaseAdmin
       .from("reservations")
-      .select("id,date")
+      .select("id,date,slot_start,slot_end,court_id")
       .eq("id", reservationId)
       .eq("status", "active")
       .maybeSingle();
@@ -120,7 +142,7 @@ export async function POST(req: Request) {
 
     const targetMemberRes = await supabaseAdmin
       .from("members")
-      .select("user_id,is_active")
+      .select("user_id,full_name,alias,email,is_active")
       .eq("user_id", memberUserId)
       .maybeSingle();
 
@@ -137,6 +159,8 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const targetMember = targetMemberRes.data as MemberRow;
 
     const playersRes = await supabaseAdmin
       .from("reservation_players")
@@ -196,6 +220,111 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const joinedSelf = memberUserId === auth.member.user_id;
+    const addedByName = joinedSelf ? "" : getDisplayName(auth.member);
+
+    after(async () => {
+      try {
+        const [courtRes, updatedPlayersRes] = await Promise.all([
+          supabaseAdmin
+            .from("courts")
+            .select("id,name")
+            .eq("id", reservation.court_id)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("reservation_players")
+            .select("seat,member_user_id")
+            .eq("reservation_id", reservationId)
+            .order("seat", { ascending: true }),
+        ]);
+
+        if (courtRes.error) {
+          throw new Error(courtRes.error.message);
+        }
+
+        if (updatedPlayersRes.error) {
+          throw new Error(updatedPlayersRes.error.message);
+        }
+
+        const orderedPlayers = (updatedPlayersRes.data ?? []) as PlayerRow[];
+        const playerIds = Array.from(
+          new Set(orderedPlayers.map((player) => player.member_user_id))
+        );
+
+        const membersRes =
+          playerIds.length === 0
+            ? { data: [], error: null }
+            : await supabaseAdmin
+                .from("members")
+                .select("user_id,full_name,alias,email,is_active")
+                .in("user_id", playerIds);
+
+        if (membersRes.error) {
+          throw new Error(membersRes.error.message);
+        }
+
+        const membersById = new Map<string, MemberRow>();
+        for (const member of (membersRes.data ?? []) as MemberRow[]) {
+          membersById.set(member.user_id, member);
+        }
+
+        const orderedMembers = orderedPlayers
+          .map((player) => membersById.get(player.member_user_id))
+          .filter(Boolean) as MemberRow[];
+
+        const playerNames = orderedMembers.map((member) => getDisplayName(member));
+        const courtName =
+          (courtRes.data as CourtRow | null)?.name ??
+          `Pista ${reservation.court_id}`;
+        const slotStart = toHM(reservation.slot_start);
+        const slotEnd = toHM(reservation.slot_end);
+        const emailTasks: Array<Promise<unknown>> = [];
+
+        if (targetMember.email) {
+          emailTasks.push(
+            sendBookingEmail({
+              type: joinedSelf ? "booking_created" : "added_to_match",
+              to: targetMember.email,
+              fullName: getDisplayName(targetMember),
+              addedByName,
+              date: reservation.date,
+              slotStart,
+              slotEnd,
+              courtName,
+              playersCount: orderedMembers.length,
+              players: playerNames,
+            })
+          );
+        }
+
+        if (orderedMembers.length === 4) {
+          for (const member of orderedMembers) {
+            if (!member.email) {
+              continue;
+            }
+
+            emailTasks.push(
+              sendBookingEmail({
+                type: "match_completed",
+                to: member.email,
+                fullName: getDisplayName(member),
+                date: reservation.date,
+                slotStart,
+                slotEnd,
+                courtName,
+                playersCount: 4,
+                players: playerNames,
+              })
+            );
+          }
+        }
+
+        await Promise.allSettled(emailTasks);
+      } catch (error) {
+        console.error("Error enviando emails al unirse a la partida:", error);
+      }
+    });
 
     return NextResponse.json({
       ok: true,

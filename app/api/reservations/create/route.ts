@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../../lib/slots";
 import {
@@ -8,6 +8,8 @@ import {
   isSundayISO,
 } from "../../../../lib/booking-window";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
+import { getDisplayName } from "../../../../lib/display-name";
+import { sendBookingEmail } from "../../../../lib/server-booking-email";
 
 type Body = {
   date?: string;
@@ -104,7 +106,7 @@ export async function POST(req: Request) {
 
     const courtRes = await supabaseAdmin
       .from("courts")
-      .select("id")
+      .select("id,name")
       .eq("id", courtId)
       .maybeSingle();
 
@@ -121,6 +123,8 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const courtName = String(courtRes.data.name ?? `Pista ${courtId}`);
 
     const blockRes = await supabaseAdmin
       .from("blocks")
@@ -213,6 +217,26 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    after(async () => {
+      if (!auth.member.email) {
+        return;
+      }
+
+      try {
+        await sendBookingEmail({
+          type: "booking_created",
+          to: auth.member.email,
+          fullName: getDisplayName(auth.member),
+          date,
+          slotStart,
+          slotEnd,
+          courtName,
+        });
+      } catch (error) {
+        console.error("Error enviando email de reserva creada:", error);
+      }
+    });
 
     return NextResponse.json({
       ok: true,

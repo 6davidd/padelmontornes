@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { LoadingButton } from "./LoadingButton";
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -201,12 +202,14 @@ export function ReservationPlayersPanel({
 type ReservationActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   tone?: "primary" | "secondary" | "danger";
   size?: "sm" | "md";
+  loading?: boolean;
 };
 
 export function ReservationActionButton({
   children,
   tone = "secondary",
   size = "md",
+  loading = false,
   className,
   type,
   ...props
@@ -224,8 +227,9 @@ export function ReservationActionButton({
       : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50";
 
   return (
-    <button
+    <LoadingButton
       type={type ?? "button"}
+      loading={loading}
       className={classNames(
         "inline-flex items-center justify-center rounded-full border font-semibold shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
         sizeClasses,
@@ -235,6 +239,6 @@ export function ReservationActionButton({
       {...props}
     >
       {children}
-    </button>
+    </LoadingButton>
   );
 }

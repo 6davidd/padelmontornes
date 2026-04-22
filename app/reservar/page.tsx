@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
-import { queueBookingEmail, queueBookingEmails } from "@/lib/client-booking-email";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
@@ -19,6 +18,7 @@ import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
 import {
+  ReservationActionButton,
   ReservationOccupancy,
   ReservationStatusBadge,
 } from "../_components/ReservationCard";
@@ -132,6 +132,8 @@ export default function ReservarPage() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [expandedResId, setExpandedResId] = useState<string | null>(null);
+  const [joiningReservationIds, setJoiningReservationIds] = useState<string[]>([]);
+  const joiningReservationIdsRef = useRef(new Set<string>());
 
   const [addSeat, setAddSeat] = useState<number | null>(null);
   const [addResId, setAddResId] = useState<string | null>(null);
@@ -383,61 +385,6 @@ export default function ReservarPage() {
     return member.user_id;
   }
 
-  async function notifyMatchCompleted(resId: string) {
-    const reservation = reservations.find((r) => r.id === resId);
-    if (!reservation) return;
-
-    const playersRes = await supabase
-      .from("reservation_players")
-      .select("reservation_id,seat,member_user_id")
-      .eq("reservation_id", resId);
-
-    if (playersRes.error || !playersRes.data) return;
-
-    const playerRows = playersRes.data as PlayerRow[];
-    if (playerRows.length !== 4) return;
-
-    const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
-    if (userIds.length === 0) return;
-
-    const membersRes = await supabase
-      .from("members")
-      .select("user_id,full_name,alias,is_active,email")
-      .in("user_id", userIds);
-
-    if (membersRes.error || !membersRes.data) return;
-
-    const members = (membersRes.data as MemberRow[]).sort((a, b) => {
-      const seatA =
-        playerRows.find((p) => p.member_user_id === a.user_id)?.seat ?? 999;
-      const seatB =
-        playerRows.find((p) => p.member_user_id === b.user_id)?.seat ?? 999;
-      return seatA - seatB;
-    });
-
-    const playerNames = members.map((member) => getDisplayName(member));
-
-    const courtName =
-      courts.find((c) => c.id === reservation.court_id)?.name ??
-      `Pista ${reservation.court_id}`;
-
-    queueBookingEmails(
-      members
-        .filter((member) => !!member.email)
-        .map((member) => ({
-          type: "match_completed" as const,
-          to: member.email ?? "",
-          fullName: getDisplayName(member),
-          date: reservation.date,
-          slotStart: toHM(reservation.slot_start),
-          slotEnd: toHM(reservation.slot_end),
-          courtName,
-          playersCount: 4,
-          players: playerNames,
-        }))
-    );
-  }
-
   async function createOrOpen(slotStart: string, slotEnd: string, courtId: number) {
     setMsg(null);
 
@@ -472,9 +419,6 @@ export default function ReservarPage() {
       setMsg("No hay sesion. Vuelve a iniciar sesion.");
       return;
     }
-
-    const userEmail = member.email ?? "";
-    const memberName = getDisplayName(member);
 
     await restoreScrollAfter(async () => {
       const res = await fetch("/api/reservations/create", {
@@ -517,23 +461,9 @@ export default function ReservarPage() {
       }
 
       const createdReservationId = String(data.reservationId);
-      const courtName =
-        courts.find((c) => c.id === courtId)?.name ?? `Pista ${courtId}`;
 
       await refreshVisibleDaysData();
       setExpandedResId(createdReservationId);
-
-      if (userEmail) {
-        queueBookingEmail({
-          type: "booking_created",
-          to: userEmail,
-          fullName: memberName,
-          date,
-          slotStart,
-          slotEnd,
-          courtName,
-        });
-      }
     });
   }
 
@@ -574,33 +504,43 @@ export default function ReservarPage() {
       ok = true;
     });
 
-    if (ok) {
-      void notifyMatchCompleted(resId);
-    }
-
     return ok;
   }
 
   async function joinMe(resId: string) {
-    const userId = await getUserIdOrMsg();
-    if (!userId) return;
-
-    const alreadyIn = (playersByReservation.get(resId) ?? []).some(
-      (x) => x.userId === userId
-    );
-    if (alreadyIn) {
-      setMsg("Ya estás apuntado en esta partida.");
+    if (joiningReservationIdsRef.current.has(resId)) {
       return;
     }
 
-    const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
-    const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
-    if (!freeSeat) {
-      setMsg("Esta partida ya está completa.");
-      return;
-    }
+    joiningReservationIdsRef.current.add(resId);
+    setJoiningReservationIds((prev) => [...prev, resId]);
 
-    await joinSeat(resId, freeSeat, userId);
+    try {
+      const userId = await getUserIdOrMsg();
+      if (!userId) return;
+
+      const alreadyIn = (playersByReservation.get(resId) ?? []).some(
+        (x) => x.userId === userId
+      );
+      if (alreadyIn) {
+        setMsg("Ya estás apuntado en esta partida.");
+        return;
+      }
+
+      const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
+      const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
+      if (!freeSeat) {
+        setMsg("Esta partida ya está completa.");
+        return;
+      }
+
+      await joinSeat(resId, freeSeat, userId);
+    } finally {
+      joiningReservationIdsRef.current.delete(resId);
+      setJoiningReservationIds((prev) =>
+        prev.filter((currentId) => currentId !== resId)
+      );
+    }
   }
 
   async function openAddSocio(resId: string) {
@@ -701,40 +641,6 @@ export default function ReservarPage() {
     closeAddSocioDialog();
     setExpandedResId(reservationId);
 
-    void (async () => {
-      const [memberRes, currentMember] = await Promise.all([
-        supabase
-          .from("members")
-          .select("user_id,full_name,alias,is_active,email")
-          .eq("user_id", userId)
-          .single(),
-        getCurrentMember(),
-      ]);
-
-      if (memberRes.error || !memberRes.data) {
-        return;
-      }
-
-      const member = memberRes.data as MemberRow;
-      const courtName =
-        courts.find((c) => c.id === reservation.court_id)?.name ??
-        `Pista ${reservation.court_id}`;
-
-      if (!member.email) {
-        return;
-      }
-
-      queueBookingEmail({
-        type: "added_to_match",
-        to: member.email,
-        fullName: getDisplayName(member),
-        addedByName: currentMember ? getDisplayName(currentMember) : "",
-        date: reservation.date,
-        slotStart: toHM(reservation.slot_start),
-        slotEnd: toHM(reservation.slot_end),
-        courtName,
-      });
-    })();
   }
 
   return (
@@ -928,13 +834,14 @@ export default function ReservarPage() {
                                           + Socio
                                         </button>
                                       ) : (
-                                        <button
+                                        <ReservationActionButton
+                                          tone="primary"
+                                          size="sm"
+                                          loading={joiningReservationIds.includes(res.id)}
                                           onClick={() => joinMe(res.id)}
-                                          className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] hover:brightness-[0.97]"
-                                          style={{ backgroundColor: CLUB_GREEN }}
                                         >
                                           Unirme
-                                        </button>
+                                        </ReservationActionButton>
                                       )}
                                     </div>
                                   )}
