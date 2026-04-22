@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { MemberRole } from "@/lib/auth-shared";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { supabase } from "../../../lib/supabase";
 import { getDisplayName } from "../../../lib/display-name";
@@ -14,7 +15,7 @@ type MemberRow = {
   alias: string | null;
   email: string | null;
   is_active: boolean;
-  role: "member" | "admin" | "superadmin";
+  role: MemberRole;
 };
 
 type MonthlyPaymentRow = {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/client-current-member";
+import { isOwnerRole, isSuperadminRole } from "@/lib/auth-shared";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -21,11 +22,13 @@ function TileLink({ href, title }: { href: string; title: string }) {
 
 export default function AdminPage() {
   const [isSuperadmin, setIsSuperadmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     async function loadRole() {
       const member = await getCurrentMember();
-      setIsSuperadmin(member?.role === "superadmin");
+      setIsSuperadmin(isSuperadminRole(member?.role));
+      setIsOwner(isOwnerRole(member?.role));
     }
 
     loadRole();
@@ -49,6 +52,9 @@ export default function AdminPage() {
           <TileLink href="/admin/crear-partidas" title="Crear partidas" />
           <TileLink href="/admin/bloqueos" title="Bloquear pistas" />
           <TileLink href="/admin/socios" title="Socios" />
+          {isOwner && (
+            <TileLink href="/admin/importar-socios" title="Importar socios" />
+          )}
           {isSuperadmin && (
             <TileLink href="/admin/contabilidad" title="Contabilidad" />
           )}

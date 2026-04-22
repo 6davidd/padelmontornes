@@ -1,4 +1,4 @@
-import type { MemberRole } from "./auth-shared";
+import { isSuperadminRole, type MemberRole } from "./auth-shared";
 
 export const CLUB_TIME_ZONE = "Europe/Madrid";
 export const MAX_BOOKING_ADVANCE_DAYS = 3;
@@ -90,7 +90,7 @@ export function canCreateAdminMatchOnDate(
     return false;
   }
 
-  if (role === "superadmin") {
+  if (isSuperadminRole(role)) {
     return true;
   }
 

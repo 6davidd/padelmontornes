@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { isSuperadminRole, type MemberRole } from "@/lib/auth-shared";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
@@ -193,11 +194,11 @@ export default function AdminCrearPartidasPage() {
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [currentRole, setCurrentRole] = useState<"member" | "admin" | "superadmin" | null>(null);
+  const [currentRole, setCurrentRole] = useState<MemberRole | null>(null);
 
   const visibleDays = useMemo(() => getVisibleBookingDays(), []);
   const fetchDates = useMemo(() => Array.from(new Set([...visibleDays, date])), [visibleDays, date]);
-  const isSuperadmin = currentRole === "superadmin";
+  const isSuperadmin = isSuperadminRole(currentRole);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
   const isOutOfRange = useMemo(() => !canCreateAdminMatchOnDate(date, currentRole), [date, currentRole]);
   const reservations = useMemo(
@@ -583,7 +584,7 @@ export default function AdminCrearPartidasPage() {
           {isSuperadmin && isAdvancedDateSelected && (
             <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
               <p className="text-sm font-semibold text-blue-900">
-                Fecha avanzada seleccionada desde el flujo de superadmin.
+                Fecha avanzada seleccionada desde el flujo de administración avanzada.
               </p>
             </div>
           )}

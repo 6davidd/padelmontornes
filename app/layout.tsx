@@ -10,9 +10,13 @@ import PrivateLayoutFrame from "./_components/PrivateLayoutFrame";
 import "./globals.css";
 import {
   isAdminPath,
+  isAdminRole,
+  isOwnerPath,
+  isOwnerRole,
   isProtectedPath,
   isPublicPath,
   isSuperadminPath,
+  isSuperadminRole,
 } from "@/lib/auth-shared";
 import {
   getMemberAccess,
@@ -50,15 +54,17 @@ export default async function RootLayout({
     if (isAdminPath(pathname)) {
       const member = await getMemberAccess(session.accessToken, session.user.id);
       const role = member?.role;
-      const isAdmin = Boolean(
-        member?.is_active && (role === "admin" || role === "superadmin")
-      );
+      const isAdmin = Boolean(member?.is_active && isAdminRole(role));
 
       if (!isAdmin) {
         redirect("/");
       }
 
-      if (isSuperadminPath(pathname) && role !== "superadmin") {
+      if (isSuperadminPath(pathname) && !isSuperadminRole(role)) {
+        redirect("/");
+      }
+
+      if (isOwnerPath(pathname) && !isOwnerRole(role)) {
         redirect("/");
       }
     }

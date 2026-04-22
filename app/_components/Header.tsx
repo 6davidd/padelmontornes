@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CLUB_NAME } from "@/lib/brand";
 import { getCurrentMember } from "@/lib/client-current-member";
+import { isAdminRole } from "@/lib/auth-shared";
 
 const CLUB_GREEN = "#0f5e2e";
 const HEADER_ACTION_CLASS_NAME =
@@ -301,10 +302,7 @@ export default function Header({
       }
 
       setIsAdmin(
-        Boolean(
-          member?.is_active &&
-            (member.role === "admin" || member.role === "superadmin")
-        )
+        Boolean(member?.is_active && isAdminRole(member.role))
       );
     });
 

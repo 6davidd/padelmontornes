@@ -8,6 +8,7 @@ import {
   isSaturdayISO,
   isSundayISO,
 } from "../../../../lib/booking-window";
+import { isAdminRole } from "../../../../lib/auth-shared";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 import { sendBookingEmail } from "../../../../lib/server-booking-email";
 
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (auth.member.role !== "admin" && auth.member.role !== "superadmin") {
+    if (!isAdminRole(auth.member.role)) {
       return NextResponse.json(
         { ok: false, error: "No autorizado." },
         { status: 403 }

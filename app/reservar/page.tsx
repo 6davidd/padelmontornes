@@ -17,6 +17,7 @@ import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
+import { LoadingButton } from "../_components/LoadingButton";
 import {
   ReservationActionButton,
   ReservationOccupancy,
@@ -67,6 +68,10 @@ type VisibleDaysBookingData = {
 };
 
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
+
+function getCreateReservationKey(date: string, slotStart: string, courtId: number) {
+  return `${date}-${slotStart}-${courtId}`;
+}
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -132,6 +137,8 @@ export default function ReservarPage() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [expandedResId, setExpandedResId] = useState<string | null>(null);
+  const [creatingReservationKeys, setCreatingReservationKeys] = useState<string[]>([]);
+  const creatingReservationKeysRef = useRef(new Set<string>());
   const [joiningReservationIds, setJoiningReservationIds] = useState<string[]>([]);
   const joiningReservationIdsRef = useRef(new Set<string>());
 
@@ -386,85 +393,100 @@ export default function ReservarPage() {
   }
 
   async function createOrOpen(slotStart: string, slotEnd: string, courtId: number) {
+    const createKey = getCreateReservationKey(date, slotStart, courtId);
+
+    if (creatingReservationKeysRef.current.has(createKey)) {
+      return;
+    }
+
+    creatingReservationKeysRef.current.add(createKey);
+    setCreatingReservationKeys((prev) => [...prev, createKey]);
     setMsg(null);
 
-    if (!isDateWithinGeneralBookingWindow(date)) {
-      setMsg(getAdvanceLimitMessage("reservar"));
-      return;
-    }
-
-    if (isSundayISO(date)) {
-      setMsg("Domingo cerrado: no se puede reservar.");
-      return;
-    }
-
-    const block = blockByKey.get(`${slotStart}-${courtId}`);
-    if (block) {
-      setMsg("Esta pista esta bloqueada en ese horario.");
-      return;
-    }
-
-    const existing = reservationByKey.get(`${slotStart}-${courtId}`);
-    if (existing) {
-      setExpandedResId((prev) => (prev === existing.id ? null : existing.id));
-      return;
-    }
-
-    const [member, session] = await Promise.all([
-      getCurrentMember(),
-      getClientSession(),
-    ]);
-
-    if (!member || !session?.access_token) {
-      setMsg("No hay sesion. Vuelve a iniciar sesion.");
-      return;
-    }
-
-    await restoreScrollAfter(async () => {
-      const res = await fetch("/api/reservations/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          date,
-          slotStart,
-          slotEnd,
-          courtId,
-        }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        const errorMessage = String(data?.error ?? "No se ha podido crear la reserva.");
-
-        if (res.status === 409 || errorMessage.includes("ya no esta disponible")) {
-          const refreshedData = await refreshVisibleDaysData();
-          const nowExisting =
-            refreshedData?.reservations.find(
-              (reservation) =>
-                reservation.date === date &&
-                toHM(reservation.slot_start) === slotStart &&
-                reservation.court_id === courtId
-            ) ?? (await findReservationBySlot(slotStart, courtId));
-
-          if (nowExisting) {
-            setExpandedResId(nowExisting.id);
-            return;
-          }
-        }
-
-        setMsg(errorMessage);
+    try {
+      if (!isDateWithinGeneralBookingWindow(date)) {
+        setMsg(getAdvanceLimitMessage("reservar"));
         return;
       }
 
-      const createdReservationId = String(data.reservationId);
+      if (isSundayISO(date)) {
+        setMsg("Domingo cerrado: no se puede reservar.");
+        return;
+      }
 
-      await refreshVisibleDaysData();
-      setExpandedResId(createdReservationId);
-    });
+      const block = blockByKey.get(`${slotStart}-${courtId}`);
+      if (block) {
+        setMsg("Esta pista esta bloqueada en ese horario.");
+        return;
+      }
+
+      const existing = reservationByKey.get(`${slotStart}-${courtId}`);
+      if (existing) {
+        setExpandedResId((prev) => (prev === existing.id ? null : existing.id));
+        return;
+      }
+
+      const [member, session] = await Promise.all([
+        getCurrentMember(),
+        getClientSession(),
+      ]);
+
+      if (!member || !session?.access_token) {
+        setMsg("No hay sesion. Vuelve a iniciar sesion.");
+        return;
+      }
+
+      await restoreScrollAfter(async () => {
+        const res = await fetch("/api/reservations/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            date,
+            slotStart,
+            slotEnd,
+            courtId,
+          }),
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data?.ok) {
+          const errorMessage = String(data?.error ?? "No se ha podido crear la reserva.");
+
+          if (res.status === 409 || errorMessage.includes("ya no esta disponible")) {
+            const refreshedData = await refreshVisibleDaysData();
+            const nowExisting =
+              refreshedData?.reservations.find(
+                (reservation) =>
+                  reservation.date === date &&
+                  toHM(reservation.slot_start) === slotStart &&
+                  reservation.court_id === courtId
+              ) ?? (await findReservationBySlot(slotStart, courtId));
+
+            if (nowExisting) {
+              setExpandedResId(nowExisting.id);
+              return;
+            }
+          }
+
+          setMsg(errorMessage);
+          return;
+        }
+
+        const createdReservationId = String(data.reservationId);
+
+        await refreshVisibleDaysData();
+        setExpandedResId(createdReservationId);
+      });
+    } finally {
+      creatingReservationKeysRef.current.delete(createKey);
+      setCreatingReservationKeys((prev) =>
+        prev.filter((currentKey) => currentKey !== createKey)
+      );
+    }
   }
 
   async function joinSeat(resId: string, _seat: number | null, memberUserId: string) {
@@ -780,13 +802,16 @@ export default function ReservarPage() {
                                           : "Ver / Unirme"}
                                       </button>
                                     ) : (
-                                      <button
+                                      <LoadingButton
+                                        loading={creatingReservationKeys.includes(
+                                          getCreateReservationKey(date, s.start, c.id)
+                                        )}
                                         onClick={() => createOrOpen(s.start, s.end, c.id)}
                                         className="rounded-full px-6 py-2.5 text-white font-semibold shadow-sm hover:brightness-[0.97] active:scale-[0.99] transition"
                                         style={{ backgroundColor: CLUB_GREEN }}
                                       >
                                         Crear
-                                      </button>
+                                      </LoadingButton>
                                     ))}
                                 </div>
                               </div>

@@ -9,6 +9,7 @@ import {
   getCurrentMember,
   resetCachedCurrentMember,
 } from "@/lib/client-current-member";
+import { isAdminRole } from "@/lib/auth-shared";
 import { getDisplayName } from "../lib/display-name";
 import { getVisibleBookingDays } from "@/lib/booking-window";
 import { supabase } from "../lib/supabase";
@@ -174,7 +175,7 @@ export default function HomePage() {
       }
 
       setDisplayName(getDisplayName(member));
-      setIsAdmin(member.role === "admin" || member.role === "superadmin");
+      setIsAdmin(isAdminRole(member.role));
 
       await loadOpenMatchesCount(member.user_id);
     }

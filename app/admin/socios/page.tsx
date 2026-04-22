@@ -1,6 +1,9 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { isOwnerRole, type MemberRole } from "@/lib/auth-shared";
+import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { CLUB_NAME, CLUB_PUBLIC_URL } from "@/lib/brand";
 import { supabase } from "../../../lib/supabase";
@@ -8,8 +11,6 @@ import { getDisplayName } from "../../../lib/display-name";
 import { PageHeaderCard } from "../../_components/PageHeaderCard";
 
 const CLUB_GREEN = "#0f5e2e";
-
-type MemberRole = "member" | "admin" | "superadmin";
 
 type MemberRow = {
   user_id: string;
@@ -47,12 +48,14 @@ function StatusBadge({ active }: { active: boolean }) {
 
 function RoleBadge({ role }: { role: MemberRole }) {
   const stylesByRole: Record<MemberRole, string> = {
+    owner: "border-amber-200 bg-amber-50 text-amber-800",
     superadmin: "border-emerald-200 bg-emerald-50 text-emerald-800",
     admin: "border-gray-300 bg-gray-100 text-gray-900",
     member: "border-gray-200 bg-white text-gray-700",
   };
 
   const labelByRole: Record<MemberRole, string> = {
+    owner: "Owner",
     superadmin: "Superadmin",
     admin: "Admin",
     member: "Socio",
@@ -99,9 +102,10 @@ Si no lo ves, mira también en spam.
 }
 
 function getRoleOrder(role: MemberRole) {
-  if (role === "superadmin") return 0;
-  if (role === "admin") return 1;
-  return 2;
+  if (role === "owner") return 0;
+  if (role === "superadmin") return 1;
+  if (role === "admin") return 2;
+  return 3;
 }
 
 export default function AdminSociosPage() {
@@ -113,6 +117,7 @@ export default function AdminSociosPage() {
   const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [canImportMembers, setCanImportMembers] = useState(false);
 
   const [creating, setCreating] = useState(false);
   const [newFullName, setNewFullName] = useState("");
@@ -129,7 +134,8 @@ export default function AdminSociosPage() {
 
   useEffect(() => {
     async function init() {
-      await loadMembers();
+      const [member] = await Promise.all([getCurrentMember(), loadMembers()]);
+      setCanImportMembers(isOwnerRole(member?.role));
     }
 
     init();
@@ -382,13 +388,24 @@ export default function AdminSociosPage() {
           title="Socios"
           contentClassName="space-y-5"
           actions={
-            <button
-              onClick={toggleCreateForm}
-              className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99] sm:w-auto"
-              style={{ backgroundColor: CLUB_GREEN }}
-            >
-              {creating ? "Cerrar" : "Añadir socio"}
-            </button>
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              {canImportMembers && (
+                <Link
+                  href="/admin/importar-socios"
+                  className="w-full rounded-2xl border border-gray-300 bg-white px-5 py-3 text-center font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 sm:w-auto"
+                >
+                  Importar socios
+                </Link>
+              )}
+
+              <button
+                onClick={toggleCreateForm}
+                className="w-full rounded-2xl px-5 py-3 text-white font-semibold shadow-sm transition active:scale-[0.99] sm:w-auto"
+                style={{ backgroundColor: CLUB_GREEN }}
+              >
+                {creating ? "Cerrar" : "Añadir socio"}
+              </button>
+            </div>
           }
         >
 
