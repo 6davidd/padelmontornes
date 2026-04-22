@@ -4,7 +4,7 @@
 
 - Inicia sesión con un usuario `owner`.
 - Abre `/admin/importar-socios`.
-- Usa el CSV de ejemplo o crea uno ad hoc según cada caso.
+- Prepara un CSV propio según cada caso.
 
 ## Casos a comprobar
 

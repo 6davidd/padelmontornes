@@ -94,7 +94,7 @@ async function parseJsonResponse<T>(res: Response): Promise<T> {
   try {
     return rawText ? (JSON.parse(rawText) as T) : ({} as T);
   } catch {
-    throw new Error(rawText || "La respuesta del servidor no es válida.");
+    throw new Error(rawText || "La respuesta del servidor no es valida.");
   }
 }
 
@@ -120,7 +120,7 @@ export default function AdminImportarSociosPage() {
     const accessToken = session?.access_token;
 
     if (!accessToken) {
-      throw new Error("No hay sesión válida. Vuelve a iniciar sesión.");
+      throw new Error("No hay sesion valida. Vuelve a iniciar sesion.");
     }
 
     const formData = new FormData();
@@ -163,14 +163,14 @@ export default function AdminImportarSociosPage() {
       const { res, data } = await sendFile("preview");
 
       if (!res.ok || !data?.ok || data.mode !== "preview") {
-        throw new Error(data?.error || "No se ha podido generar la previsualización.");
+        throw new Error(data?.error || "No se ha podido generar la previsualizacion.");
       }
 
       setPreviewRows(data.rows ?? []);
       setPreviewSummary(data.summary ?? null);
       setResultRows([]);
       setResultSummary(null);
-      setOk("Previsualización generada correctamente.");
+      setOk("Previsualizacion generada correctamente.");
     } catch (error) {
       setMsg(error instanceof Error ? error.message : "Error inesperado.");
     } finally {
@@ -187,12 +187,12 @@ export default function AdminImportarSociosPage() {
       const { res, data } = await sendFile("import");
 
       if (!res.ok || !data?.ok || data.mode !== "import") {
-        throw new Error(data?.error || "No se ha podido completar la importación.");
+        throw new Error(data?.error || "No se ha podido completar la importacion.");
       }
 
       setResultRows(data.results ?? []);
       setResultSummary(data.summary ?? null);
-      setOk("Importación completada.");
+      setOk("Importacion completada.");
     } catch (error) {
       setMsg(error instanceof Error ? error.message : "Error inesperado.");
     } finally {
@@ -209,33 +209,21 @@ export default function AdminImportarSociosPage() {
           title="Importar socios"
           contentClassName="space-y-5"
           actions={
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/admin/socios"
-                className="rounded-2xl border border-gray-300 bg-white px-5 py-3 text-center font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50"
-              >
-                Volver a socios
-              </Link>
-              <a
-                href="/examples/importar-socios-ejemplo.csv"
-                download
-                className="rounded-2xl px-5 py-3 text-center font-semibold text-white shadow-sm transition hover:brightness-[0.97]"
-                style={{ backgroundColor: CLUB_GREEN }}
-              >
-                Descargar CSV de ejemplo
-              </a>
-            </div>
+            <Link
+              href="/admin/socios"
+              className="rounded-2xl border border-gray-300 bg-white px-5 py-3 text-center font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50"
+            >
+              Volver a socios
+            </Link>
           }
         >
           <div className="grid gap-4 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
             <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="text-lg font-bold text-gray-900">
-                Archivo CSV
-              </div>
+              <div className="text-lg font-bold text-gray-900">Archivo CSV</div>
               <p className="mt-2 text-sm text-gray-600">
                 Encabezados obligatorios: <strong>Nombre completo</strong> y{" "}
-                <strong>Correo electrónico</strong>. Si hay columnas extra, se
-                ignorarán.
+                <strong>Correo electronico</strong>. Si hay columnas extra, se
+                ignoraran.
               </p>
 
               <label className="mt-4 block rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5">
@@ -259,7 +247,7 @@ export default function AdminImportarSociosPage() {
                     <strong className="text-gray-900">{file.name}</strong>
                   </span>
                 ) : (
-                  "Todavía no has seleccionado ningún CSV."
+                  "Todavia no has seleccionado ningun CSV."
                 )}
               </div>
 
@@ -280,7 +268,7 @@ export default function AdminImportarSociosPage() {
                   disabled={!file || readyRows === 0 || loadingPreview || importing}
                   className="rounded-2xl border border-gray-300 bg-white px-5 py-3 font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
                 >
-                  {importing ? "Importando..." : "Confirmar importación"}
+                  {importing ? "Importando..." : "Confirmar importacion"}
                 </button>
               </div>
             </div>
@@ -290,16 +278,16 @@ export default function AdminImportarSociosPage() {
                 Flujo de trabajo
               </div>
               <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700">
-                <li>Sube el CSV y genera la previsualización.</li>
-                <li>Revisa nombres normalizados, duplicados y errores.</li>
-                <li>Confirma la importación.</li>
+                <li>Sube el CSV y genera la previsualizacion.</li>
+                <li>Revisa nombres, correos, duplicados y errores.</li>
+                <li>Confirma la importacion.</li>
                 <li>
-                  El sistema procesará fila por fila reutilizando el mismo flujo
-                  de alta manual e invitación por correo.
+                  El sistema procesara fila por fila reutilizando el mismo flujo
+                  de alta manual e invitacion por correo.
                 </li>
               </ol>
               <p className="mt-4 text-sm text-gray-600">
-                Esta pantalla está pensada para trabajo interno desde escritorio,
+                Esta pantalla esta pensada para trabajo interno desde escritorio,
                 con tablas amplias y resumen detallado por fila.
               </p>
             </div>
@@ -330,19 +318,17 @@ export default function AdminImportarSociosPage() {
             <div className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm">
               <div className="border-b border-gray-200 px-6 py-4">
                 <div className="text-xl font-bold text-gray-900">
-                  Previsualización
+                  Previsualizacion
                 </div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-[1120px] table-auto border-collapse">
+                <table className="min-w-[820px] table-auto border-collapse">
                   <thead className="bg-gray-50">
                     <tr className="text-left text-sm font-semibold text-gray-700">
                       <th className="px-4 py-3">Fila</th>
-                      <th className="px-4 py-3">Nombre original</th>
-                      <th className="px-4 py-3">Email original</th>
-                      <th className="px-4 py-3">Nombre normalizado</th>
-                      <th className="px-4 py-3">Email normalizado</th>
+                      <th className="px-4 py-3">Nombre</th>
+                      <th className="px-4 py-3">Email</th>
                       <th className="px-4 py-3">Estado</th>
                       <th className="px-4 py-3">Detalle</th>
                     </tr>
@@ -356,13 +342,11 @@ export default function AdminImportarSociosPage() {
                         <td className="px-4 py-3 font-semibold text-gray-900">
                           {row.rowNumber}
                         </td>
-                        <td className="px-4 py-3">{row.originalFullName || "—"}</td>
-                        <td className="px-4 py-3">{row.originalEmail || "—"}</td>
                         <td className="px-4 py-3">
-                          {row.normalizedFullName || "—"}
+                          {row.normalizedFullName || "-"}
                         </td>
                         <td className="px-4 py-3">
-                          {row.normalizedEmail || "—"}
+                          {row.normalizedEmail || "-"}
                         </td>
                         <td className="px-4 py-3">
                           <StatusPill tone={getPreviewTone(row.status)}>
@@ -419,8 +403,8 @@ export default function AdminImportarSociosPage() {
                         <td className="px-4 py-3 font-semibold text-gray-900">
                           {row.rowNumber}
                         </td>
-                        <td className="px-4 py-3">{row.fullName || "—"}</td>
-                        <td className="px-4 py-3">{row.email || "—"}</td>
+                        <td className="px-4 py-3">{row.fullName || "-"}</td>
+                        <td className="px-4 py-3">{row.email || "-"}</td>
                         <td className="px-4 py-3">
                           <StatusPill tone={getResultTone(row.status)}>
                             {getMemberImportResultStatusLabel(row.status)}
