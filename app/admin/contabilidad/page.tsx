@@ -363,7 +363,7 @@ export default function AdminContabilidadPage() {
             {filteredMembers.map((member) => {
               const cleanAlias = member.alias?.trim() || "";
               const hasAlias = cleanAlias.length > 0;
-              const titleName = hasAlias ? cleanAlias : member.full_name || "—";
+              const titleName = getDisplayName(member);
               const payment = paymentMap.get(member.user_id);
               const isPaid = payment?.status === "paid";
               const isSaving = savingId === member.user_id;

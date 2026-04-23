@@ -1,7 +1,8 @@
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 import { CLUB_NAME } from "@/lib/brand";
-import { emailShell, escapeHtml, matchInfoRow, EMAIL_COLORS } from "@/lib/email-templates";
+import { getDisplayName, getNameWithFirstSurname } from "@/lib/display-name";
+import { emailShell, escapeHtml, matchInfoRow } from "@/lib/email-templates";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -93,20 +94,8 @@ function toHM(t: string) {
   return t?.length >= 5 ? t.slice(0, 5) : t;
 }
 
-function nameFirstSurname(full: string) {
-  const parts = full.trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return parts[0] ?? "";
-  return `${parts[0]} ${parts[1]}`;
-}
-
 function getMemberDisplayName(member: Pick<MemberRow, "alias" | "full_name">) {
-  const alias = member.alias?.trim();
-  if (alias) return alias;
-
-  const fullName = member.full_name?.trim();
-  if (fullName) return fullName;
-
-  return "Socio";
+  return getDisplayName(member);
 }
 
 function parseEmailList(value: string | undefined) {
@@ -334,7 +323,7 @@ async function sendClosedMatchReminders(params: {
       )}`;
 
       const html = buildReminderEmailHtml({
-        fullName: nameFirstSurname(member.full_name),
+        fullName: getNameWithFirstSurname(member.full_name) || getDisplayName(member),
         targetDate,
         slotStart: match.slotStart,
         slotEnd: match.slotEnd,

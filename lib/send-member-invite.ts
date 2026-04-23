@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { CLUB_NAME } from "@/lib/brand";
+import { getNameWithFirstSurname } from "@/lib/display-name";
 import { emailShell, escapeHtml } from "@/lib/email-templates";
 
 export const MEMBER_INVITE_EMAIL_TITLE =
@@ -41,6 +42,7 @@ export function validateMemberInviteEmailConfig() {
 
 export function buildMemberInviteEmailHtml(params: SendMemberInviteEmailParams) {
   const { fullName, email, actionLink } = params;
+  const helloName = getNameWithFirstSurname(fullName) || fullName;
 
   const contactInfo = `
     <tr>
@@ -89,7 +91,7 @@ export function buildMemberInviteEmailHtml(params: SendMemberInviteEmailParams) 
   return emailShell({
     preheader: MEMBER_INVITE_EMAIL_TITLE,
     title: "Bienvenido al club",
-    intro: `Hola ${esc(fullName)}. Has sido invitado a unirte a la app del club <strong>${esc(CLUB_NAME)}</strong>. Pulsa el botón para crear tu contraseña y acceder.`,
+    intro: `Hola ${esc(helloName)}. Has sido invitado a unirte a la app del club <strong>${esc(CLUB_NAME)}</strong>. Pulsa el botón para crear tu contraseña y acceder.`,
     matchDetailsHtml: contactInfo,
     extraHtml: ctaButton + altInstructions,
     clubName: CLUB_NAME,

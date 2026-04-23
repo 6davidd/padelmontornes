@@ -7,7 +7,7 @@ import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { CLUB_NAME, CLUB_PUBLIC_URL } from "@/lib/brand";
 import { supabase } from "../../../lib/supabase";
-import { getDisplayName } from "../../../lib/display-name";
+import { getDisplayName, getNameWithFirstSurname } from "../../../lib/display-name";
 import { PageHeaderCard } from "../../_components/PageHeaderCard";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -351,7 +351,7 @@ export default function AdminSociosPage() {
       });
 
       setLastWhatsappMessage(whatsappMessage);
-      setLastCreatedName(fullName);
+      setLastCreatedName(getNameWithFirstSurname(fullName) || fullName);
       setCopiedWhatsapp(false);
 
       setNewFullName("");
@@ -559,7 +559,7 @@ export default function AdminSociosPage() {
             {filteredMembers.map((member) => {
               const cleanAlias = member.alias?.trim() || "";
               const hasAlias = cleanAlias.length > 0;
-              const titleName = hasAlias ? cleanAlias : member.full_name || "—";
+              const titleName = getDisplayName(member);
               const isSaving = savingId === member.user_id;
               const isEditing = editingId === member.user_id;
 
