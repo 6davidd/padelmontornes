@@ -1,4 +1,6 @@
 import type { MemberRole } from "./auth-shared";
+import { buildPasswordActionLink } from "./password-action-link";
+import { getPublicAppUrlForPath } from "./public-app-url";
 import { supabaseAdmin } from "./supabase-admin";
 import {
   sendMemberInviteEmail,
@@ -60,12 +62,7 @@ export function isValidEmail(email: string) {
 }
 
 function getInviteRedirectTo() {
-  const appUrl =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000";
-
-  return new URL("/reset-password", appUrl).toString();
+  return getPublicAppUrlForPath("/reset-password");
 }
 
 async function cleanupInvitedMember(userId: string) {
@@ -265,7 +262,7 @@ async function provisionMemberInvite(
   if (
     inviteRes.error ||
     !inviteRes.data.user ||
-    !inviteRes.data.properties.action_link
+    !inviteRes.data.properties.hashed_token
   ) {
     const message =
       inviteRes.error?.message || "No se ha podido crear la invitación.";
@@ -274,7 +271,10 @@ async function provisionMemberInvite(
   }
 
   const invitedUser = inviteRes.data.user;
-  const actionLink = inviteRes.data.properties.action_link;
+  const actionLink = buildPasswordActionLink({
+    tokenHash: inviteRes.data.properties.hashed_token,
+    type: "invite",
+  });
 
   const insertMemberRes = await supabaseAdmin.from("members").insert({
     user_id: invitedUser.id,

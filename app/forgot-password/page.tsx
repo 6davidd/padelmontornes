@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { supabase } from "../../lib/supabase";
+import {
+  PASSWORD_RESET_SUCCESS_MESSAGE,
+  requestPasswordReset,
+} from "@/lib/request-password-reset";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -17,27 +20,17 @@ export default function ForgotPasswordPage() {
     setMsg(null);
     setLoading(true);
 
-    const redirectTo =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/reset-password`
-        : undefined;
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo,
-    });
-
+    const result = await requestPasswordReset(email);
     setLoading(false);
 
-    if (error) {
+    if (!result.ok) {
       setMsgTone("error");
-      setMsg(error.message);
+      setMsg(result.error);
       return;
     }
 
     setMsgTone("success");
-    setMsg(
-      "Te hemos enviado un correo con un enlace para crear o cambiar tu contraseña."
-    );
+    setMsg(PASSWORD_RESET_SUCCESS_MESSAGE);
   }
 
   return (
@@ -48,7 +41,7 @@ export default function ForgotPasswordPage() {
             Recuperar contraseña
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Introduce tu email y te enviaremos un enlace para crear o cambiar tu
+            Introduce tu email y te enviaremos un enlace para cambiar tu
             contraseña. Al abrirlo llegarás directamente a esa pantalla.
           </p>
 

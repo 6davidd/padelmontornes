@@ -19,6 +19,12 @@ import { supabase } from "../../lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 
+type PendingPasswordLink = {
+  code: string | null;
+  tokenHash: string | null;
+  type: string | null;
+};
+
 async function waitForClientSession(maxAttempts = 12, delayMs = 150) {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const { data } = await supabase.auth.getSession();
@@ -42,6 +48,9 @@ export default function ResetPasswordPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [checkingLink, setCheckingLink] = useState(true);
+  const [pendingLink, setPendingLink] = useState<PendingPasswordLink | null>(
+    null
+  );
 
   useEffect(() => {
     let alive = true;
@@ -57,6 +66,7 @@ export default function ResetPasswordPage() {
       if (errorMessage) {
         if (alive) {
           setReady(false);
+          setPendingLink(null);
           setMsg(getFriendlyPasswordLinkError(errorMessage));
           setCheckingLink(false);
         }
@@ -64,53 +74,28 @@ export default function ResetPasswordPage() {
       }
 
       if (authLink?.code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(
-          authLink.code
-        );
-
-        if (!alive) {
-          return;
-        }
-
-        if (error || !data.session) {
+        if (alive) {
           setReady(false);
-          setMsg(getFriendlyPasswordLinkError(error?.message));
+          setPendingLink({
+            code: authLink.code,
+            tokenHash: null,
+            type: authLink.type,
+          });
           setCheckingLink(false);
-          return;
         }
-
-        resetCachedCurrentMember();
-        setCachedClientSession(data.session);
-        syncSessionCookies(data.session);
-        clearBrowserAuthArtifacts();
-        setReady(true);
-        setCheckingLink(false);
         return;
       }
 
       if (authLink?.tokenHash && isPasswordSetupOtpType(authLink.type)) {
-        const { data, error } = await supabase.auth.verifyOtp({
-          token_hash: authLink.tokenHash,
-          type: authLink.type as Extract<EmailOtpType, "invite" | "recovery">,
-        });
-
-        if (!alive) {
-          return;
-        }
-
-        if (error || !data.session) {
+        if (alive) {
           setReady(false);
-          setMsg(getFriendlyPasswordLinkError(error?.message));
+          setPendingLink({
+            code: null,
+            tokenHash: authLink.tokenHash,
+            type: authLink.type,
+          });
           setCheckingLink(false);
-          return;
         }
-
-        resetCachedCurrentMember();
-        setCachedClientSession(data.session);
-        syncSessionCookies(data.session);
-        clearBrowserAuthArtifacts();
-        setReady(true);
-        setCheckingLink(false);
         return;
       }
 
@@ -129,11 +114,13 @@ export default function ResetPasswordPage() {
           clearBrowserAuthArtifacts();
         }
 
+        setPendingLink(null);
         setReady(true);
         setCheckingLink(false);
         return;
       }
 
+      setPendingLink(null);
       setReady(false);
       setMsg(getFriendlyPasswordLinkError(null));
       setCheckingLink(false);
@@ -145,6 +132,64 @@ export default function ResetPasswordPage() {
       alive = false;
     };
   }, []);
+
+  async function onUsePasswordLink() {
+    if (!pendingLink) {
+      return;
+    }
+
+    setMsg(null);
+    setLoading(true);
+
+    if (pendingLink.code) {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(
+        pendingLink.code
+      );
+
+      if (error || !data.session) {
+        setLoading(false);
+        setPendingLink(null);
+        setMsg(getFriendlyPasswordLinkError(error?.message));
+        return;
+      }
+
+      resetCachedCurrentMember();
+      setCachedClientSession(data.session);
+      syncSessionCookies(data.session);
+      clearBrowserAuthArtifacts();
+      setPendingLink(null);
+      setReady(true);
+      setLoading(false);
+      return;
+    }
+
+    if (pendingLink.tokenHash && isPasswordSetupOtpType(pendingLink.type)) {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: pendingLink.tokenHash,
+        type: pendingLink.type as Extract<EmailOtpType, "invite" | "recovery">,
+      });
+
+      if (error || !data.session) {
+        setLoading(false);
+        setPendingLink(null);
+        setMsg(getFriendlyPasswordLinkError(error?.message));
+        return;
+      }
+
+      resetCachedCurrentMember();
+      setCachedClientSession(data.session);
+      syncSessionCookies(data.session);
+      clearBrowserAuthArtifacts();
+      setPendingLink(null);
+      setReady(true);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+    setPendingLink(null);
+    setMsg(getFriendlyPasswordLinkError(null));
+  }
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -255,6 +300,32 @@ export default function ResetPasswordPage() {
                 {loading ? "Guardando..." : "Guardar contraseña"}
               </button>
             </form>
+          ) : pendingLink ? (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm text-gray-700">
+                  Para evitar que el enlace se consuma antes de tiempo, primero
+                  te pedimos una confirmación manual.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onUsePasswordLink}
+                disabled={loading}
+                className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+                style={{ backgroundColor: CLUB_GREEN }}
+              >
+                {loading ? "Abriendo..." : "Continuar con este enlace"}
+              </button>
+
+              <Link
+                href="/forgot-password"
+                className="block w-full rounded-2xl border border-gray-300 bg-white py-3.5 text-center font-semibold text-gray-900 shadow-sm transition active:scale-[0.99]"
+              >
+                Pedir otro enlace
+              </Link>
+            </div>
           ) : (
             <div className="mt-5 space-y-4">
               <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
