@@ -309,7 +309,7 @@ export default function Header({
     return () => {
       alive = false;
     };
-  }, [showMenu, pathname]);
+  }, [showMenu]);
 
   return (
     <HeaderChrome

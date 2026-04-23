@@ -133,31 +133,14 @@ export default function PartidasAbiertasPage() {
   }, [reservations, playersByReservation, currentUserId, date]);
 
   const openMatchesCountByDay = useMemo(() => {
-    const visibleSet = new Set(visibleDays);
     const counts = new Map<string, number>();
 
-    reservations
-      .map((r) => {
-        const arr = playersByReservation.get(r.id) ?? [];
-        const alreadyIn =
-          !!currentUserId && arr.some((player) => player.userId === currentUserId);
-
-        return {
-          ...r,
-          playersCount: arr.length,
-          alreadyIn,
-        };
-      })
-      .filter((r) => visibleSet.has(r.date))
-      .filter(slotIsStillOpen)
-      .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
-      .filter((r) => !r.alreadyIn)
-      .forEach((r) => {
-        counts.set(r.date, (counts.get(r.date) ?? 0) + 1);
-      });
+    for (const match of openMatches) {
+      counts.set(match.date, (counts.get(match.date) ?? 0) + 1);
+    }
 
     return counts;
-  }, [reservations, playersByReservation, visibleDays, currentUserId]);
+  }, [openMatches]);
 
   const hasAnyOpenMatches = visibleDays.some(
     (day) => (openMatchesCountByDay.get(day) ?? 0) > 0
@@ -279,13 +262,7 @@ export default function PartidasAbiertasPage() {
   }, [visibleDays]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadOpenMatches();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    void loadOpenMatches();
   }, [loadOpenMatches]);
 
   async function getUserIdOrMsg() {
