@@ -5,10 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { isOwnerRole, type MemberRole } from "@/lib/auth-shared";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
+import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
 import { CLUB_NAME, CLUB_PUBLIC_URL } from "@/lib/brand";
-import { supabase } from "../../../lib/supabase";
-import { getDisplayName, getNameWithFirstSurname } from "../../../lib/display-name";
-import { PageHeaderCard } from "../../_components/PageHeaderCard";
+import { getDisplayName, getNameWithFirstSurname } from "@/lib/display-name";
+import { supabase } from "@/lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 

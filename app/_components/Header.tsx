@@ -5,10 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CLUB_NAME } from "@/lib/brand";
-import { getCurrentMember } from "@/lib/client-current-member";
-import { isAdminRole } from "@/lib/auth-shared";
 
 const CLUB_GREEN = "#0f5e2e";
+const LOGO_WIDTH = 128;
+const LOGO_HEIGHT = 192;
 const HEADER_ACTION_CLASS_NAME =
   "relative z-20 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-green-200 bg-white text-green-900 shadow-sm outline-none transition hover:bg-green-50 focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.98]";
 
@@ -152,11 +152,9 @@ function HeaderChrome({
               <Image
                 src="/logo.png"
                 alt={CLUB_NAME}
-                width={1024}
-                height={1536}
-                priority
-                quality={100}
-                sizes="(min-width: 640px) 40px, 36px"
+                width={LOGO_WIDTH}
+                height={LOGO_HEIGHT}
+                sizes="(min-width: 640px) 52px, 48px"
                 className="h-12 w-auto shrink-0 object-contain sm:h-[3.25rem]"
               />
 
@@ -212,10 +210,8 @@ function HeaderChrome({
                   <Image
                     src="/logo.png"
                     alt={CLUB_NAME}
-                    width={1024}
-                    height={1536}
-                    priority
-                    quality={100}
+                    width={LOGO_WIDTH}
+                    height={LOGO_HEIGHT}
                     sizes="40px"
                     className="h-12 w-auto shrink-0 object-contain"
                   />
@@ -280,40 +276,19 @@ function HeaderChrome({
 }
 
 export default function Header({
-  showAuthenticatedMenu = false,
+  showMenu = false,
+  showProfileShortcut = false,
+  isAdmin = false,
 }: {
-  showAuthenticatedMenu?: boolean;
+  showMenu?: boolean;
+  showProfileShortcut?: boolean;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname() ?? "/";
-  const showProfileShortcut = pathname === "/" && showAuthenticatedMenu;
-  const showMenu = pathname !== "/" && showAuthenticatedMenu;
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    if (!showMenu) {
-      return;
-    }
-
-    let alive = true;
-
-    getCurrentMember().then((member) => {
-      if (!alive) {
-        return;
-      }
-
-      setIsAdmin(
-        Boolean(member?.is_active && isAdminRole(member.role))
-      );
-    });
-
-    return () => {
-      alive = false;
-    };
-  }, [showMenu]);
 
   return (
     <HeaderChrome
-      key={pathname}
+      key={`${pathname}-${showMenu ? "menu" : "plain"}`}
       pathname={pathname}
       showMenu={showMenu}
       showProfileShortcut={showProfileShortcut}

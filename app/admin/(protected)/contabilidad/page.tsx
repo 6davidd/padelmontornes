@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { MemberRole } from "@/lib/auth-shared";
+import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
 import { getCurrentMember } from "@/lib/client-current-member";
-import { supabase } from "../../../lib/supabase";
-import { getDisplayName } from "../../../lib/display-name";
-import { PageHeaderCard } from "../../_components/PageHeaderCard";
+import { getDisplayName } from "@/lib/display-name";
+import { supabase } from "@/lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -94,17 +94,7 @@ export default function AdminContabilidadPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function init() {
-      await loadData(selectedMonth);
-    }
-
-    init();
-  }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      loadData(selectedMonth);
-    }
+    void loadData(selectedMonth);
   }, [selectedMonth]);
 
   async function loadData(monthValue: string) {

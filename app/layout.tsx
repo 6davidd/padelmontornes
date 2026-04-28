@@ -1,27 +1,9 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { CLUB_NAME } from "@/lib/brand";
-import AuthSessionSync from "./_components/AuthSessionSync";
-import PublicLayoutFrame from "./_components/PublicLayoutFrame";
-import PrivateLayoutFrame from "./_components/PrivateLayoutFrame";
+import NavigationHistoryTracker from "./_components/NavigationHistoryTracker";
 import "./globals.css";
-import {
-  isAdminPath,
-  isAdminRole,
-  isOwnerPath,
-  isOwnerRole,
-  isProtectedPath,
-  isPublicPath,
-  isSuperadminPath,
-  isSuperadminRole,
-} from "@/lib/auth-shared";
-import {
-  getMemberAccess,
-  resolveSessionFromServerCookies,
-} from "@/lib/auth-server";
 
 export const metadata: Metadata = {
   title: CLUB_NAME,
@@ -33,54 +15,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = (await headers()).get("x-app-pathname") ?? "/";
-  const isPublic = isPublicPath(pathname);
-  const isProtected = isProtectedPath(pathname);
-  const shouldResolveSession = isProtected || pathname === "/ayuda";
-  const session = shouldResolveSession
-    ? await resolveSessionFromServerCookies()
-    : null;
-
-  if (isProtected) {
-    if (!session) {
-      redirect(`/login?next=${encodeURIComponent(pathname)}`);
-    }
-
-    if (isAdminPath(pathname)) {
-      const member = await getMemberAccess(session.accessToken, session.user.id);
-      const role = member?.role;
-      const isAdmin = Boolean(member?.is_active && isAdminRole(role));
-
-      if (!isAdmin) {
-        redirect("/");
-      }
-
-      if (isSuperadminPath(pathname) && !isSuperadminRole(role)) {
-        redirect("/");
-      }
-
-      if (isOwnerPath(pathname) && !isOwnerRole(role)) {
-        redirect("/");
-      }
-    }
-  }
-
   return (
     <html lang="es">
       <body className="bg-gray-50 text-gray-900">
-        <AuthSessionSync />
-        {isPublic ? (
-          <PublicLayoutFrame showAuthenticatedMenu={Boolean(session)}>
-            {children}
-          </PublicLayoutFrame>
-        ) : (
-          <PrivateLayoutFrame>{children}</PrivateLayoutFrame>
-        )}
+        <NavigationHistoryTracker />
+        {children}
         <Analytics />
         <SpeedInsights />
       </body>

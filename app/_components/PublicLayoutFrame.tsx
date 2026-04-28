@@ -2,14 +2,22 @@ import Header from "./Header";
 
 export default function PublicLayoutFrame({
   children,
-  showAuthenticatedMenu = false,
+  showMenu = false,
+  showProfileShortcut = false,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
-  showAuthenticatedMenu?: boolean;
+  showMenu?: boolean;
+  showProfileShortcut?: boolean;
+  isAdmin?: boolean;
 }) {
   return (
     <>
-      <Header showAuthenticatedMenu={showAuthenticatedMenu} />
+      <Header
+        showMenu={showMenu}
+        showProfileShortcut={showProfileShortcut}
+        isAdmin={isAdmin}
+      />
       {children}
     </>
   );

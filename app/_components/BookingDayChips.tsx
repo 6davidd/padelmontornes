@@ -1,5 +1,6 @@
 "use client";
 
+import { startTransition } from "react";
 import {
   formatDayChip,
   getRelativeDayLabel,
@@ -37,7 +38,9 @@ export function BookingDayChips({
           <button
             key={day}
             type="button"
-            onClick={() => onSelect(day)}
+            onClick={() => {
+              startTransition(() => onSelect(day));
+            }}
             aria-pressed={selected}
             className={classNames(
               "min-h-[68px] w-full rounded-2xl border px-3.5 py-3 text-left shadow-sm transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-2",

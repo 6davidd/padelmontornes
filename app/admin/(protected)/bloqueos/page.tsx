@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
+import { TimeRangeDisplay } from "@/app/_components/time-range-display";
 import { getCourts } from "@/lib/client-reference-data";
-import { supabase } from "../../../lib/supabase";
-import { SATURDAY_SLOTS, WEEKDAY_SLOTS } from "../../../lib/slots";
-import { PageHeaderCard } from "../../_components/PageHeaderCard";
-import { TimeRangeDisplay } from "../../_components/time-range-display";
+import { SATURDAY_SLOTS, WEEKDAY_SLOTS } from "@/lib/slots";
+import { supabase } from "@/lib/supabase";
 
 type Court = {
   id: number;

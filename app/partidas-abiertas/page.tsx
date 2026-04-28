@@ -106,41 +106,71 @@ export default function PartidasAbiertasPage() {
     return m;
   }, [players, membersMap]);
 
-  const openMatches = useMemo(() => {
-    return reservations
-      .map((r) => {
-        const arr = playersByReservation.get(r.id) ?? [];
-        const alreadyIn =
-          !!currentUserId && arr.some((player) => player.userId === currentUserId);
+  const openMatchesByDay = useMemo(() => {
+    const matchesByDay = new Map<
+      string,
+      Array<
+        ReservationRow & {
+          playersCount: number;
+          playersList: Array<{ seat: number; name: string; userId: string }>;
+        }
+      >
+    >();
 
-        return {
-          ...r,
-          playersCount: arr.length,
-          playersList: arr,
-          alreadyIn,
-        };
-      })
-      .filter((r) => r.date === date)
-      .filter(slotIsStillOpen)
-      .filter((r) => r.playersCount >= 1 && r.playersCount < 4)
-      .filter((r) => !r.alreadyIn)
-      .sort((a, b) => {
+    for (const reservation of reservations) {
+      if (!slotIsStillOpen(reservation)) {
+        continue;
+      }
+
+      const playersList = playersByReservation.get(reservation.id) ?? [];
+      if (playersList.length < 1 || playersList.length >= 4) {
+        continue;
+      }
+
+      const alreadyIn =
+        !!currentUserId &&
+        playersList.some((player) => player.userId === currentUserId);
+
+      if (alreadyIn) {
+        continue;
+      }
+
+      const currentDayMatches = matchesByDay.get(reservation.date) ?? [];
+      currentDayMatches.push({
+        ...reservation,
+        playersCount: playersList.length,
+        playersList,
+      });
+      matchesByDay.set(reservation.date, currentDayMatches);
+    }
+
+    for (const [day, matches] of matchesByDay.entries()) {
+      matches.sort((a, b) => {
         const ad = new Date(`${a.date}T${toHM(a.slot_start)}:00`).getTime();
         const bd = new Date(`${b.date}T${toHM(b.slot_start)}:00`).getTime();
         if (ad !== bd) return ad - bd;
         return a.court_id - b.court_id;
       });
-  }, [reservations, playersByReservation, currentUserId, date]);
+      matchesByDay.set(day, matches);
+    }
+
+    return matchesByDay;
+  }, [reservations, playersByReservation, currentUserId]);
+
+  const openMatches = useMemo(
+    () => openMatchesByDay.get(date) ?? [],
+    [openMatchesByDay, date]
+  );
 
   const openMatchesCountByDay = useMemo(() => {
     const counts = new Map<string, number>();
 
-    for (const match of openMatches) {
-      counts.set(match.date, (counts.get(match.date) ?? 0) + 1);
+    for (const [day, matches] of openMatchesByDay.entries()) {
+      counts.set(day, matches.length);
     }
 
     return counts;
-  }, [openMatches]);
+  }, [openMatchesByDay]);
 
   const hasAnyOpenMatches = visibleDays.some(
     (day) => (openMatchesCountByDay.get(day) ?? 0) > 0
@@ -167,12 +197,6 @@ export default function PartidasAbiertasPage() {
     }
   }, [openMatchesCountByDay, visibleDays, hasAutoSelectedDate]);
 
-  useEffect(() => {
-    getCurrentMember().then((member) => {
-      setCurrentUserId(member?.user_id ?? null);
-    });
-  }, []);
-
   function selectDate(day: string) {
     setHasAutoSelectedDate(true);
     setDate(day);
@@ -183,7 +207,7 @@ export default function PartidasAbiertasPage() {
     setLoading(true);
 
     try {
-      const [reservationsRes, courts] = await Promise.all([
+      const [reservationsRes, courts, member] = await Promise.all([
         supabase
           .from("reservations_public")
           .select("id,date,slot_start,slot_end,court_id")
@@ -192,6 +216,7 @@ export default function PartidasAbiertasPage() {
           .order("slot_start", { ascending: true })
           .order("court_id", { ascending: true }),
         getCourts(),
+        getCurrentMember(),
       ]);
 
       if (reservationsRes.error) {
@@ -200,6 +225,7 @@ export default function PartidasAbiertasPage() {
         return;
       }
 
+      setCurrentUserId(member?.user_id ?? null);
       const resRows = (reservationsRes.data ?? []) as ReservationRow[];
       setReservations(resRows);
 

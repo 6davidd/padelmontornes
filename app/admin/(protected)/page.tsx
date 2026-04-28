@@ -1,8 +1,6 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getCurrentMember } from "@/lib/client-current-member";
+import BackButton from "@/app/_components/BackButton";
+import { getRequestMemberAccess } from "@/lib/auth-server";
 import { isOwnerRole, isSuperadminRole } from "@/lib/auth-shared";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -20,32 +18,29 @@ function TileLink({ href, title }: { href: string; title: string }) {
   );
 }
 
-export default function AdminPage() {
-  const [isSuperadmin, setIsSuperadmin] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
-
-  useEffect(() => {
-    async function loadRole() {
-      const member = await getCurrentMember();
-      setIsSuperadmin(isSuperadminRole(member?.role));
-      setIsOwner(isOwnerRole(member?.role));
-    }
-
-    loadRole();
-  }, []);
+export default async function AdminPage() {
+  const member = await getRequestMemberAccess();
+  const isSuperadmin = isSuperadminRole(member?.role);
+  const isOwner = isOwnerRole(member?.role);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto max-w-3xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8">
-          <h1
-            className="text-3xl font-bold sm:text-4xl"
-            style={{ color: CLUB_GREEN }}
-          >
-            Panel administrador
-          </h1>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1
+                className="text-3xl font-bold sm:text-4xl"
+                style={{ color: CLUB_GREEN }}
+              >
+                Panel administrador
+              </h1>
 
-          <p className="mt-2 text-gray-600">Gestiona el club desde aquí.</p>
+              <p className="mt-2 text-gray-600">Gestiona el club desde aquí.</p>
+            </div>
+
+            <BackButton />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
@@ -60,7 +55,6 @@ export default function AdminPage() {
           )}
         </div>
       </div>
-
     </div>
   );
 }

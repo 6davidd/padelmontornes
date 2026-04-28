@@ -1,10 +1,15 @@
 import "server-only";
 
+import { cache } from "react";
+import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient, type User } from "@supabase/supabase-js";
 import {
   ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
+  isAdminRole,
+  isOwnerRole,
+  isSuperadminRole,
   type MemberRole,
 } from "./auth-shared";
 
@@ -22,12 +27,19 @@ type CookieReader = {
   get(name: string): { value: string } | undefined;
 };
 
-type MemberAccess = {
+export type MemberAccess = {
   role: MemberRole;
   is_active: boolean;
 };
 
-function createSupabaseClient(accessToken?: string) {
+export type CurrentMemberProfile = MemberAccess & {
+  user_id: string;
+  full_name: string;
+  alias: string | null;
+  email: string | null;
+};
+
+export function createServerSupabaseClient(accessToken?: string) {
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
@@ -55,7 +67,7 @@ export async function resolveSessionFromTokens(tokens: {
   refreshToken: string | null;
 }): Promise<ResolvedSession | null> {
   if (tokens.accessToken) {
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
     const userRes = await supabase.auth.getUser(tokens.accessToken);
 
     if (userRes.data.user) {
@@ -72,7 +84,7 @@ export async function resolveSessionFromTokens(tokens: {
     return null;
   }
 
-  const supabase = createSupabaseClient();
+  const supabase = createServerSupabaseClient();
   const refreshRes = await supabase.auth.refreshSession({
     refresh_token: tokens.refreshToken,
   });
@@ -103,7 +115,7 @@ export async function getMemberAccess(
   accessToken: string,
   userId: string
 ): Promise<MemberAccess | null> {
-  const supabase = createSupabaseClient(accessToken);
+  const supabase = createServerSupabaseClient(accessToken);
   const res = await supabase
     .from("members")
     .select("role,is_active")
@@ -115,4 +127,80 @@ export async function getMemberAccess(
   }
 
   return res.data as MemberAccess;
+}
+
+export const getRequestSession = cache(async () => {
+  return resolveSessionFromServerCookies();
+});
+
+export const getRequestMemberAccess = cache(async () => {
+  const session = await getRequestSession();
+
+  if (!session) {
+    return null;
+  }
+
+  return getMemberAccess(session.accessToken, session.user.id);
+});
+
+export const getRequestCurrentMember = cache(async () => {
+  const session = await getRequestSession();
+
+  if (!session) {
+    return null;
+  }
+
+  const supabase = createServerSupabaseClient(session.accessToken);
+  const res = await supabase
+    .from("members")
+    .select("user_id,full_name,alias,email,is_active,role")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  if (res.error || !res.data) {
+    return null;
+  }
+
+  return res.data as CurrentMemberProfile;
+});
+
+export async function requireAuthenticatedSession(pathname: string) {
+  const session = await getRequestSession();
+
+  if (!session) {
+    redirect(`/login?next=${encodeURIComponent(pathname)}`);
+  }
+
+  return session;
+}
+
+export async function requireAdminAccess() {
+  await requireAuthenticatedSession("/admin");
+  const member = await getRequestMemberAccess();
+
+  if (!member?.is_active || !isAdminRole(member.role)) {
+    redirect("/");
+  }
+
+  return member;
+}
+
+export async function requireSuperadminAccess() {
+  const member = await requireAdminAccess();
+
+  if (!isSuperadminRole(member.role)) {
+    redirect("/");
+  }
+
+  return member;
+}
+
+export async function requireOwnerAccess() {
+  const member = await requireAdminAccess();
+
+  if (!isOwnerRole(member.role)) {
+    redirect("/");
+  }
+
+  return member;
 }

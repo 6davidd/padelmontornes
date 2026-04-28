@@ -217,11 +217,9 @@ export const metadata: Metadata = {
 };
 
 function ScreenshotGuide({
-  title,
   src,
   alt,
 }: {
-  title: string;
   src: string;
   alt: string;
 }) {
@@ -232,6 +230,7 @@ function ScreenshotGuide({
         alt={alt}
         width={945}
         height={2048}
+        quality={75}
         sizes="(min-width: 640px) 18rem, calc(100vw - 4rem)"
         className="h-auto w-full select-none"
       />
@@ -315,7 +314,7 @@ function HelpSection({
           </ol>
         </div>
 
-        <ScreenshotGuide title={title} src={image.src} alt={image.alt} />
+        <ScreenshotGuide src={image.src} alt={image.alt} />
       </div>
     </section>
   );

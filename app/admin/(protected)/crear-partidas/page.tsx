@@ -6,6 +6,10 @@ import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
+import { LoadingButton } from "@/app/_components/LoadingButton";
+import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
+import { ReservationOccupancy } from "@/app/_components/ReservationCard";
+import { TimeRangeDisplay } from "@/app/_components/time-range-display";
 import {
   canCreateAdminMatchOnDate,
   formatDateLong,
@@ -16,13 +20,9 @@ import {
   isSaturdayISO,
   isSundayISO,
 } from "@/lib/booking-window";
-import { supabase } from "../../../lib/supabase";
-import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../lib/slots";
-import { getDisplayName } from "../../../lib/display-name";
-import { PageHeaderCard } from "../../_components/PageHeaderCard";
-import { LoadingButton } from "../../_components/LoadingButton";
-import { ReservationOccupancy } from "../../_components/ReservationCard";
-import { TimeRangeDisplay } from "../../_components/time-range-display";
+import { getDisplayName } from "@/lib/display-name";
+import { SATURDAY_SLOTS, WEEKDAY_SLOTS } from "@/lib/slots";
+import { supabase } from "@/lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 

@@ -1,5 +1,3 @@
-"use client";
-
 type TimeRangeDisplayProps = {
   start: string;
   end: string;
