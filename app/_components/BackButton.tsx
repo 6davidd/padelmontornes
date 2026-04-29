@@ -57,22 +57,22 @@ export default function BackButton({
       title="Volver atrás"
       onClick={handleClick}
       className={classNames(
-        "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-transparent text-gray-700 outline-none transition hover:bg-black/[0.04] hover:text-gray-900 focus-visible:ring-2 focus-visible:ring-gray-300 active:scale-[0.98] active:bg-black/[0.06]",
+        "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-transparent text-gray-900 outline-none transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-gray-300 active:scale-[0.98] active:bg-gray-200/70",
         className
       )}
     >
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
-        className="h-5 w-5"
+        className="h-6 w-6"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="2.35"
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M15 18l-6-6 6-6" />
-        <path d="M9 12h10" />
+        <path d="M19 12H7" />
+        <path d="m12 17-5-5 5-5" />
       </svg>
     </button>
   );
