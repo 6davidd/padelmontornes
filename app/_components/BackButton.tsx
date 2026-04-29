@@ -67,12 +67,12 @@ export default function BackButton({
         className="h-6 w-6"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2.35"
+        strokeWidth="2.25"
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M19 12H7" />
-        <path d="m12 17-5-5 5-5" />
+        <path d="M19 12H5" />
+        <path d="m12 19-7-7 7-7" />
       </svg>
     </button>
   );
