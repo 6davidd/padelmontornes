@@ -100,7 +100,7 @@ export default function MisReservasPage() {
         setPlayers([]);
         setMembersMap(new Map());
         setCourtsMap(new Map());
-        setMsg("No hay sesion. Vuelve a iniciar sesion.");
+        setMsg("No hay sesión. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -425,13 +425,13 @@ export default function MisReservasPage() {
   async function leaveReservation(reservationId: string) {
     setMsg(null);
 
-    const ok = window.confirm("Quieres salir de esta reserva?");
+    const ok = window.confirm("¿Quieres salir de esta reserva?");
     if (!ok) return;
 
     const session = await getClientSession();
 
     if (!session?.access_token) {
-      setMsg("No hay sesion.");
+      setMsg("No hay sesión.");
       return;
     }
 
@@ -467,7 +467,7 @@ export default function MisReservasPage() {
     }
 
     if (!reservation.isOpen) {
-      setMsg("Esta partida ya esta completa.");
+      setMsg("Esta partida ya está completa.");
       return;
     }
 
@@ -494,19 +494,19 @@ export default function MisReservasPage() {
     );
 
     if (alreadyIn) {
-      setMsg("Ese socio ya esta apuntado en esta partida.");
+      setMsg("Ese socio ya está apuntado en esta partida.");
       return;
     }
 
     if (!reservation.isOpen) {
-      setMsg("Esta partida ya esta completa.");
+      setMsg("Esta partida ya está completa.");
       return;
     }
 
     const session = await getClientSession();
 
     if (!session?.access_token) {
-      setMsg("No hay sesion.");
+      setMsg("No hay sesión.");
       return;
     }
 
@@ -529,7 +529,7 @@ export default function MisReservasPage() {
       const data = await response.json().catch(() => null);
 
       if (!response.ok || !data?.ok) {
-        setMsg(String(data?.error ?? "No se ha podido completar la operacion."));
+        setMsg(String(data?.error ?? "No se ha podido completar la operación."));
         return;
       }
 
@@ -581,7 +581,7 @@ export default function MisReservasPage() {
             {slotSections.length === 0 ? (
               <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
                 <div className="text-sm font-semibold text-gray-700">
-                  No tienes reservas para este dia.
+                  No tienes reservas para este día.
                 </div>
               </div>
             ) : (
@@ -648,7 +648,7 @@ export default function MisReservasPage() {
 
       <MemberSearchDialog
         open={!!addReservationId}
-        title="Anadir socio"
+        title="Añadir socio"
         description={addReservationDescription}
         query={query}
         onQueryChange={setQuery}

@@ -124,9 +124,9 @@ export default async function HomePage() {
   let openMatchesCount = 0;
 
   if (!member) {
-    msg = "Tu usuario no estÃ¡ dado de alta en el club.";
+    msg = "Tu usuario no está dado de alta en el club.";
   } else if (!member.is_active) {
-    msg = "Tu usuario estÃ¡ desactivado. Contacta con el club.";
+    msg = "Tu usuario está desactivado. Contacta con el club.";
   } else {
     try {
       openMatchesCount = await getOpenMatchesCount(member.user_id);

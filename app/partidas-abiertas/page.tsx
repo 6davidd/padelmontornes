@@ -317,7 +317,7 @@ export default function PartidasAbiertasPage() {
 
     const session = await getClientSession();
     if (!session?.access_token) {
-      setMsg("No hay sesion. Vuelve a iniciar sesion.");
+      setMsg("No hay sesión. Vuelve a iniciar sesión.");
       return;
     }
 
@@ -337,7 +337,7 @@ export default function PartidasAbiertasPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setMsg(String(data?.error ?? "No se ha podido completar la operacion."));
+        setMsg(String(data?.error ?? "No se ha podido completar la operación."));
         return;
       }
 

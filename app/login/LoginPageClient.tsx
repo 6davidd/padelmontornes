@@ -50,7 +50,7 @@ export default function LoginPageClient() {
     setLoading(false);
 
     if (error) {
-      setMsg("Email o contraseÃ±a incorrectos.");
+      setMsg("Email o contraseña incorrectos.");
       return;
     }
 
@@ -70,7 +70,7 @@ export default function LoginPageClient() {
           <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
             <h1 className="text-2xl font-bold text-gray-900">Un momento...</h1>
             <p className="mt-2 text-sm text-gray-600">
-              Te estamos llevando a la pantalla para crear tu contraseÃ±a.
+              Te estamos llevando a la pantalla para crear tu contraseña.
             </p>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function LoginPageClient() {
             </div>
 
             <PasswordField
-              label="ContraseÃ±a"
+              label="Contraseña"
               value={password}
               onChange={setPassword}
               autoComplete="current-password"
@@ -130,10 +130,10 @@ export default function LoginPageClient() {
               className="text-sm font-semibold hover:underline"
               style={{ color: CLUB_GREEN }}
             >
-              Â¿Has olvidado tu contraseÃ±a?
+              ¿Has olvidado tu contraseña?
             </Link>
             <p className="mt-2 text-xs text-gray-500">
-              Si no recuerdas tu contraseÃ±a, desde aquÃ­ podrÃ¡s cambiarla.
+              Si no recuerdas tu contraseña, desde aquí podrás cambiarla.
             </p>
           </div>
         </div>

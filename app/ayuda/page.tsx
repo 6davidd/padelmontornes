@@ -52,7 +52,7 @@ const helpSections = [
     steps: [
       "Ver partidas con huecos libres",
       "Reservar pista",
-      "Ver mis proximas partidas",
+      "Ver mis próximas partidas",
       "Cambiar tu alias",
     ],
     image: {

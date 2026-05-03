@@ -196,24 +196,24 @@ export default function ResetPasswordPageClient() {
     setMsg(null);
 
     if (!password) {
-      setMsg("La nueva contraseÃ±a es obligatoria.");
+      setMsg("La nueva contraseña es obligatoria.");
       return;
     }
 
     if (!password2) {
-      setMsg("Repite la contraseÃ±a para continuar.");
+      setMsg("Repite la contraseña para continuar.");
       return;
     }
 
     if (password.length < AUTH_PASSWORD_MIN_LENGTH) {
       setMsg(
-        `La contraseÃ±a debe tener al menos ${AUTH_PASSWORD_MIN_LENGTH} caracteres.`
+        `La contraseña debe tener al menos ${AUTH_PASSWORD_MIN_LENGTH} caracteres.`
       );
       return;
     }
 
     if (password !== password2) {
-      setMsg("Las contraseÃ±as no coinciden.");
+      setMsg("Las contraseñas no coinciden.");
       return;
     }
 
@@ -245,10 +245,10 @@ export default function ResetPasswordPageClient() {
       <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
         <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
           <h1 className="text-2xl font-bold text-gray-900">
-            Crear contraseÃ±a
+            Crear contraseña
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Elige una contraseÃ±a fÃ¡cil de recordar. Cuando la guardes entrarÃ¡s
+            Elige una contraseña fácil de recordar. Cuando la guardes entrarás
             directamente en la app.
           </p>
 
@@ -262,13 +262,13 @@ export default function ResetPasswordPageClient() {
             <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
               <p className="text-sm text-gray-700">
                 Estamos comprobando tu enlace para abrir la pantalla de
-                contraseÃ±a.
+                contraseña.
               </p>
             </div>
           ) : ready ? (
             <form onSubmit={onSubmit} className="mt-5 space-y-5">
               <PasswordField
-                label="Nueva contraseÃ±a"
+                label="Nueva contraseña"
                 value={password}
                 onChange={setPassword}
                 autoComplete="new-password"
@@ -282,7 +282,7 @@ export default function ResetPasswordPageClient() {
               </p>
 
               <PasswordField
-                label="Repetir contraseÃ±a"
+                label="Repetir contraseña"
                 value={password2}
                 onChange={setPassword2}
                 autoComplete="new-password"
@@ -297,7 +297,7 @@ export default function ResetPasswordPageClient() {
                 className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
                 style={{ backgroundColor: CLUB_GREEN }}
               >
-                {loading ? "Guardando..." : "Guardar contraseÃ±a"}
+                {loading ? "Guardando..." : "Guardar contraseña"}
               </button>
             </form>
           ) : pendingLink ? (
@@ -305,7 +305,7 @@ export default function ResetPasswordPageClient() {
               <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                 <p className="text-sm text-gray-700">
                   Para evitar que el enlace se consuma antes de tiempo, primero
-                  te pedimos una confirmaciÃ³n manual.
+                  te pedimos una confirmación manual.
                 </p>
               </div>
 

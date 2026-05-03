@@ -27,7 +27,7 @@ export default function LogoutButton() {
       className="flex w-full items-center rounded-3xl border border-transparent px-5 py-4 text-white shadow-sm transition hover:brightness-[0.95] active:scale-[0.99]"
       style={{ backgroundColor: CLUB_GREEN }}
     >
-      <span className="text-base font-semibold sm:text-lg">Cerrar sesiÃ³n</span>
+      <span className="text-base font-semibold sm:text-lg">Cerrar sesión</span>
     </button>
   );
 }

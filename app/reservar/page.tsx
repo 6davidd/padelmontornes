@@ -416,7 +416,7 @@ export default function ReservarPage() {
 
       const block = blockByKey.get(`${slotStart}-${courtId}`);
       if (block) {
-        setMsg("Esta pista esta bloqueada en ese horario.");
+        setMsg("Esta pista está bloqueada en ese horario.");
         return;
       }
 
@@ -432,7 +432,7 @@ export default function ReservarPage() {
       ]);
 
       if (!member || !session?.access_token) {
-        setMsg("No hay sesion. Vuelve a iniciar sesion.");
+        setMsg("No hay sesión. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -494,7 +494,7 @@ export default function ReservarPage() {
 
     const session = await getClientSession();
     if (!session?.access_token) {
-      setMsg("No hay sesion. Vuelve a iniciar sesion.");
+      setMsg("No hay sesión. Vuelve a iniciar sesión.");
       return false;
     }
 
@@ -516,7 +516,7 @@ export default function ReservarPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setMsg(String(data?.error ?? "No se ha podido completar la operacion."));
+        setMsg(String(data?.error ?? "No se ha podido completar la operación."));
         ok = false;
         return;
       }

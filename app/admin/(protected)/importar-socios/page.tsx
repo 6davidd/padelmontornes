@@ -94,7 +94,7 @@ async function parseJsonResponse<T>(res: Response): Promise<T> {
   try {
     return rawText ? (JSON.parse(rawText) as T) : ({} as T);
   } catch {
-    throw new Error(rawText || "La respuesta del servidor no es valida.");
+    throw new Error(rawText || "La respuesta del servidor no es válida.");
   }
 }
 
@@ -120,7 +120,7 @@ export default function AdminImportarSociosPage() {
     const accessToken = session?.access_token;
 
     if (!accessToken) {
-      throw new Error("No hay sesion valida. Vuelve a iniciar sesion.");
+      throw new Error("No hay sesión válida. Vuelve a iniciar sesión.");
     }
 
     const formData = new FormData();
@@ -163,14 +163,14 @@ export default function AdminImportarSociosPage() {
       const { res, data } = await sendFile("preview");
 
       if (!res.ok || !data?.ok || data.mode !== "preview") {
-        throw new Error(data?.error || "No se ha podido generar la previsualizacion.");
+        throw new Error(data?.error || "No se ha podido generar la previsualización.");
       }
 
       setPreviewRows(data.rows ?? []);
       setPreviewSummary(data.summary ?? null);
       setResultRows([]);
       setResultSummary(null);
-      setOk("Previsualizacion generada correctamente.");
+      setOk("Previsualización generada correctamente.");
     } catch (error) {
       setMsg(error instanceof Error ? error.message : "Error inesperado.");
     } finally {
@@ -187,12 +187,12 @@ export default function AdminImportarSociosPage() {
       const { res, data } = await sendFile("import");
 
       if (!res.ok || !data?.ok || data.mode !== "import") {
-        throw new Error(data?.error || "No se ha podido completar la importacion.");
+        throw new Error(data?.error || "No se ha podido completar la importación.");
       }
 
       setResultRows(data.results ?? []);
       setResultSummary(data.summary ?? null);
-      setOk("Importacion completada.");
+      setOk("Importación completada.");
     } catch (error) {
       setMsg(error instanceof Error ? error.message : "Error inesperado.");
     } finally {
@@ -222,8 +222,8 @@ export default function AdminImportarSociosPage() {
               <div className="text-lg font-bold text-gray-900">Archivo CSV</div>
               <p className="mt-2 text-sm text-gray-600">
                 Encabezados obligatorios: <strong>Nombre completo</strong> y{" "}
-                <strong>Correo electronico</strong>. Si hay columnas extra, se
-                ignoraran.
+                <strong>Correo electrónico</strong>. Si hay columnas extra, se
+                ignorarán.
               </p>
 
               <label className="mt-4 block rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5">
@@ -247,7 +247,7 @@ export default function AdminImportarSociosPage() {
                     <strong className="text-gray-900">{file.name}</strong>
                   </span>
                 ) : (
-                  "Todavia no has seleccionado ningun CSV."
+                  "Todavía no has seleccionado ningún CSV."
                 )}
               </div>
 
@@ -268,7 +268,7 @@ export default function AdminImportarSociosPage() {
                   disabled={!file || !hasPreview || loadingPreview || importing}
                   className="rounded-2xl border border-gray-300 bg-white px-5 py-3 font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
                 >
-                  {importing ? "Importando..." : "Confirmar importacion"}
+                  {importing ? "Importando..." : "Confirmar importación"}
                 </button>
               </div>
             </div>
@@ -278,16 +278,16 @@ export default function AdminImportarSociosPage() {
                 Flujo de trabajo
               </div>
               <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700">
-                <li>Sube el CSV y genera la previsualizacion.</li>
+                <li>Sube el CSV y genera la previsualización.</li>
                 <li>Revisa nombres, correos, socios ya existentes y errores.</li>
-                <li>Confirma la importacion.</li>
+                <li>Confirma la importación.</li>
                 <li>
-                  El sistema procesara fila por fila reutilizando el mismo flujo
-                  de alta manual e invitacion por correo.
+                  El sistema procesará fila por fila reutilizando el mismo flujo
+                  de alta manual e invitación por correo.
                 </li>
               </ol>
               <p className="mt-4 text-sm text-gray-600">
-                Esta pantalla esta pensada para trabajo interno desde escritorio,
+                Esta pantalla está pensada para trabajo interno desde escritorio,
                 con tablas amplias y resumen detallado por fila.
               </p>
             </div>
@@ -318,7 +318,7 @@ export default function AdminImportarSociosPage() {
             <div className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm">
               <div className="border-b border-gray-200 px-6 py-4">
                 <div className="text-xl font-bold text-gray-900">
-                  Previsualizacion
+                  Previsualización
                 </div>
               </div>
 
