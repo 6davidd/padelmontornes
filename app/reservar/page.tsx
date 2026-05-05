@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { leaveReservationRequest } from "@/lib/client-reservation-actions";
+import { copyTextToClipboard } from "@/lib/client-clipboard";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
@@ -14,7 +16,9 @@ import {
   isSundayISO,
 } from "@/lib/booking-window";
 import { supabase } from "../../lib/supabase";
+import { buildReservationWhatsappMessage } from "../../lib/reservation-whatsapp-message";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
+import { buildWhatsAppUrl } from "../../lib/whatsapp";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
 import { LoadingButton } from "../_components/LoadingButton";
@@ -75,6 +79,26 @@ function getCreateReservationKey(date: string, slotStart: string, courtId: numbe
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
+}
+
+function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M19.1 4.9A9.8 9.8 0 0 0 3.7 16.7L3 21l4.4-1.1A9.8 9.8 0 0 0 21.8 12a9.7 9.7 0 0 0-2.7-7.1Z"
+        fill="currentColor"
+        opacity="0.18"
+      />
+      <path
+        d="M12 4.2a7.8 7.8 0 0 1 6.6 12L18.3 17l.1.9-.9-.1-.8.3A7.8 7.8 0 0 1 5.9 7.4 7.8 7.8 0 0 1 12 4.2Zm0-1.8a9.6 9.6 0 0 0-8.4 14.2L2.8 21.2l4.7-1.2A9.6 9.6 0 1 0 12 2.4Z"
+        fill="currentColor"
+      />
+      <path
+        d="M9.2 7.8c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.4-.2.3-.9.9-.9 2.1s.9 2.4 1 2.6c.1.2 1.8 2.9 4.5 3.9 2.2.9 2.7.7 3.2.6.5-.1 1.6-.7 1.8-1.3.2-.6.2-1.2.2-1.3-.1-.1-.2-.2-.5-.4l-1.6-.8c-.2-.1-.4-.1-.6.1-.2.3-.7.8-.8 1-.2.2-.3.2-.6.1-.3-.1-1.1-.4-2.1-1.3-.8-.7-1.3-1.5-1.5-1.8-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2.1-.4 0-.5l-.7-1.6Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
 }
 
 function Badge({
@@ -141,6 +165,12 @@ export default function ReservarPage() {
   const creatingReservationKeysRef = useRef(new Set<string>());
   const [joiningReservationIds, setJoiningReservationIds] = useState<string[]>([]);
   const joiningReservationIdsRef = useRef(new Set<string>());
+  const [leavingReservationIds, setLeavingReservationIds] = useState<string[]>([]);
+  const leavingReservationIdsRef = useRef(new Set<string>());
+  const [copiedWhatsappReservationId, setCopiedWhatsappReservationId] = useState<
+    string | null
+  >(null);
+  const copiedWhatsappTimeoutRef = useRef<number | null>(null);
 
   const [addSeat, setAddSeat] = useState<number | null>(null);
   const [addResId, setAddResId] = useState<string | null>(null);
@@ -319,6 +349,14 @@ export default function ReservarPage() {
       window.clearTimeout(timeout);
     };
   }, [q]);
+
+  useEffect(() => {
+    return () => {
+      if (copiedWhatsappTimeoutRef.current !== null) {
+        window.clearTimeout(copiedWhatsappTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const loadInitialData = useEffectEvent(async () => {
     setMsg(null);
@@ -565,6 +603,75 @@ export default function ReservarPage() {
     }
   }
 
+  async function leaveReservation(resId: string) {
+    if (leavingReservationIdsRef.current.has(resId)) {
+      return;
+    }
+
+    leavingReservationIdsRef.current.add(resId);
+    setLeavingReservationIds((prev) => [...prev, resId]);
+    setMsg(null);
+
+    try {
+      const ok = window.confirm("¿Quieres salir de esta reserva?");
+      if (!ok) return;
+
+      await restoreScrollAfter(async () => {
+        const result = await leaveReservationRequest(resId);
+
+        if (!result.ok) {
+          setMsg(result.error);
+          return;
+        }
+
+        const refreshedData = await refreshVisibleDaysData();
+        const reservationStillExists = refreshedData?.reservations.some(
+          (reservation) => reservation.id === resId
+        );
+
+        if (refreshedData && !reservationStillExists) {
+          setExpandedResId((prev) => (prev === resId ? null : prev));
+        }
+      });
+    } finally {
+      leavingReservationIdsRef.current.delete(resId);
+      setLeavingReservationIds((prev) =>
+        prev.filter((currentId) => currentId !== resId)
+      );
+    }
+  }
+
+  function showWhatsappCopied(resId: string) {
+    if (copiedWhatsappTimeoutRef.current !== null) {
+      window.clearTimeout(copiedWhatsappTimeoutRef.current);
+    }
+
+    setCopiedWhatsappReservationId(resId);
+    copiedWhatsappTimeoutRef.current = window.setTimeout(() => {
+      setCopiedWhatsappReservationId((currentId) =>
+        currentId === resId ? null : currentId
+      );
+      copiedWhatsappTimeoutRef.current = null;
+    }, 2000);
+  }
+
+  function copyReservationWhatsappMessage(resId: string, message: string) {
+    setMsg(null);
+
+    void copyTextToClipboard(message)
+      .then((copied) => {
+        if (!copied) {
+          setMsg("No se ha podido copiar el mensaje.");
+          return;
+        }
+
+        showWhatsappCopied(resId);
+      })
+      .catch(() => {
+        setMsg("No se ha podido copiar el mensaje.");
+      });
+  }
+
   async function openAddSocio(resId: string) {
     const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
     const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
@@ -738,6 +845,19 @@ export default function ReservarPage() {
                           !!currentUserId &&
                           reservationPlayers.some((p) => p.userId === currentUserId);
                         const full = filled >= 4;
+                        const whatsappMessage = res
+                          ? buildReservationWhatsappMessage({
+                              date: res.date,
+                              slotStart: res.slot_start,
+                              slotEnd: res.slot_end,
+                              players: reservationPlayers,
+                            })
+                          : "";
+                        const whatsappUrl = whatsappMessage
+                          ? buildWhatsAppUrl(whatsappMessage)
+                          : "#";
+                        const whatsappCopied =
+                          !!res && copiedWhatsappReservationId === res.id;
 
                         return (
                           <div
@@ -849,15 +969,47 @@ export default function ReservarPage() {
                                     </div>
                                   </div>
 
-                                  {!full && (
-                                    <div className="flex flex-wrap justify-end gap-2">
+                                  {(alreadyIn || !full) && (
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
                                       {alreadyIn ? (
-                                        <button
-                                          onClick={() => openAddSocio(res.id)}
-                                          className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
-                                        >
-                                          + Socio
-                                        </button>
+                                        <>
+                                          {!full && (
+                                            <button
+                                              onClick={() => openAddSocio(res.id)}
+                                              className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
+                                            >
+                                              + Socio
+                                            </button>
+                                          )}
+
+                                          <ReservationActionButton
+                                            tone="danger"
+                                            size="sm"
+                                            loading={leavingReservationIds.includes(res.id)}
+                                            onClick={() => leaveReservation(res.id)}
+                                          >
+                                            Salir
+                                          </ReservationActionButton>
+
+                                          <a
+                                            href={whatsappUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={() =>
+                                              copyReservationWhatsappMessage(
+                                                res.id,
+                                                whatsappMessage
+                                              )
+                                            }
+                                            className="inline-flex items-center justify-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3.5 py-2 text-sm font-semibold text-[#0f5e2e] shadow-sm transition hover:bg-green-100 active:scale-[0.99]"
+                                            aria-label="Compartir reserva por WhatsApp"
+                                          >
+                                            <WhatsAppIcon className="h-4 w-4" />
+                                            <span>
+                                              {whatsappCopied ? "Copiado" : "WhatsApp"}
+                                            </span>
+                                          </a>
+                                        </>
                                       ) : (
                                         <ReservationActionButton
                                           tone="primary"

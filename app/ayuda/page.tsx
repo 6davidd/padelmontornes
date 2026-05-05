@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { CLUB_NAME } from "@/lib/brand";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
 
 const CLUB_GREEN = "#0f5e2e";
-const DEVELOPER_WHATSAPP_URL =
-  "https://wa.me/34691653518?text=Hola%20David%2C%20necesito%20ayuda%20con%20la%20app%20de%20reservas.";
+const DEVELOPER_WHATSAPP_URL = buildWhatsAppUrl(
+  "Hola David, necesito ayuda con la app de reservas.",
+  "34691653518"
+);
 
 type ScreenshotAnnotation = {
   number: number;

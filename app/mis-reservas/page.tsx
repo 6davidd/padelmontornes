@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
+import { leaveReservationRequest } from "@/lib/client-reservation-actions";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts, type Court } from "@/lib/client-reference-data";
@@ -428,27 +429,11 @@ export default function MisReservasPage() {
     const ok = window.confirm("¿Quieres salir de esta reserva?");
     if (!ok) return;
 
-    const session = await getClientSession();
-
-    if (!session?.access_token) {
-      setMsg("No hay sesión.");
-      return;
-    }
-
     await restoreScrollAfter(async () => {
-      const response = await fetch("/api/reservations/leave", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ reservationId }),
-      });
+      const result = await leaveReservationRequest(reservationId);
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || !data?.ok) {
-        setMsg(String(data?.error ?? "No se ha podido salir de la reserva."));
+      if (!result.ok) {
+        setMsg(result.error);
         return;
       }
 
