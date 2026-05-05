@@ -7,6 +7,7 @@ import { leaveReservationRequest } from "@/lib/client-reservation-actions";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts, type Court } from "@/lib/client-reference-data";
+import { buildReservationWhatsappMessage } from "@/lib/reservation-whatsapp-message";
 import {
   getTodayClubISODate,
   getVisibleBookingDays,
@@ -15,6 +16,7 @@ import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
 import { MemberSearchDialog } from "../_components/MemberSearchDialog";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
+import { ReservationWhatsappButton } from "../_components/ReservationWhatsappButton";
 import {
   ReservationActionButton,
   ReservationCard,
@@ -584,44 +586,60 @@ export default function MisReservasPage() {
 
                   <div className="p-5">
                     <div className="grid grid-cols-1 gap-4">
-                      {section.reservations.map((reservation) => (
-                        <ReservationCard
-                          key={reservation.reservation_id}
-                          title={reservation.courtName}
-                          tone={reservation.isOpen ? "open" : "default"}
-                          occupancy={
-                            <ReservationOccupancy
-                              filled={reservation.playersCount}
-                              total={4}
-                              accentColor={CLUB_GREEN}
-                              label={`${reservation.playersCount}/4`}
-                            />
-                          }
-                          footerActions={
-                            <>
-                              {reservation.isOpen ? (
+                      {section.reservations.map((reservation) => {
+                        const whatsappMessage = buildReservationWhatsappMessage({
+                          date: reservation.date,
+                          slotStart: reservation.slot_start,
+                          slotEnd: reservation.slot_end,
+                          players: reservation.playersList,
+                        });
+
+                        return (
+                          <ReservationCard
+                            key={reservation.reservation_id}
+                            title={reservation.courtName}
+                            tone={reservation.isOpen ? "open" : "default"}
+                            occupancy={
+                              <ReservationOccupancy
+                                filled={reservation.playersCount}
+                                total={4}
+                                accentColor={CLUB_GREEN}
+                                label={`${reservation.playersCount}/4`}
+                              />
+                            }
+                            footerActions={
+                              <>
+                                {reservation.isOpen ? (
+                                  <ReservationActionButton
+                                    size="sm"
+                                    onClick={() =>
+                                      openAddSocio(reservation.reservation_id)
+                                    }
+                                  >
+                                    + Socio
+                                  </ReservationActionButton>
+                                ) : null}
                                 <ReservationActionButton
+                                  tone="danger"
                                   size="sm"
-                                  onClick={() => openAddSocio(reservation.reservation_id)}
+                                  onClick={() =>
+                                    leaveReservation(reservation.reservation_id)
+                                  }
                                 >
-                                  + Socio
+                                  Salir
                                 </ReservationActionButton>
-                              ) : null}
-                              <ReservationActionButton
-                                tone="danger"
-                                size="sm"
-                                onClick={() =>
-                                  leaveReservation(reservation.reservation_id)
-                                }
-                              >
-                                Salir
-                              </ReservationActionButton>
-                            </>
-                          }
-                        >
-                          <ReservationPlayersPanel players={reservation.playersList} />
-                        </ReservationCard>
-                      ))}
+                                <ReservationWhatsappButton
+                                  message={whatsappMessage}
+                                  onCopyStart={() => setMsg(null)}
+                                  onCopyError={setMsg}
+                                />
+                              </>
+                            }
+                          >
+                            <ReservationPlayersPanel players={reservation.playersList} />
+                          </ReservationCard>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
