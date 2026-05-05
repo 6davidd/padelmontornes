@@ -901,9 +901,15 @@ export default function ReservarPage() {
                                   </div>
 
                                   {(alreadyIn || !full) && (
-                                    <div className="flex flex-wrap items-center justify-end gap-2">
-                                      {alreadyIn ? (
-                                        <>
+                                    alreadyIn ? (
+                                      <div className="flex items-center justify-between gap-2">
+                                        <ReservationWhatsappButton
+                                          message={whatsappMessage}
+                                          onCopyStart={() => setMsg(null)}
+                                          onCopyError={setMsg}
+                                        />
+
+                                        <div className="flex flex-wrap items-center justify-end gap-2">
                                           {!full && (
                                             <button
                                               onClick={() => openAddSocio(res.id)}
@@ -921,14 +927,10 @@ export default function ReservarPage() {
                                           >
                                             Salir
                                           </ReservationActionButton>
-
-                                          <ReservationWhatsappButton
-                                            message={whatsappMessage}
-                                            onCopyStart={() => setMsg(null)}
-                                            onCopyError={setMsg}
-                                          />
-                                        </>
-                                      ) : (
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex justify-end">
                                         <ReservationActionButton
                                           tone="primary"
                                           size="sm"
@@ -937,8 +939,8 @@ export default function ReservarPage() {
                                         >
                                           Unirme
                                         </ReservationActionButton>
-                                      )}
-                                    </div>
+                                      </div>
+                                    )
                                   )}
                                 </div>
                               )}

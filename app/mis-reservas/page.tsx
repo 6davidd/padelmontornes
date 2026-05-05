@@ -608,32 +608,35 @@ export default function MisReservasPage() {
                               />
                             }
                             footerActions={
-                              <>
-                                {reservation.isOpen ? (
-                                  <ReservationActionButton
-                                    size="sm"
-                                    onClick={() =>
-                                      openAddSocio(reservation.reservation_id)
-                                    }
-                                  >
-                                    + Socio
-                                  </ReservationActionButton>
-                                ) : null}
-                                <ReservationActionButton
-                                  tone="danger"
-                                  size="sm"
-                                  onClick={() =>
-                                    leaveReservation(reservation.reservation_id)
-                                  }
-                                >
-                                  Salir
-                                </ReservationActionButton>
+                              <div className="flex w-full items-center justify-between gap-2">
                                 <ReservationWhatsappButton
                                   message={whatsappMessage}
                                   onCopyStart={() => setMsg(null)}
                                   onCopyError={setMsg}
                                 />
-                              </>
+
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  {reservation.isOpen ? (
+                                    <ReservationActionButton
+                                      size="sm"
+                                      onClick={() =>
+                                        openAddSocio(reservation.reservation_id)
+                                      }
+                                    >
+                                      + Socio
+                                    </ReservationActionButton>
+                                  ) : null}
+                                  <ReservationActionButton
+                                    tone="danger"
+                                    size="sm"
+                                    onClick={() =>
+                                      leaveReservation(reservation.reservation_id)
+                                    }
+                                  >
+                                    Salir
+                                  </ReservationActionButton>
+                                </div>
+                              </div>
                             }
                           >
                             <ReservationPlayersPanel players={reservation.playersList} />
