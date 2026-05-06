@@ -27,6 +27,12 @@ type CreateMemberResponse = {
   userId?: string;
 };
 
+type UpdateMemberResponse = {
+  ok?: boolean;
+  error?: string;
+  member?: MemberRow;
+};
+
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -203,6 +209,48 @@ export default function AdminSociosPage() {
     setEditingAlias("");
   }
 
+  async function updateMember(
+    memberUserId: string,
+    payload: { alias?: string | null; isActive?: boolean }
+  ) {
+    const session = await getClientSession();
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      throw new Error("No hay sesión válida. Vuelve a iniciar sesión.");
+    }
+
+    const res = await fetch(
+      `/api/admin/members/${encodeURIComponent(memberUserId)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = (await res
+      .json()
+      .catch(() => null)) as UpdateMemberResponse | null;
+
+    if (!res.ok || !data?.ok || !data.member) {
+      throw new Error(data?.error ?? "No se ha podido guardar el socio.");
+    }
+
+    return data.member;
+  }
+
+  function replaceMember(updatedMember: MemberRow) {
+    setMembers((prev) =>
+      prev.map((member) =>
+        member.user_id === updatedMember.user_id ? updatedMember : member
+      )
+    );
+  }
+
   async function saveAlias(member: MemberRow) {
     setMsg(null);
     setOk(null);
@@ -210,31 +258,20 @@ export default function AdminSociosPage() {
 
     const cleanAlias = editingAlias.trim();
 
-    const update = await supabase
-      .from("members")
-      .update({
+    try {
+      const updatedMember = await updateMember(member.user_id, {
         alias: cleanAlias === "" ? null : cleanAlias,
-      })
-      .eq("user_id", member.user_id);
+      });
 
-    if (update.error) {
-      setMsg(update.error.message);
+      replaceMember(updatedMember);
+      setEditingId(null);
+      setEditingAlias("");
+      setOk("Alias guardado correctamente.");
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Error inesperado.");
+    } finally {
       setSavingId(null);
-      return;
     }
-
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.user_id === member.user_id
-          ? { ...m, alias: cleanAlias === "" ? null : cleanAlias }
-          : m
-      )
-    );
-
-    setEditingId(null);
-    setEditingAlias("");
-    setSavingId(null);
-    setOk("Alias guardado correctamente.");
   }
 
   async function toggleActive(member: MemberRow) {
@@ -242,31 +279,24 @@ export default function AdminSociosPage() {
     setOk(null);
     setSavingId(member.user_id);
 
-    const update = await supabase
-      .from("members")
-      .update({ is_active: !member.is_active })
-      .eq("user_id", member.user_id);
+    const nextIsActive = !member.is_active;
 
-    if (update.error) {
-      setMsg(update.error.message);
+    try {
+      const updatedMember = await updateMember(member.user_id, {
+        isActive: nextIsActive,
+      });
+
+      replaceMember(updatedMember);
+      setOk(
+        nextIsActive
+          ? "Socio activado correctamente."
+          : "Socio desactivado correctamente."
+      );
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Error inesperado.");
+    } finally {
       setSavingId(null);
-      return;
     }
-
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.user_id === member.user_id
-          ? { ...m, is_active: !member.is_active }
-          : m
-      )
-    );
-
-    setSavingId(null);
-    setOk(
-      member.is_active
-        ? "Socio desactivado correctamente."
-        : "Socio activado correctamente."
-    );
   }
 
   function toggleCreateForm() {
