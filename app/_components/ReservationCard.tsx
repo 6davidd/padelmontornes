@@ -5,6 +5,8 @@ function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+const FULL_OCCUPANCY_COLOR = "#b91c1c";
+
 type ReservationCardTone = "default" | "open" | "available" | "blocked";
 
 type ReservationCardProps = {
@@ -131,6 +133,9 @@ export function ReservationOccupancy({
   label?: string;
   accentColor?: string;
 }) {
+  const isFull = filled >= 4;
+  const filledBarColor = isFull ? FULL_OCCUPANCY_COLOR : accentColor;
+
   return (
     <div className="flex flex-nowrap items-center gap-3">
       <div className="flex shrink-0 items-center gap-1.5">
@@ -143,10 +148,10 @@ export function ReservationOccupancy({
               aria-hidden="true"
               className="h-2.5 w-7 rounded-full border border-gray-200 bg-white"
               style={
-                isFilled
+                isFilled && filledBarColor
                   ? {
-                      backgroundColor: accentColor,
-                      borderColor: accentColor,
+                      backgroundColor: filledBarColor,
+                      borderColor: filledBarColor,
                     }
                   : undefined
               }

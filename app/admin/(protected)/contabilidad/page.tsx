@@ -129,8 +129,15 @@ export default function AdminContabilidadPage() {
       return;
     }
 
-    setMembers((membersRes.data ?? []) as MemberRow[]);
-    setPayments((paymentsRes.data ?? []) as MonthlyPaymentRow[]);
+    const activeMembers = (membersRes.data ?? []) as MemberRow[];
+    const activeMemberIds = new Set(
+      activeMembers.map((member) => member.user_id)
+    );
+    const activeMemberPayments = ((paymentsRes.data ?? []) as MonthlyPaymentRow[])
+      .filter((payment) => activeMemberIds.has(payment.member_user_id));
+
+    setMembers(activeMembers);
+    setPayments(activeMemberPayments);
     setLoading(false);
   }
 

@@ -5,11 +5,16 @@ import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
 import { LoadingButton } from "@/app/_components/LoadingButton";
 import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
-import { ReservationOccupancy } from "@/app/_components/ReservationCard";
+import {
+  ReservationActionButton,
+  ReservationCard,
+  ReservationOccupancy,
+  ReservationPlayersPanel,
+  ReservationStatusBadge,
+} from "@/app/_components/ReservationCard";
 import { TimeRangeDisplay } from "@/app/_components/time-range-display";
 import {
   canCreateAdminMatchOnDate,
-  formatDateLong,
   getTodayClubISODate,
   getVisibleBookingDays,
   isSaturdayISO,
@@ -75,6 +80,28 @@ type SelectedMatch = {
 function capitalizeFirst(text: string) {
   if (!text) return text;
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function formatDateShort(dateISO: string) {
+  const date = new Date(`${dateISO}T12:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateISO;
+  }
+
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "short",
+  })
+    .format(date)
+    .replace(".", "");
+  const day = new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+  }).format(date);
+  const month = new Intl.DateTimeFormat("es-ES", {
+    month: "2-digit",
+  }).format(date);
+
+  return `${capitalizeFirst(weekday)} ${day}/${month}`;
 }
 
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
@@ -543,10 +570,6 @@ export default function AdminCrearPartidasPage() {
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <PageHeaderCard title="Crear partidas" contentClassName="space-y-3">
-          <p className="text-sm font-medium text-gray-600">
-            {capitalizeFirst(formatDateLong(date))}
-          </p>
-
           <label className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-3.5 py-3 text-sm shadow-sm">
             <span className="font-semibold text-gray-800">Día</span>
             <input
@@ -634,81 +657,40 @@ export default function AdminCrearPartidasPage() {
                       const filled = occupiedPlayers.length;
                       const full = filled >= 4;
                       const available = !blocked && !reservation;
-                      const cardClassName = classNames(
-                        "w-full rounded-2xl border p-4 text-left shadow-sm transition",
-                        blocked || full
-                          ? "border-red-200 bg-red-50"
-                          : available
-                            ? "border-green-200 bg-green-50/80 hover:border-green-300 hover:bg-green-50 active:scale-[0.99]"
-                            : "border-gray-200 bg-white"
+                      const tone = blocked || full
+                        ? "blocked"
+                        : available
+                          ? "available"
+                          : "open";
+                      const status = blocked ? (
+                        <ReservationStatusBadge tone="red">
+                          Bloqueada
+                        </ReservationStatusBadge>
+                      ) : available ? (
+                        <ReservationStatusBadge tone="green">
+                          Libre
+                        </ReservationStatusBadge>
+                      ) : full ? (
+                        <ReservationStatusBadge tone="red">
+                          Cerrada
+                        </ReservationStatusBadge>
+                      ) : (
+                        <ReservationStatusBadge tone="green">
+                          Abierta
+                        </ReservationStatusBadge>
                       );
-                      const statusDotClassName = classNames(
-                        "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
-                        blocked || full
-                          ? "bg-red-500"
-                          : available || filled > 0
-                            ? "bg-[#0f5e2e]"
-                            : "bg-gray-300"
-                      );
-                      const cardContent = (
-                        <>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start gap-2.5">
-                                <span className={statusDotClassName} aria-hidden="true" />
-                                <div className="min-w-0">
-                                  <div className="text-base font-bold text-gray-900">
-                                    {court.name}
-                                  </div>
-
-                                  {blocked ? (
-                                    <div className="mt-1 text-sm font-medium text-red-700">
-                                      {block?.reason || "Bloqueado"}
-                                    </div>
-                                  ) : available ? (
-                                    <div className="mt-1 text-sm font-semibold text-green-800">
-                                      Crear partida
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-
-                            <ReservationOccupancy
-                              filled={filled}
-                              total={4}
-                              accentColor={blocked || full ? "#b91c1c" : CLUB_GREEN}
-                              label={`${filled}/4`}
-                            />
-                          </div>
-
-                          {reservation && !blocked ? (
-                            <div className="mt-3 border-t border-gray-200 pt-3">
-                              {occupiedPlayers.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                  {occupiedPlayers.map((player) => (
-                                    <span
-                                      key={`${reservation.id}-${player.seat}-${player.userId}`}
-                                      className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-800"
-                                    >
-                                      {player.name}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="text-sm text-gray-600">
-                                  Partida ya creada.
-                                </div>
-                              )}
-                            </div>
-                          ) : null}
-                        </>
-                      );
-
-                      return available ? (
-                        <button
-                          key={court.id}
-                          type="button"
+                      const occupancy = !blocked ? (
+                        <ReservationOccupancy
+                          filled={filled}
+                          total={4}
+                          accentColor={full ? "#b91c1c" : CLUB_GREEN}
+                          label={`${filled}/4`}
+                        />
+                      ) : undefined;
+                      const topActions = available ? (
+                        <ReservationActionButton
+                          tone="primary"
+                          size="sm"
                           onClick={() =>
                             openCreateModal({
                               date,
@@ -718,15 +700,32 @@ export default function AdminCrearPartidasPage() {
                               courtName: court.name,
                             })
                           }
-                          className={cardClassName}
-                          aria-label={`Crear partida en ${court.name} de ${slot.start} a ${slot.end}`}
                         >
-                          {cardContent}
-                        </button>
-                      ) : (
-                        <div key={court.id} className={cardClassName}>
-                          {cardContent}
-                        </div>
+                          Crear
+                        </ReservationActionButton>
+                      ) : undefined;
+
+                      return (
+                        <ReservationCard
+                          key={court.id}
+                          title={court.name}
+                          tone={tone}
+                          status={status}
+                          occupancy={occupancy}
+                          topActions={topActions}
+                          stackHeaderOnMobile={false}
+                        >
+                          {blocked ? (
+                            <div className="rounded-2xl border border-red-200 bg-red-100 px-3 py-2 text-sm font-medium text-red-700">
+                              {block?.reason || "Bloqueado"}
+                            </div>
+                          ) : reservation ? (
+                            <ReservationPlayersPanel
+                              players={occupiedPlayers}
+                              emptyLabel="Partida ya creada."
+                            />
+                          ) : null}
+                        </ReservationCard>
                       );
                     })}
                   </div>
@@ -760,8 +759,8 @@ export default function AdminCrearPartidasPage() {
                 <div className="text-[11px] font-semibold uppercase text-gray-500">
                   Día
                 </div>
-                <div className="mt-1 truncate text-sm font-bold capitalize text-gray-900">
-                  {capitalizeFirst(formatDateLong(selectedMatch.date))}
+                <div className="mt-1 truncate text-sm font-bold text-gray-900">
+                  {formatDateShort(selectedMatch.date)}
                 </div>
               </div>
 
@@ -847,11 +846,7 @@ export default function AdminCrearPartidasPage() {
                 className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
               />
 
-              {!canSearchMembers ? (
-                <div className="px-1 text-xs text-gray-500">
-                  Escribe al menos 2 letras.
-                </div>
-              ) : filteredMembers.length === 0 ? (
+              {!canSearchMembers ? null : filteredMembers.length === 0 ? (
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 text-sm text-gray-700">
                   Sin resultados disponibles.
                 </div>
