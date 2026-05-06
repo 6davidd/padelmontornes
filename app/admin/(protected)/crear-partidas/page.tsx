@@ -216,6 +216,9 @@ export default function AdminCrearPartidasPage() {
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [expandedReservationId, setExpandedReservationId] = useState<string | null>(
+    null
+  );
 
   const visibleDays = useMemo(() => getVisibleBookingDays(), []);
   const fetchDates = useMemo(() => Array.from(new Set([...visibleDays, date])), [visibleDays, date]);
@@ -656,6 +659,8 @@ export default function AdminCrearPartidasPage() {
                         : [];
                       const filled = occupiedPlayers.length;
                       const full = filled >= 4;
+                      const expanded =
+                        !!reservation && expandedReservationId === reservation.id;
                       const available = !blocked && !reservation;
                       const tone = blocked || full
                         ? "blocked"
@@ -703,6 +708,18 @@ export default function AdminCrearPartidasPage() {
                         >
                           Crear
                         </ReservationActionButton>
+                      ) : reservation && !blocked ? (
+                        <ReservationActionButton
+                          tone="primary"
+                          size="sm"
+                          onClick={() =>
+                            setExpandedReservationId((previousId) =>
+                              previousId === reservation.id ? null : reservation.id
+                            )
+                          }
+                        >
+                          {expanded ? "Ocultar" : "Ver"}
+                        </ReservationActionButton>
                       ) : undefined;
 
                       return (
@@ -719,7 +736,7 @@ export default function AdminCrearPartidasPage() {
                             <div className="rounded-2xl border border-red-200 bg-red-100 px-3 py-2 text-sm font-medium text-red-700">
                               {block?.reason || "Bloqueado"}
                             </div>
-                          ) : reservation ? (
+                          ) : reservation && expanded ? (
                             <ReservationPlayersPanel
                               players={occupiedPlayers}
                               emptyLabel="Partida ya creada."
