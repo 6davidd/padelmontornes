@@ -10,19 +10,9 @@ function classNames(...xs: Array<string | false | null | undefined>) {
 
 function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
       <path
-        d="M19.1 4.9A9.8 9.8 0 0 0 3.7 16.7L3 21l4.4-1.1A9.8 9.8 0 0 0 21.8 12a9.7 9.7 0 0 0-2.7-7.1Z"
-        fill="currentColor"
-        opacity="0.18"
-      />
-      <path
-        d="M12 4.2a7.8 7.8 0 0 1 6.6 12L18.3 17l.1.9-.9-.1-.8.3A7.8 7.8 0 0 1 5.9 7.4 7.8 7.8 0 0 1 12 4.2Zm0-1.8a9.6 9.6 0 0 0-8.4 14.2L2.8 21.2l4.7-1.2A9.6 9.6 0 1 0 12 2.4Z"
-        fill="currentColor"
-      />
-      <path
-        d="M9.2 7.8c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.4-.2.3-.9.9-.9 2.1s.9 2.4 1 2.6c.1.2 1.8 2.9 4.5 3.9 2.2.9 2.7.7 3.2.6.5-.1 1.6-.7 1.8-1.3.2-.6.2-1.2.2-1.3-.1-.1-.2-.2-.5-.4l-1.6-.8c-.2-.1-.4-.1-.6.1-.2.3-.7.8-.8 1-.2.2-.3.2-.6.1-.3-.1-1.1-.4-2.1-1.3-.8-.7-1.3-1.5-1.5-1.8-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2.1-.4 0-.5l-.7-1.6Z"
-        fill="currentColor"
+        d="M13.6 2.3A7.85 7.85 0 0 0 8 0C3.6 0 .1 3.6.1 7.9c0 1.4.4 2.8 1.1 4L0 16l4.2-1.1A7.9 7.9 0 0 0 8 15.9h.004c4.4 0 7.9-3.6 7.9-7.9a7.9 7.9 0 0 0-2.3-5.7ZM8 14.5a6.6 6.6 0 0 1-3.4-.9l-.2-.1-2.5.7.7-2.4-.2-.3a6.6 6.6 0 0 1-1-3.5c0-3.6 3-6.6 6.6-6.6a6.6 6.6 0 0 1 6.6 6.6c0 3.6-3 6.5-6.6 6.5Zm3.6-4.9c-.2-.1-1.2-.6-1.4-.6-.2-.1-.3-.1-.4.1-.1.2-.5.6-.6.8-.1.1-.2.1-.4.05-.2-.1-.8-.3-1.6-1-.6-.5-1-1.2-1.1-1.4-.1-.2 0-.3.1-.4l.3-.3c.1-.1.1-.2.2-.3.1-.1.05-.2 0-.3L6.1 4.8c-.2-.4-.3-.3-.4-.3h-.4c-.1 0-.4.05-.5.2-.2.2-.7.7-.7 1.7s.7 1.9.8 2c.1.1 1.4 2.1 3.4 3 .5.2.8.3 1.1.4.5.2.9.1 1.2.1.4-.1 1.2-.5 1.3-.9.2-.5.2-.9.1-.9 0-.2-.2-.3-.4-.4Z"
       />
     </svg>
   );
@@ -88,10 +78,10 @@ export function ReservationWhatsappButton({
       rel="noopener noreferrer"
       onClick={handleClick}
       className={classNames(
-        "inline-flex h-9 w-9 items-center justify-center rounded-full border text-[#0f5e2e] shadow-sm transition active:scale-[0.99]",
+        "inline-flex h-9 w-9 items-center justify-center rounded-full border text-[#128c7e] shadow-sm transition active:scale-[0.99]",
         copied
-          ? "border-green-300 bg-green-100"
-          : "border-green-200 bg-green-50 hover:bg-green-100",
+          ? "border-green-300 bg-green-50"
+          : "border-gray-200 bg-white hover:border-green-200 hover:bg-green-50",
         className
       )}
       aria-label={
