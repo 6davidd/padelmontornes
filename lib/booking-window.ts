@@ -1,5 +1,3 @@
-import { isSuperadminRole, type MemberRole } from "./auth-shared";
-
 export const CLUB_TIME_ZONE = "Europe/Madrid";
 export const MAX_BOOKING_ADVANCE_DAYS = 3;
 export const VISIBLE_BOOKING_DAYS = MAX_BOOKING_ADVANCE_DAYS + 1;
@@ -83,18 +81,9 @@ export function isDateWithinGeneralBookingWindow(
 
 export function canCreateAdminMatchOnDate(
   dateISO: string,
-  role: MemberRole | null | undefined,
   baseISO = getTodayClubISODate()
 ) {
-  if (!isISODate(dateISO) || dateISO < baseISO) {
-    return false;
-  }
-
-  if (isSuperadminRole(role)) {
-    return true;
-  }
-
-  return isDateWithinGeneralBookingWindow(dateISO, baseISO);
+  return isISODate(dateISO) && dateISO >= baseISO;
 }
 
 export function isSundayISO(dateISO: string) {

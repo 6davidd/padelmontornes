@@ -4,7 +4,6 @@ import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../../lib/slots";
 import { getDisplayName } from "../../../../lib/display-name";
 import {
   canCreateAdminMatchOnDate,
-  getAdvanceLimitMessage,
   isSaturdayISO,
   isSundayISO,
 } from "../../../../lib/booking-window";
@@ -169,11 +168,11 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!canCreateAdminMatchOnDate(date, auth.member.role)) {
+    if (!canCreateAdminMatchOnDate(date)) {
       return NextResponse.json(
         {
           ok: false,
-          error: getAdvanceLimitMessage("crear"),
+          error: "No se puede crear una partida en una fecha pasada.",
         },
         { status: 400 }
       );
