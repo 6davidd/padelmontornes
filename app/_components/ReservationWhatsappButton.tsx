@@ -78,10 +78,10 @@ export function ReservationWhatsappButton({
       rel="noopener noreferrer"
       onClick={handleClick}
       className={classNames(
-        "inline-flex h-9 w-9 items-center justify-center rounded-full border text-[#128c7e] shadow-sm transition active:scale-[0.99]",
+        "inline-flex h-9 w-9 items-center justify-center rounded-full border text-[#0f5e2e] shadow-sm transition active:scale-[0.99]",
         copied
-          ? "border-green-300 bg-green-50"
-          : "border-gray-200 bg-white hover:border-green-200 hover:bg-green-50",
+          ? "border-green-300 bg-green-100"
+          : "border-green-200 bg-green-50 hover:bg-green-100",
         className
       )}
       aria-label={
@@ -91,7 +91,7 @@ export function ReservationWhatsappButton({
       }
       title={copied ? "Mensaje copiado" : "WhatsApp"}
     >
-      <WhatsAppIcon className="h-5 w-5" />
+      <WhatsAppIcon className="h-5 w-5 translate-x-px" />
     </a>
   );
 }
