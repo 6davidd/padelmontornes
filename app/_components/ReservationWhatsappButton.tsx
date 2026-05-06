@@ -93,7 +93,7 @@ export function ReservationWhatsappButton({
     >
       <WhatsAppIcon
         className="h-[18px] w-[18px]"
-        style={{ transform: "translate(1.25px, -0.5px)" }}
+        style={{ transform: "translate(0.5px, -0.5px)" }}
       />
     </a>
   );
