@@ -91,7 +91,10 @@ export function ReservationWhatsappButton({
       }
       title={copied ? "Mensaje copiado" : "WhatsApp"}
     >
-      <WhatsAppIcon className="h-5 w-5 translate-x-px" />
+      <WhatsAppIcon
+        className="h-[18px] w-[18px]"
+        style={{ transform: "translate(1.25px, -0.5px)" }}
+      />
     </a>
   );
 }
