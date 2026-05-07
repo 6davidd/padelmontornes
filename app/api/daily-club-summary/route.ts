@@ -1,7 +1,8 @@
-import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 import { CLUB_NAME } from "@/lib/brand";
 import { getDisplayName, getNameWithFirstSurname } from "@/lib/display-name";
+import { getAppUrl, getDailySummaryRecipients } from "@/lib/server-email-config";
+import { getResendClient } from "@/lib/server-resend";
 import {
   emailShell,
   escapeHtml,
@@ -9,8 +10,6 @@ import {
   formatEmailSubjectSchedule,
   matchInfoRow,
 } from "@/lib/email-templates";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -102,13 +101,6 @@ function toHM(t: string) {
 
 function getMemberDisplayName(member: Pick<MemberRow, "alias" | "full_name">) {
   return getDisplayName(member);
-}
-
-function parseEmailList(value: string | undefined) {
-  return (value ?? "")
-    .split(",")
-    .map((email) => email.trim())
-    .filter(Boolean);
 }
 
 function capitalize(s: string) {
@@ -210,7 +202,7 @@ function buildEmailHtml(params: {
   const extraHtml = `
     <div style="margin-top: 20px;">
       <a href="${esc(openUrl)}" style="display: inline-block; background: #0f5e2e; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 999px; font-weight: 700; font-size: 14px;">
-        Abrir para copiar
+        Copiar y abrir WhatsApp
       </a>
     </div>
 
@@ -231,7 +223,8 @@ ${esc(messageText)}
     badge: `${openCount} abiertas · ${closedCount} cerradas`,
     matchDetailsHtml: detailsHtml,
     extraHtml,
-    footer: "Puedes copiar el mensaje y enviarlo por WhatsApp. 🎾",
+    footer:
+      "El botón abre una página segura para copiar el mensaje y lanzar WhatsApp. 🎾",
     clubName: CLUB_NAME,
   });
 }
@@ -280,6 +273,11 @@ async function sendClosedMatchReminders(params: {
   closedMatches: ClosedMatch[];
 }) {
   const { targetDate, closedMatches } = params;
+  const resend = getResendClient();
+
+  if (!resend || !process.env.EMAIL_FROM) {
+    throw new Error("Falta configurar RESEND_API_KEY o EMAIL_FROM.");
+  }
 
   let remindersSent = 0;
   let remindersSkipped = 0;
@@ -528,16 +526,16 @@ async function runDailySummary() {
     );
   }
 
-  const appUrl =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000";
+  const openUrl = `${getAppUrl()}/admin/whatsapp-summary/${token}`;
 
-  const openUrl = `${appUrl}/admin/whatsapp-summary/${token}`;
-
-  const to = parseEmailList(process.env.DAILY_SUMMARY_TO);
+  const to = getDailySummaryRecipients();
   if (to.length === 0) {
     throw new Error("Falta configurar DAILY_SUMMARY_TO");
+  }
+
+  const resend = getResendClient();
+  if (!resend || !process.env.EMAIL_FROM) {
+    throw new Error("Falta configurar RESEND_API_KEY o EMAIL_FROM.");
   }
 
   const subject = `Resumen de partidas · ${formatEmailSubjectDate(targetDate)}`;

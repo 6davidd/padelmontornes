@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { copyTextToClipboard } from "@/lib/client-clipboard";
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import type { SVGProps } from "react";
+import { WhatsAppShareButton } from "@/app/_components/WhatsAppShareButton";
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
-function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
+function WhatsAppIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
       <path
@@ -31,70 +30,22 @@ export function ReservationWhatsappButton({
   onCopyError,
   className,
 }: ReservationWhatsappButtonProps) {
-  const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  function showCopied() {
-    if (timeoutRef.current !== null) {
-      window.clearTimeout(timeoutRef.current);
-    }
-
-    setCopied(true);
-    timeoutRef.current = window.setTimeout(() => {
-      setCopied(false);
-      timeoutRef.current = null;
-    }, 2000);
-  }
-
-  function handleClick() {
-    onCopyStart?.();
-
-    void copyTextToClipboard(message)
-      .then((ok) => {
-        if (!ok) {
-          onCopyError?.("No se ha podido copiar el mensaje.");
-          return;
-        }
-
-        showCopied();
-      })
-      .catch(() => {
-        onCopyError?.("No se ha podido copiar el mensaje.");
-      });
-  }
-
   return (
-    <a
-      href={buildWhatsAppUrl(message)}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={handleClick}
+    <WhatsAppShareButton
+      message={message}
+      onCopyStart={onCopyStart}
+      onCopyError={onCopyError}
       className={classNames(
         "inline-flex h-9 w-9 items-center justify-center rounded-full border text-[#0f5e2e] shadow-sm transition active:scale-[0.99]",
-        copied
-          ? "border-green-300 bg-green-100"
-          : "border-green-200 bg-green-50 hover:bg-green-100",
+        "border-green-200 bg-green-50 hover:bg-green-100",
         className
       )}
-      aria-label={
-        copied
-          ? "Mensaje copiado. Abrir WhatsApp"
-          : "Copiar mensaje y abrir WhatsApp"
-      }
-      title={copied ? "Mensaje copiado" : "WhatsApp"}
+      copiedClassName="border-green-300 bg-green-100"
     >
       <WhatsAppIcon
         className="h-[18px] w-[18px]"
         style={{ transform: "translate(0.5px, -0.5px)" }}
       />
-    </a>
+    </WhatsAppShareButton>
   );
 }

@@ -9,6 +9,7 @@ import { isAdminRole } from "../../../../lib/auth-shared";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 import { getDisplayName } from "../../../../lib/display-name";
 import { sendBookingEmail } from "../../../../lib/server-booking-email";
+import { maybeSendAllCourtsFullAlert } from "../../../../lib/server-all-courts-full-alert";
 
 type Body = {
   reservationId?: string;
@@ -328,6 +329,11 @@ export async function POST(req: Request) {
         }
 
         await Promise.allSettled(emailTasks);
+        await maybeSendAllCourtsFullAlert({
+          date: reservation.date,
+          slotStart: reservation.slot_start,
+          slotEnd: reservation.slot_end,
+        });
       } catch (error) {
         console.error("Error enviando emails al unirse a la partida:", error);
       }

@@ -10,6 +10,7 @@ import {
 import { isAdminRole } from "../../../../lib/auth-shared";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 import { sendBookingEmail } from "../../../../lib/server-booking-email";
+import { maybeSendAllCourtsFullAlert } from "../../../../lib/server-all-courts-full-alert";
 
 type Body = {
   date?: string;
@@ -390,40 +391,52 @@ export async function POST(req: Request) {
     const playerNames = orderedMembers.map((member) => getDisplayName(member));
 
     after(async () => {
-      const emailTasks = orderedMembers
-        .filter((member) => !!member.email)
-        .flatMap((member) => {
-          const baseTask = sendAdminOpenedMatchEmail({
-            to: member.email ?? "",
-            fullName: getDisplayName(member),
-            openedByName: adminDisplayName,
-            date,
-            slotStart: toHM(slotStart),
-            slotEnd: toHM(slotEnd),
-            courtName: court.name,
-            players: playerNames,
-          });
-
-          if (orderedMembers.length < 4) {
-            return [baseTask];
-          }
-
-          return [
-            baseTask,
-            sendMatchCompletedEmail({
+      try {
+        const emailTasks = orderedMembers
+          .filter((member) => !!member.email)
+          .flatMap((member) => {
+            const baseTask = sendAdminOpenedMatchEmail({
               to: member.email ?? "",
               fullName: getDisplayName(member),
+              openedByName: adminDisplayName,
               date,
               slotStart: toHM(slotStart),
               slotEnd: toHM(slotEnd),
               courtName: court.name,
-              playersCount: 4,
               players: playerNames,
-            }),
-          ];
-        });
+            });
 
-      await Promise.allSettled(emailTasks);
+            if (orderedMembers.length < 4) {
+              return [baseTask];
+            }
+
+            return [
+              baseTask,
+              sendMatchCompletedEmail({
+                to: member.email ?? "",
+                fullName: getDisplayName(member),
+                date,
+                slotStart: toHM(slotStart),
+                slotEnd: toHM(slotEnd),
+                courtName: court.name,
+                playersCount: 4,
+                players: playerNames,
+              }),
+            ];
+          });
+
+        await Promise.allSettled(emailTasks);
+        await maybeSendAllCourtsFullAlert({
+          date,
+          slotStart,
+          slotEnd,
+        });
+      } catch (error) {
+        console.error(
+          "Error enviando emails de partida creada por admin:",
+          error
+        );
+      }
     });
 
     return NextResponse.json({
