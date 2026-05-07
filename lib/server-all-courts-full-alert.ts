@@ -173,17 +173,12 @@ async function markAlertFailed(alertId: string, error: unknown) {
   }
 }
 
-export async function maybeSendAllCourtsFullAlert(params: {
+async function sendAllCourtsFullAlert(params: {
   date: string;
   slotStart: string;
   slotEnd: string;
 }) {
   const { date, slotStart, slotEnd } = params;
-
-  const isFull = await hasThreeFullCourts({ date, slotStart, slotEnd });
-  if (!isFull) {
-    return { sent: false, reason: "not_full" };
-  }
 
   const to = getDailySummaryRecipients();
   if (to.length === 0) {
@@ -278,4 +273,23 @@ export async function maybeSendAllCourtsFullAlert(params: {
     await markAlertFailed(alert.id, error);
     throw error;
   }
+}
+
+export async function maybeSendAllCourtsFullAlert(params: {
+  date: string;
+  slotStart: string;
+  slotEnd: string;
+}) {
+  const { date, slotStart, slotEnd } = params;
+
+  const isFull = await hasThreeFullCourts({ date, slotStart, slotEnd });
+  if (!isFull) {
+    return { sent: false, reason: "not_full" };
+  }
+
+  return sendAllCourtsFullAlert({
+    date,
+    slotStart,
+    slotEnd,
+  });
 }
