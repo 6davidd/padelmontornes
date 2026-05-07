@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth-server";
 import { getDisplayName } from "@/lib/display-name";
 import { getVisibleBookingDays } from "@/lib/booking-window";
+import { countOpenMatches } from "@/lib/open-matches";
 import LogoutButton from "./_components/LogoutButton";
 import ProtectedRouteFrame from "./_components/ProtectedRouteFrame";
 
@@ -24,6 +25,13 @@ type PlayerRow = {
   reservation_id: string;
   seat: number;
   member_user_id: string;
+};
+
+type BlockRow = {
+  date: string;
+  slot_start: string;
+  slot_end: string;
+  court_id: number;
 };
 
 function TileLink({
@@ -55,88 +63,77 @@ function TileLink({
   );
 }
 
-function toHM(t: string) {
-  return t?.length >= 5 ? t.slice(0, 5) : t;
-}
+async function getOpenMatchesCount({
+  accessToken,
+  currentUserId,
+}: {
+  accessToken: string;
+  currentUserId: string;
+}): Promise<number> {
+  const visibleDays = getVisibleBookingDays();
+  const supabase = createServerSupabaseClient(accessToken);
 
-async function getOpenMatchesCount(currentUserId: string): Promise<number> {
-  try {
-    const visibleDays = getVisibleBookingDays();
-    const supabase = createServerSupabaseClient();
-    
-    const reservationsRes = await supabase
+  const [reservationsRes, blocksRes] = await Promise.all([
+    supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
       .in("date", visibleDays)
       .order("date", { ascending: true })
-      .order("slot_start", { ascending: true });
+      .order("slot_start", { ascending: true })
+      .order("court_id", { ascending: true }),
+    supabase
+      .from("blocks")
+      .select("date,slot_start,slot_end,court_id")
+      .in("date", visibleDays),
+  ]);
 
-    if (reservationsRes.error) {
-      console.error(
-        "[getOpenMatchesCount] Error fetching reservations:",
-        reservationsRes.error.message
-      );
-      return 0;
-    }
+  if (reservationsRes.error) {
+    throw new Error(reservationsRes.error.message);
+  }
 
-    const reservations = (reservationsRes.data ?? []) as ReservationRow[];
-    
-    if (reservations.length === 0) {
-      return 0;
-    }
+  if (blocksRes.error) {
+    throw new Error(blocksRes.error.message);
+  }
 
-    const reservationIds = reservations.map((reservation) => reservation.id);
+  const reservations = (reservationsRes.data ?? []) as ReservationRow[];
+  const blocks = (blocksRes.data ?? []) as BlockRow[];
 
-    const playersRes = await supabase
-      .from("reservation_players")
-      .select("reservation_id,seat,member_user_id")
-      .in("reservation_id", reservationIds);
-
-    if (playersRes.error) {
-      console.error(
-        "[getOpenMatchesCount] Error fetching players:",
-        playersRes.error.message
-      );
-      return 0;
-    }
-
-    const players = (playersRes.data ?? []) as PlayerRow[];
-    const playersByReservation = new Map<string, PlayerRow[]>();
-
-    for (const player of players) {
-      const list = playersByReservation.get(player.reservation_id) ?? [];
-      list.push(player);
-      playersByReservation.set(player.reservation_id, list);
-    }
-
-    const now = Date.now();
-
-    const openCount = reservations
-      .filter((reservation) => {
-        const end = new Date(`${reservation.date}T${toHM(reservation.slot_end)}:00`);
-        return end.getTime() > now;
-      })
-      .filter((reservation) => {
-        const list = playersByReservation.get(reservation.id) ?? [];
-        return list.length >= 1 && list.length < 4;
-      })
-      .filter((reservation) => {
-        const list = playersByReservation.get(reservation.id) ?? [];
-        return !list.some((player) => player.member_user_id === currentUserId);
-      }).length;
-
-    return Math.max(0, openCount);
-  } catch (error) {
-    console.error(
-      "[getOpenMatchesCount] Unexpected error:",
-      error instanceof Error ? error.message : String(error)
-    );
+  if (reservations.length === 0) {
     return 0;
   }
+
+  const reservationIds = reservations.map((reservation) => reservation.id);
+
+  const playersRes = await supabase
+    .from("reservation_players")
+    .select("reservation_id,seat,member_user_id")
+    .in("reservation_id", reservationIds);
+
+  if (playersRes.error) {
+    throw new Error(playersRes.error.message);
+  }
+
+  const players = (playersRes.data ?? []) as PlayerRow[];
+  const playersByReservation = new Map<string, PlayerRow[]>();
+
+  for (const player of players) {
+    const list = playersByReservation.get(player.reservation_id) ?? [];
+    list.push(player);
+    playersByReservation.set(player.reservation_id, list);
+  }
+
+  return countOpenMatches({
+    reservations,
+    playersByReservation,
+    getPlayerUserId: (player) => player.member_user_id,
+    currentUserId,
+    blocks,
+    visibleDays,
+  });
 }
 
 export default async function HomePage() {
-  await requireAuthenticatedSession("/");
+  const session = await requireAuthenticatedSession("/");
   const member = await getRequestCurrentMember();
   const displayName = member ? getDisplayName(member) : null;
   const isAdmin = Boolean(member?.is_active && isAdminRole(member.role));
@@ -151,8 +148,10 @@ export default async function HomePage() {
     openMatchesCount = 0;
   } else {
     try {
-      const count = await getOpenMatchesCount(member.user_id);
-      // Ensure count is always a valid non-negative number
+      const count = await getOpenMatchesCount({
+        accessToken: session.accessToken,
+        currentUserId: member.user_id,
+      });
       openMatchesCount = typeof count === "number" && count >= 0 ? count : 0;
     } catch (error) {
       console.error(

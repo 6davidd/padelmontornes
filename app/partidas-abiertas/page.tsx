@@ -10,6 +10,7 @@ import {
   getVisibleBookingDays,
   isSundayISO,
 } from "@/lib/booking-window";
+import { getOpenMatchesByDay, toHM } from "@/lib/open-matches";
 import { supabase } from "../../lib/supabase";
 import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
@@ -38,6 +39,13 @@ type PlayerRow = {
   member_user_id: string;
 };
 
+type BlockRow = {
+  date: string;
+  slot_start: string;
+  slot_end: string;
+  court_id: number;
+};
+
 type MemberRow = {
   user_id: string;
   full_name: string;
@@ -50,22 +58,13 @@ type CourtRow = {
   name: string;
 };
 
-function toHM(t: string) {
-  return t?.length >= 5 ? t.slice(0, 5) : t;
-}
-
-function slotIsStillOpen(r: ReservationRow) {
-  const now = new Date();
-  const end = new Date(`${r.date}T${toHM(r.slot_end)}:00`);
-  return end.getTime() > now.getTime();
-}
-
 export default function PartidasAbiertasPage() {
   const [date, setDate] = useState(getTodayClubISODate());
   const [hasAutoSelectedDate, setHasAutoSelectedDate] = useState(false);
 
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
+  const [blocks, setBlocks] = useState<BlockRow[]>([]);
   const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
   const [courtsMap, setCourtsMap] = useState<Map<number, string>>(new Map());
 
@@ -107,55 +106,15 @@ export default function PartidasAbiertasPage() {
   }, [players, membersMap]);
 
   const openMatchesByDay = useMemo(() => {
-    const matchesByDay = new Map<
-      string,
-      Array<
-        ReservationRow & {
-          playersCount: number;
-          playersList: Array<{ seat: number; name: string; userId: string }>;
-        }
-      >
-    >();
-
-    for (const reservation of reservations) {
-      if (!slotIsStillOpen(reservation)) {
-        continue;
-      }
-
-      const playersList = playersByReservation.get(reservation.id) ?? [];
-      if (playersList.length < 1 || playersList.length >= 4) {
-        continue;
-      }
-
-      const alreadyIn =
-        !!currentUserId &&
-        playersList.some((player) => player.userId === currentUserId);
-
-      if (alreadyIn) {
-        continue;
-      }
-
-      const currentDayMatches = matchesByDay.get(reservation.date) ?? [];
-      currentDayMatches.push({
-        ...reservation,
-        playersCount: playersList.length,
-        playersList,
-      });
-      matchesByDay.set(reservation.date, currentDayMatches);
-    }
-
-    for (const [day, matches] of matchesByDay.entries()) {
-      matches.sort((a, b) => {
-        const ad = new Date(`${a.date}T${toHM(a.slot_start)}:00`).getTime();
-        const bd = new Date(`${b.date}T${toHM(b.slot_start)}:00`).getTime();
-        if (ad !== bd) return ad - bd;
-        return a.court_id - b.court_id;
-      });
-      matchesByDay.set(day, matches);
-    }
-
-    return matchesByDay;
-  }, [reservations, playersByReservation, currentUserId]);
+    return getOpenMatchesByDay({
+      reservations,
+      playersByReservation,
+      getPlayerUserId: (player) => player.userId,
+      currentUserId,
+      blocks,
+      visibleDays,
+    });
+  }, [reservations, playersByReservation, currentUserId, blocks, visibleDays]);
 
   const openMatches = useMemo(
     () => openMatchesByDay.get(date) ?? [],
@@ -207,7 +166,7 @@ export default function PartidasAbiertasPage() {
     setLoading(true);
 
     try {
-      const [reservationsRes, courts, member] = await Promise.all([
+      const [reservationsRes, blocksRes, courts, member] = await Promise.all([
         supabase
           .from("reservations_public")
           .select("id,date,slot_start,slot_end,court_id")
@@ -215,6 +174,10 @@ export default function PartidasAbiertasPage() {
           .order("date", { ascending: true })
           .order("slot_start", { ascending: true })
           .order("court_id", { ascending: true }),
+        supabase
+          .from("blocks")
+          .select("date,slot_start,slot_end,court_id")
+          .in("date", visibleDays),
         getCourts(),
         getCurrentMember(),
       ]);
@@ -225,9 +188,17 @@ export default function PartidasAbiertasPage() {
         return;
       }
 
+      if (blocksRes.error) {
+        setMsg(blocksRes.error.message);
+        setLoading(false);
+        return;
+      }
+
       setCurrentUserId(member?.user_id ?? null);
       const resRows = (reservationsRes.data ?? []) as ReservationRow[];
+      const blockRows = (blocksRes.data ?? []) as BlockRow[];
       setReservations(resRows);
+      setBlocks(blockRows);
 
       const cMap = new Map<number, string>();
       for (const row of courts as CourtRow[]) {
