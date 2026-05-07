@@ -5,6 +5,7 @@ import { leaveReservationRequest } from "@/lib/client-reservation-actions";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
+import { isAdminRole } from "@/lib/auth-shared";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
 import {
   getAdvanceLimitMessage,
@@ -139,6 +140,7 @@ export default function ReservarPage() {
   const [loading, setLoading] = useState(true);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [canManageOpenMatches, setCanManageOpenMatches] = useState(false);
   const [expandedResId, setExpandedResId] = useState<string | null>(null);
   const [creatingReservationKeys, setCreatingReservationKeys] = useState<string[]>([]);
   const creatingReservationKeysRef = useRef(new Set<string>());
@@ -337,6 +339,7 @@ export default function ReservarPage() {
       ]);
 
       setCurrentUserId(member?.user_id ?? null);
+      setCanManageOpenMatches(isAdminRole(member?.role));
       setCourts(courtsData.slice(0, 3));
       applyVisibleDaysData(data);
     } catch (error) {
@@ -781,6 +784,10 @@ export default function ReservarPage() {
                           !!currentUserId &&
                           reservationPlayers.some((p) => p.userId === currentUserId);
                         const full = filled >= 4;
+                        const canAddSocio = !full && (alreadyIn || canManageOpenMatches);
+                        const canJoin = !alreadyIn && !full;
+                        const showExpandedActions =
+                          alreadyIn || canAddSocio || canJoin;
                         const whatsappMessage = res
                           ? buildReservationWhatsappMessage({
                               date: res.date,
@@ -900,25 +907,32 @@ export default function ReservarPage() {
                                     </div>
                                   </div>
 
-                                  {(alreadyIn || !full) && (
-                                    alreadyIn ? (
-                                      <div className="flex items-center justify-between gap-2">
+                                  {showExpandedActions && (
+                                    <div
+                                      className={classNames(
+                                        "flex items-center gap-2",
+                                        alreadyIn ? "justify-between" : "justify-end"
+                                      )}
+                                    >
+                                      {alreadyIn && (
                                         <ReservationWhatsappButton
                                           message={whatsappMessage}
                                           onCopyStart={() => setMsg(null)}
                                           onCopyError={setMsg}
                                         />
+                                      )}
 
-                                        <div className="flex flex-wrap items-center justify-end gap-2">
-                                          {!full && (
-                                            <button
-                                              onClick={() => openAddSocio(res.id)}
-                                              className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
-                                            >
-                                              + Socio
-                                            </button>
-                                          )}
+                                      <div className="flex flex-wrap items-center justify-end gap-2">
+                                        {canAddSocio && (
+                                          <button
+                                            onClick={() => openAddSocio(res.id)}
+                                            className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
+                                          >
+                                            + Socio
+                                          </button>
+                                        )}
 
+                                        {alreadyIn ? (
                                           <ReservationActionButton
                                             tone="danger"
                                             size="sm"
@@ -927,20 +941,18 @@ export default function ReservarPage() {
                                           >
                                             Salir
                                           </ReservationActionButton>
-                                        </div>
+                                        ) : canJoin ? (
+                                          <ReservationActionButton
+                                            tone="primary"
+                                            size="sm"
+                                            loading={joiningReservationIds.includes(res.id)}
+                                            onClick={() => joinMe(res.id)}
+                                          >
+                                            Unirme
+                                          </ReservationActionButton>
+                                        ) : null}
                                       </div>
-                                    ) : (
-                                      <div className="flex justify-end">
-                                        <ReservationActionButton
-                                          tone="primary"
-                                          size="sm"
-                                          loading={joiningReservationIds.includes(res.id)}
-                                          onClick={() => joinMe(res.id)}
-                                        >
-                                          Unirme
-                                        </ReservationActionButton>
-                                      </div>
-                                    )
+                                    </div>
                                   )}
                                 </div>
                               )}

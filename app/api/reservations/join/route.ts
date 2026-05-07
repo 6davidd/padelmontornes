@@ -5,6 +5,7 @@ import {
   isDateWithinGeneralBookingWindow,
   isSundayISO,
 } from "../../../../lib/booking-window";
+import { isAdminRole } from "../../../../lib/auth-shared";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 import { getDisplayName } from "../../../../lib/display-name";
 import { sendBookingEmail } from "../../../../lib/server-booking-email";
@@ -177,9 +178,15 @@ export async function POST(req: Request) {
 
     const players = (playersRes.data ?? []) as PlayerRow[];
 
+    const isAddingAnotherMember = memberUserId !== auth.member.user_id;
+    const isCurrentMemberInReservation = players.some(
+      (player) => player.member_user_id === auth.member.user_id
+    );
+
     if (
-      memberUserId !== auth.member.user_id &&
-      !players.some((player) => player.member_user_id === auth.member.user_id)
+      isAddingAnotherMember &&
+      !isCurrentMemberInReservation &&
+      !isAdminRole(auth.member.role)
     ) {
       return NextResponse.json(
         {
