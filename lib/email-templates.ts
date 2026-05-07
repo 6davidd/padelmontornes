@@ -34,6 +34,34 @@ export function escapeHtml(s: string): string {
     .replaceAll("'", "&#039;");
 }
 
+export function formatEmailSubjectDate(dateISO: string): string {
+  const d = new Date(`${dateISO}T12:00:00`);
+
+  if (Number.isNaN(d.getTime())) {
+    return dateISO;
+  }
+
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "short",
+  })
+    .format(d)
+    .replace(/\.$/, "");
+  const weekdayTitle =
+    weekday.charAt(0).toLocaleUpperCase("es-ES") + weekday.slice(1);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+
+  return `${weekdayTitle} ${day}/${month}`;
+}
+
+export function formatEmailSubjectSchedule(
+  dateISO: string,
+  slotStart: string
+): string {
+  const start = slotStart?.length >= 5 ? slotStart.slice(0, 5) : slotStart;
+  return `${formatEmailSubjectDate(dateISO)} · ${start}`;
+}
+
 /**
  * Renderiza una fila de información dentro de la tarjeta de partida
  * Mantiene consistencia visual en toda la app

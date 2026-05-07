@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { CLUB_NAME } from "@/lib/brand";
 import {
   emailShell,
+  formatEmailSubjectSchedule,
   formatMatchInfo,
   renderMatchPlayers,
   escapeHtml,
@@ -44,6 +45,7 @@ function buildBookingEmail(payload: BookingEmailPayload) {
   } = payload;
 
   const helloName = fullName ? `, ${fullName}` : "";
+  const subjectSchedule = formatEmailSubjectSchedule(date, slotStart);
   const matchDetails = formatMatchInfo({
     date,
     slotStart,
@@ -54,7 +56,7 @@ function buildBookingEmail(payload: BookingEmailPayload) {
 
   if (type === "booking_created") {
     return {
-      subject: `🎾 Reserva confirmada · ${courtName} · ${slotStart}`,
+      subject: `🎾 Reserva confirmada · ${subjectSchedule}`,
       html: emailShell({
         preheader: "Tu reserva ha sido confirmada correctamente.",
         title: "Reserva confirmada",
@@ -69,8 +71,8 @@ function buildBookingEmail(payload: BookingEmailPayload) {
 
   if (type === "added_to_match") {
     const subject = addedByName
-      ? `🎾 ${addedByName} te ha añadido a una partida`
-      : "🎾 Te han añadido a una partida";
+      ? `🎾 ${addedByName} te ha añadido · ${subjectSchedule}`
+      : `🎾 Te han añadido · ${subjectSchedule}`;
 
     const addedByText = addedByName
       ? `<strong>${escapeHtml(addedByName)}</strong> te ha añadido a una partida`
@@ -93,8 +95,8 @@ function buildBookingEmail(payload: BookingEmailPayload) {
 
   if (type === "admin_opened_match") {
     const subject = openedByName
-      ? `🎾 ${openedByName} ha abierto una partida para ti`
-      : "🎾 Han abierto una partida para ti";
+      ? `🎾 ${openedByName} ha abierto partida · ${subjectSchedule}`
+      : `🎾 Partida abierta · ${subjectSchedule}`;
 
     const openedByText = openedByName
       ? `<strong>${escapeHtml(openedByName)}</strong> ha abierto una partida para ti`
@@ -117,7 +119,7 @@ function buildBookingEmail(payload: BookingEmailPayload) {
 
   if (type === "match_completed") {
     return {
-      subject: `🎾 Partida completa · ${courtName} · ${slotStart}`,
+      subject: `🎾 Partida completa · ${subjectSchedule}`,
       html: emailShell({
         preheader: "La partida ya está completa.",
         title: "Partida completa",

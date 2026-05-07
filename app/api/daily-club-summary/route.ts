@@ -2,7 +2,13 @@ import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 import { CLUB_NAME } from "@/lib/brand";
 import { getDisplayName, getNameWithFirstSurname } from "@/lib/display-name";
-import { emailShell, escapeHtml, matchInfoRow } from "@/lib/email-templates";
+import {
+  emailShell,
+  escapeHtml,
+  formatEmailSubjectDate,
+  formatEmailSubjectSchedule,
+  matchInfoRow,
+} from "@/lib/email-templates";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -318,8 +324,9 @@ async function sendClosedMatchReminders(params: {
         continue;
       }
 
-      const subject = `Recordatorio de partida mañana - ${capitalize(
-        formatDateLongES(targetDate)
+      const subject = `Recordatorio de partida mañana · ${formatEmailSubjectSchedule(
+        targetDate,
+        match.slotStart
       )}`;
 
       const html = buildReminderEmailHtml({
@@ -533,9 +540,7 @@ async function runDailySummary() {
     throw new Error("Falta configurar DAILY_SUMMARY_TO");
   }
 
-  const subject = `Resumen de partidas - ${capitalize(
-    formatDateLongES(targetDate)
-  )}`;
+  const subject = `Resumen de partidas · ${formatEmailSubjectDate(targetDate)}`;
 
   const html = buildEmailHtml({
     targetDate,
