@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { EmailOtpType } from "@supabase/supabase-js";
+import type { EmailOtpType, Session } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
 import PasswordField from "@/app/_components/PasswordField";
 import { syncSessionCookies } from "@/lib/auth-client";
@@ -14,16 +14,48 @@ import {
   getFriendlyPasswordLinkError,
   isPasswordSetupOtpType,
   readBrowserAuthLinkState,
+  type PasswordLinkPurpose,
 } from "@/lib/auth-link";
 import { supabase } from "@/lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 
+type PasswordSetupOtpType = Extract<EmailOtpType, "invite" | "recovery">;
+
 type PendingPasswordLink = {
   code: string | null;
   tokenHash: string | null;
-  type: string | null;
+  type: PasswordSetupOtpType | null;
+  purpose: PasswordLinkPurpose;
 };
+
+function getPurposeFromType(type: string | null): PasswordLinkPurpose {
+  return type === "invite" ? "invite" : "recovery";
+}
+
+function getPasswordFlowCopy(purpose: PasswordLinkPurpose) {
+  if (purpose === "invite") {
+    return {
+      title: "Crear contraseña",
+      intro: "Elige una contraseña para acceder a la app.",
+      checking: "Estamos preparando el formulario para crear tu contraseña.",
+      missingPassword: "La contraseña es obligatoria.",
+    };
+  }
+
+  return {
+    title: "Cambiar contraseña",
+    intro: "Elige una nueva contraseña para acceder a la app.",
+    checking: "Estamos preparando el formulario para cambiar tu contraseña.",
+    missingPassword: "La nueva contraseña es obligatoria.",
+  };
+}
+
+function syncAuthenticatedSession(session: Session | null) {
+  resetCachedCurrentMember();
+  setCachedClientSession(session);
+  syncSessionCookies(session);
+}
 
 async function waitForClientSession(maxAttempts = 12, delayMs = 150) {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -38,6 +70,59 @@ async function waitForClientSession(maxAttempts = 12, delayMs = 150) {
   return null;
 }
 
+async function consumePasswordLink(link: PendingPasswordLink): Promise<
+  | {
+      ok: true;
+      session: Session;
+    }
+  | {
+      ok: false;
+      error: string;
+    }
+> {
+  if (link.code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(
+      link.code
+    );
+
+    if (error || !data.session) {
+      return {
+        ok: false,
+        error: getFriendlyPasswordLinkError(error?.message, link.purpose),
+      };
+    }
+
+    return {
+      ok: true,
+      session: data.session,
+    };
+  }
+
+  if (link.tokenHash && link.type) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: link.tokenHash,
+      type: link.type,
+    });
+
+    if (error || !data.session) {
+      return {
+        ok: false,
+        error: getFriendlyPasswordLinkError(error?.message, link.purpose),
+      };
+    }
+
+    return {
+      ok: true,
+      session: data.session,
+    };
+  }
+
+  return {
+    ok: false,
+    error: getFriendlyPasswordLinkError(null, link.purpose),
+  };
+}
+
 export default function ResetPasswordPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,9 +133,12 @@ export default function ResetPasswordPageClient() {
   const [msg, setMsg] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [checkingLink, setCheckingLink] = useState(true);
+  const [purpose, setPurpose] = useState<PasswordLinkPurpose>("recovery");
   const [pendingLink, setPendingLink] = useState<PendingPasswordLink | null>(
     null
   );
+
+  const copy = getPasswordFlowCopy(purpose);
 
   useEffect(() => {
     let alive = true;
@@ -60,14 +148,19 @@ export default function ResetPasswordPageClient() {
       setMsg(null);
 
       const authLink = readBrowserAuthLinkState();
+      const nextPurpose = getPurposeFromType(authLink?.type ?? null);
       const errorMessage =
         authLink?.errorDescription || authLink?.errorCode || null;
+
+      if (alive) {
+        setPurpose(nextPurpose);
+      }
 
       if (errorMessage) {
         if (alive) {
           setReady(false);
           setPendingLink(null);
-          setMsg(getFriendlyPasswordLinkError(errorMessage));
+          setMsg(getFriendlyPasswordLinkError(errorMessage, nextPurpose));
           setCheckingLink(false);
         }
         return;
@@ -75,11 +168,14 @@ export default function ResetPasswordPageClient() {
 
       if (authLink?.code) {
         if (alive) {
-          setReady(false);
+          setReady(true);
           setPendingLink({
             code: authLink.code,
             tokenHash: null,
-            type: authLink.type,
+            type: isPasswordSetupOtpType(authLink.type)
+              ? authLink.type
+              : null,
+            purpose: nextPurpose,
           });
           setCheckingLink(false);
         }
@@ -88,11 +184,12 @@ export default function ResetPasswordPageClient() {
 
       if (authLink?.tokenHash && isPasswordSetupOtpType(authLink.type)) {
         if (alive) {
-          setReady(false);
+          setReady(true);
           setPendingLink({
             code: null,
             tokenHash: authLink.tokenHash,
             type: authLink.type,
+            purpose: nextPurpose,
           });
           setCheckingLink(false);
         }
@@ -106,9 +203,7 @@ export default function ResetPasswordPageClient() {
       }
 
       if (session) {
-        resetCachedCurrentMember();
-        setCachedClientSession(session);
-        syncSessionCookies(session);
+        syncAuthenticatedSession(session);
 
         if (authLink?.hasSessionTokensInHash || authLink?.hasPasswordSetupContext) {
           clearBrowserAuthArtifacts();
@@ -122,7 +217,7 @@ export default function ResetPasswordPageClient() {
 
       setPendingLink(null);
       setReady(false);
-      setMsg(getFriendlyPasswordLinkError(null));
+      setMsg(getFriendlyPasswordLinkError(null, nextPurpose));
       setCheckingLink(false);
     }
 
@@ -133,70 +228,12 @@ export default function ResetPasswordPageClient() {
     };
   }, []);
 
-  async function onUsePasswordLink() {
-    if (!pendingLink) {
-      return;
-    }
-
-    setMsg(null);
-    setLoading(true);
-
-    if (pendingLink.code) {
-      const { data, error } = await supabase.auth.exchangeCodeForSession(
-        pendingLink.code
-      );
-
-      if (error || !data.session) {
-        setLoading(false);
-        setPendingLink(null);
-        setMsg(getFriendlyPasswordLinkError(error?.message));
-        return;
-      }
-
-      resetCachedCurrentMember();
-      setCachedClientSession(data.session);
-      syncSessionCookies(data.session);
-      clearBrowserAuthArtifacts();
-      setPendingLink(null);
-      setReady(true);
-      setLoading(false);
-      return;
-    }
-
-    if (pendingLink.tokenHash && isPasswordSetupOtpType(pendingLink.type)) {
-      const { data, error } = await supabase.auth.verifyOtp({
-        token_hash: pendingLink.tokenHash,
-        type: pendingLink.type as Extract<EmailOtpType, "invite" | "recovery">,
-      });
-
-      if (error || !data.session) {
-        setLoading(false);
-        setPendingLink(null);
-        setMsg(getFriendlyPasswordLinkError(error?.message));
-        return;
-      }
-
-      resetCachedCurrentMember();
-      setCachedClientSession(data.session);
-      syncSessionCookies(data.session);
-      clearBrowserAuthArtifacts();
-      setPendingLink(null);
-      setReady(true);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(false);
-    setPendingLink(null);
-    setMsg(getFriendlyPasswordLinkError(null));
-  }
-
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setMsg(null);
 
     if (!password) {
-      setMsg("La nueva contraseña es obligatoria.");
+      setMsg(copy.missingPassword);
       return;
     }
 
@@ -219,22 +256,48 @@ export default function ResetPasswordPageClient() {
 
     setLoading(true);
 
+    let activeSession: Session | null = null;
+
+    if (pendingLink) {
+      const linkResult = await consumePasswordLink(pendingLink);
+
+      if (!linkResult.ok) {
+        setLoading(false);
+        setPendingLink(null);
+        setReady(false);
+        setMsg(linkResult.error);
+        return;
+      }
+
+      activeSession = linkResult.session;
+      syncAuthenticatedSession(activeSession);
+      clearBrowserAuthArtifacts();
+      setPendingLink(null);
+    } else {
+      activeSession = await waitForClientSession(4, 100);
+
+      if (!activeSession) {
+        setLoading(false);
+        setReady(false);
+        setMsg(getFriendlyPasswordLinkError("auth session missing", purpose));
+        return;
+      }
+    }
+
     const { error } = await supabase.auth.updateUser({
       password,
     });
 
-    setLoading(false);
-
     if (error) {
-      setMsg(getFriendlyPasswordLinkError(error.message));
+      setLoading(false);
+      setMsg(getFriendlyPasswordLinkError(error.message, purpose));
       return;
     }
 
-    const session = await waitForClientSession(4, 100);
-    resetCachedCurrentMember();
-    setCachedClientSession(session);
-    syncSessionCookies(session);
+    const session = (await waitForClientSession(4, 100)) ?? activeSession;
+    syncAuthenticatedSession(session);
 
+    setLoading(false);
     const nextPath = searchParams.get("next") || "/";
     router.replace(nextPath);
     router.refresh();
@@ -244,15 +307,10 @@ export default function ResetPasswordPageClient() {
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
         <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Crear contraseña
-          </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Elige una contraseña fácil de recordar. Cuando la guardes entrarás
-            directamente en la app.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{copy.title}</h1>
+          <p className="mt-2 text-sm text-gray-600">{copy.intro}</p>
 
-          {msg ? (
+          {msg && ready ? (
             <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm text-yellow-900">{msg}</p>
             </div>
@@ -260,10 +318,7 @@ export default function ResetPasswordPageClient() {
 
           {checkingLink ? (
             <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <p className="text-sm text-gray-700">
-                Estamos comprobando tu enlace para abrir la pantalla de
-                contraseña.
-              </p>
+              <p className="text-sm text-gray-700">{copy.checking}</p>
             </div>
           ) : ready ? (
             <form onSubmit={onSubmit} className="mt-5 space-y-5">
@@ -300,37 +355,11 @@ export default function ResetPasswordPageClient() {
                 {loading ? "Guardando..." : "Guardar contraseña"}
               </button>
             </form>
-          ) : pendingLink ? (
-            <div className="mt-5 space-y-4">
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm text-gray-700">
-                  Para evitar que el enlace se consuma antes de tiempo, primero
-                  te pedimos una confirmación manual.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={onUsePasswordLink}
-                disabled={loading}
-                className="w-full rounded-2xl py-3.5 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
-                style={{ backgroundColor: CLUB_GREEN }}
-              >
-                {loading ? "Abriendo..." : "Continuar con este enlace"}
-              </button>
-
-              <Link
-                href="/forgot-password"
-                className="block w-full rounded-2xl border border-gray-300 bg-white py-3.5 text-center font-semibold text-gray-900 shadow-sm transition active:scale-[0.99]"
-              >
-                Pedir otro enlace
-              </Link>
-            </div>
           ) : (
             <div className="mt-5 space-y-4">
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm text-gray-700">
-                  Si necesitas otro enlace, puedes pedirlo ahora mismo.
+              <div className="rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
+                <p className="text-sm text-yellow-900">
+                  {msg ?? "Este enlace ha caducado o ya no es válido."}
                 </p>
               </div>
 
@@ -339,7 +368,7 @@ export default function ResetPasswordPageClient() {
                 className="block w-full rounded-2xl py-3.5 text-center font-semibold text-white shadow-sm transition active:scale-[0.99]"
                 style={{ backgroundColor: CLUB_GREEN }}
               >
-                Pedir nuevo enlace
+                Pedir otro enlace
               </Link>
 
               <Link

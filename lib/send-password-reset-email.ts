@@ -3,7 +3,7 @@ import { CLUB_NAME } from "@/lib/brand";
 import { emailShell, escapeHtml } from "@/lib/email-templates";
 
 export const PASSWORD_RESET_EMAIL_TITLE =
-  "Tu enlace para crear o cambiar tu contraseña";
+  "Cambiar contraseña";
 
 type SendPasswordResetEmailParams = {
   email: string;
@@ -41,18 +41,7 @@ export function validatePasswordResetEmailConfig() {
 export function buildPasswordResetEmailHtml(
   params: SendPasswordResetEmailParams
 ) {
-  const { email, actionLink } = params;
-
-  const contactInfo = `
-    <tr>
-      <td style="padding: 0 0 8px; color: #6b7280; font-size: 13px; vertical-align: top; width: 80px;">
-        Email
-      </td>
-      <td style="padding: 0 0 8px; color: #111827; font-size: 14px; font-weight: 600;">
-        ${esc(email)}
-      </td>
-    </tr>
-  `;
+  const { actionLink } = params;
 
   const ctaButton = `
     <div style="margin-top: 20px; margin-bottom: 16px;">
@@ -69,7 +58,7 @@ export function buildPasswordResetEmailHtml(
           font-size: 14px;
         "
       >
-        Abrir enlace seguro
+        Cambiar contraseña
       </a>
     </div>
   `;
@@ -77,7 +66,7 @@ export function buildPasswordResetEmailHtml(
   const altInstructions = `
     <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
       <p style="margin: 0 0 8px; font-size: 12px; color: #6b7280;">
-        Si el botón no funciona, copia este enlace:
+        Si el botón no funciona, copia y pega este enlace en tu navegador:
       </p>
       <p style="margin: 0; font-size: 12px; word-break: break-all; color: #0b4723;">
         <a href="${esc(actionLink)}" style="color: #0f5e2e; text-decoration: none;">
@@ -89,11 +78,11 @@ export function buildPasswordResetEmailHtml(
 
   return emailShell({
     preheader: PASSWORD_RESET_EMAIL_TITLE,
-    title: "Recuperar contraseña",
-    intro: `Pulsa el botón para abrir una pantalla segura desde la que podrás crear o cambiar tu contraseña en la app del club <strong>${esc(CLUB_NAME)}</strong>.`,
-    matchDetailsHtml: contactInfo,
+    title: "Cambiar contraseña",
+    intro: `Hemos recibido una solicitud para cambiar la contraseña de tu cuenta en <strong>${esc(CLUB_NAME)}</strong>.<br><br>Pulsa el botón para elegir una nueva contraseña.`,
     extraHtml: ctaButton + altInstructions,
-    footer: "Si no has pedido este enlace, puedes ignorar este correo.",
+    footer:
+      "Por seguridad, este enlace caduca pasado un tiempo.<br>Si no has pedido este cambio, puedes ignorar este correo.",
     clubName: CLUB_NAME,
   });
 }

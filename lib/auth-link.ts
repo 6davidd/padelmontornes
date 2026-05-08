@@ -91,11 +91,25 @@ export function clearBrowserAuthArtifacts() {
   window.history.replaceState(null, "", nextUrl || url.pathname);
 }
 
-export function getFriendlyPasswordLinkError(rawMessage?: string | null) {
+export type PasswordLinkPurpose = "invite" | "recovery";
+
+function getPasswordActionText(purpose: PasswordLinkPurpose) {
+  return purpose === "invite" ? "crear tu contraseña" : "cambiar la contraseña";
+}
+
+export function getFriendlyPasswordLinkError(
+  rawMessage?: string | null,
+  purpose: PasswordLinkPurpose = "recovery"
+) {
   const message = (rawMessage ?? "").toLowerCase();
+  const actionText = getPasswordActionText(purpose);
+  const retryText =
+    purpose === "invite"
+      ? "Pide otro enlace para crear tu contraseña."
+      : "Pide otro enlace para cambiar la contraseña.";
 
   if (!message) {
-    return "Este enlace ya no es válido o ha caducado. Pide uno nuevo para crear tu contraseña.";
+    return `Este enlace ha caducado o ya no es válido. ${retryText}`;
   }
 
   if (
@@ -103,14 +117,14 @@ export function getFriendlyPasswordLinkError(rawMessage?: string | null) {
     message.includes("otp_expired") ||
     message.includes("token has expired")
   ) {
-    return "Este enlace ha caducado. Pide uno nuevo para crear tu contraseña.";
+    return `Este enlace ha caducado o ya no es válido. ${retryText}`;
   }
 
   if (
     message.includes("auth session missing") ||
     message.includes("session_not_found")
   ) {
-    return "Abre el enlace desde el correo o pide uno nuevo para crear tu contraseña.";
+    return `Abre el enlace desde el correo o pide otro enlace para ${actionText}.`;
   }
 
   if (
@@ -118,7 +132,7 @@ export function getFriendlyPasswordLinkError(rawMessage?: string | null) {
     message.includes("token") ||
     message.includes("code verifier")
   ) {
-    return "No hemos podido validar el enlace. Pide uno nuevo para crear tu contraseña.";
+    return `Este enlace ha caducado o ya no es válido. ${retryText}`;
   }
 
   if (message.includes("password should be at least")) {

@@ -20,6 +20,9 @@ export default function LoginPageClient() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const passwordSetupType = searchParams.get("type");
+  const passwordSetupAction =
+    passwordSetupType === "invite" ? "crear tu contraseña" : "cambiar tu contraseña";
   const hasPasswordSetupParams = Boolean(
     searchParams.get("code") ||
       searchParams.get("token_hash") ||
@@ -70,7 +73,7 @@ export default function LoginPageClient() {
           <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
             <h1 className="text-2xl font-bold text-gray-900">Un momento...</h1>
             <p className="mt-2 text-sm text-gray-600">
-              Te estamos llevando a la pantalla para crear tu contraseña.
+              Te estamos llevando a la pantalla para {passwordSetupAction}.
             </p>
           </div>
         </div>

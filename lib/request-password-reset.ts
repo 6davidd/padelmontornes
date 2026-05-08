@@ -1,5 +1,5 @@
 export const PASSWORD_RESET_SUCCESS_MESSAGE =
-  "Te hemos enviado un correo con un enlace para crear o cambiar tu contraseña.";
+  "Si el email pertenece a una cuenta activa, te enviaremos un enlace para cambiar la contraseña.";
 
 const FALLBACK_PASSWORD_RESET_ERROR =
   "No se ha podido enviar el enlace ahora mismo. Inténtalo de nuevo en unos minutos.";

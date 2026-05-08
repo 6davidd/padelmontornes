@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             Introduce tu email y te enviaremos un enlace para cambiar tu
-            contraseña. Al abrirlo llegarás directamente a esa pantalla.
+            contraseña.
           </p>
 
           {msg && (
