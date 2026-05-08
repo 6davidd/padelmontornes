@@ -389,6 +389,7 @@ export async function POST(req: Request) {
       .filter(Boolean) as MemberRow[];
 
     const playerNames = orderedMembers.map((member) => getDisplayName(member));
+    const lastAddedMemberUserId = uniquePlayerIds.at(-1) ?? null;
 
     after(async () => {
       try {
@@ -407,6 +408,10 @@ export async function POST(req: Request) {
             });
 
             if (orderedMembers.length < 4) {
+              return [baseTask];
+            }
+
+            if (member.user_id === lastAddedMemberUserId) {
               return [baseTask];
             }
 

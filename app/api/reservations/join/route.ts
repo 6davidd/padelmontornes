@@ -308,7 +308,7 @@ export async function POST(req: Request) {
 
         if (orderedMembers.length === 4) {
           for (const member of orderedMembers) {
-            if (!member.email) {
+            if (!member.email || member.user_id === memberUserId) {
               continue;
             }
 
