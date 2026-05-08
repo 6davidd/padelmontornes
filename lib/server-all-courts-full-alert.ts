@@ -1,12 +1,7 @@
 import "server-only";
 
 import { CLUB_NAME } from "@/lib/brand";
-import {
-  emailShell,
-  escapeHtml,
-  formatEmailSubjectSchedule,
-  matchInfoRow,
-} from "@/lib/email-templates";
+import { emailShell, escapeHtml, matchInfoRow } from "@/lib/email-templates";
 import { getAppUrl, getDailySummaryRecipients } from "@/lib/server-email-config";
 import { getResendClient } from "@/lib/server-resend";
 import { formatSpanishWeekdayDay, toHM } from "@/lib/spanish-date";
@@ -29,8 +24,24 @@ type AlertInsertRow = {
   token: string;
 };
 
+type AlertRow = AlertInsertRow & {
+  status: string;
+};
+
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
 }
 
 function isUniqueViolation(error: { code?: string; message?: string | null }) {
@@ -38,6 +49,20 @@ function isUniqueViolation(error: { code?: string; message?: string | null }) {
     error.code === "23505" ||
     (error.message ?? "").toLocaleLowerCase("es-ES").includes("duplicate")
   );
+}
+
+function isRetryableResendError(error: unknown) {
+  const message = getErrorMessage(error).toLocaleLowerCase("es-ES");
+
+  return (
+    message.includes("429") ||
+    message.includes("rate_limit") ||
+    message.includes("too many requests")
+  );
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function buildAllCourtsFullWhatsappMessage(params: {
@@ -173,6 +198,39 @@ async function markAlertFailed(alertId: string, error: unknown) {
   }
 }
 
+async function sendEmailWithRetry(params: {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+}) {
+  const resend = getResendClient();
+  if (!resend) {
+    throw new Error("Falta configurar RESEND_API_KEY.");
+  }
+
+  const delays = [1250, 2500, 5000];
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    const { error, data } = await resend.emails.send(params);
+
+    if (!error) {
+      return data;
+    }
+
+    lastError = error;
+
+    if (attempt >= delays.length || !isRetryableResendError(error)) {
+      break;
+    }
+
+    await sleep(delays[attempt]);
+  }
+
+  throw new Error(getErrorMessage(lastError));
+}
+
 async function sendAllCourtsFullAlert(params: {
   date: string;
   slotStart: string;
@@ -185,9 +243,8 @@ async function sendAllCourtsFullAlert(params: {
     throw new Error("Falta configurar DAILY_SUMMARY_TO.");
   }
 
-  const resend = getResendClient();
-  if (!resend || !process.env.EMAIL_FROM) {
-    throw new Error("Falta configurar RESEND_API_KEY o EMAIL_FROM.");
+  if (!process.env.EMAIL_FROM) {
+    throw new Error("Falta configurar EMAIL_FROM.");
   }
 
   const token = crypto.randomUUID().replaceAll("-", "");
@@ -207,23 +264,68 @@ async function sendAllCourtsFullAlert(params: {
       recipients: to,
       status: "pending",
     })
-    .select("id,token")
+    .select("id,token,status")
     .single();
+
+  let alert: AlertRow;
 
   if (insertRes.error) {
     if (isUniqueViolation(insertRes.error)) {
-      return { sent: false, reason: "already_sent" };
-    }
+      const existingRes = await supabaseAdmin
+        .from("all_courts_full_alerts")
+        .select("id,token,status")
+        .eq("date", date)
+        .eq("slot_start", slotStart)
+        .eq("slot_end", slotEnd)
+        .maybeSingle();
 
-    throw new Error(
-      `Error guardando aviso de horario completo: ${insertRes.error.message}`
-    );
+      if (existingRes.error) {
+        throw new Error(
+          `Error cargando aviso existente de horario completo: ${existingRes.error.message}`
+        );
+      }
+
+      if (!existingRes.data) {
+        return { sent: false, reason: "already_sent" };
+      }
+
+      const existingAlert = existingRes.data as AlertRow;
+
+      if (existingAlert.status !== "failed") {
+        return { sent: false, reason: `already_${existingAlert.status}` };
+      }
+
+      const retryRes = await supabaseAdmin
+        .from("all_courts_full_alerts")
+        .update({
+          status: "pending",
+          message_text: messageText,
+          recipients: to,
+          error_message: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingAlert.id)
+        .select("id,token,status")
+        .single();
+
+      if (retryRes.error) {
+        throw new Error(
+          `Error preparando reintento de horario completo: ${retryRes.error.message}`
+        );
+      }
+
+      alert = retryRes.data as AlertRow;
+    } else {
+      throw new Error(
+        `Error guardando aviso de horario completo: ${insertRes.error.message}`
+      );
+    }
+  } else {
+    alert = insertRes.data as AlertRow;
   }
 
-  const alert = insertRes.data as AlertInsertRow;
   const openUrl = `${getAppUrl()}/admin/whatsapp-summary/${alert.token}`;
-  const subject = `Horario completo · ${formatEmailSubjectSchedule(
-    date,
+  const subject = `Horario completo - ${formatSpanishWeekdayDay(date)} - ${toHM(
     slotStart
   )}`;
   const html = buildAllCourtsFullEmailHtml({
@@ -235,18 +337,12 @@ async function sendAllCourtsFullAlert(params: {
   });
 
   try {
-    const { error, data } = await resend.emails.send({
+    const data = await sendEmailWithRetry({
       from: process.env.EMAIL_FROM,
       to,
       subject,
       html,
     });
-
-    if (error) {
-      throw new Error(
-        typeof error === "string" ? error : JSON.stringify(error)
-      );
-    }
 
     const resendEmailId =
       data && typeof data.id === "string" ? data.id : null;
