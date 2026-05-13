@@ -26,7 +26,9 @@ import {
   ReservationActionButton,
   ReservationOccupancy,
   ReservationStatusBadge,
+  type ReservationPlayerChip,
 } from "../_components/ReservationCard";
+import { ReservationManageDialog } from "../_components/ReservationManageDialog";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -69,6 +71,15 @@ type VisibleDaysBookingData = {
   blocks: BlockRow[];
   players: PlayerRow[];
   membersMap: Map<string, string>;
+};
+
+type ManageReservation = {
+  id: string;
+  date: string;
+  slotStart: string;
+  slotEnd: string;
+  courtName: string;
+  players: ReservationPlayerChip[];
 };
 
 const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
@@ -142,6 +153,8 @@ export default function ReservarPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [canManageOpenMatches, setCanManageOpenMatches] = useState(false);
   const [expandedResId, setExpandedResId] = useState<string | null>(null);
+  const [manageReservation, setManageReservation] =
+    useState<ManageReservation | null>(null);
   const [creatingReservationKeys, setCreatingReservationKeys] = useState<string[]>([]);
   const creatingReservationKeysRef = useRef(new Set<string>());
   const [joiningReservationIds, setJoiningReservationIds] = useState<string[]>([]);
@@ -339,7 +352,7 @@ export default function ReservarPage() {
       ]);
 
       setCurrentUserId(member?.user_id ?? null);
-      setCanManageOpenMatches(isAdminRole(member?.role));
+      setCanManageOpenMatches(Boolean(member?.is_active && isAdminRole(member.role)));
       setCourts(courtsData.slice(0, 3));
       applyVisibleDaysData(data);
     } catch (error) {
@@ -611,6 +624,10 @@ export default function ReservarPage() {
     }
   }
 
+  async function handleManageChanged() {
+    await refreshVisibleDaysData();
+  }
+
   async function openAddSocio(resId: string) {
     const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
     const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
@@ -786,6 +803,8 @@ export default function ReservarPage() {
                         const full = filled >= 4;
                         const canAddSocio = !full && (alreadyIn || canManageOpenMatches);
                         const canJoin = !alreadyIn && !full;
+                        const canManageReservation =
+                          !!res && !blocked && canManageOpenMatches;
                         const showExpandedActions =
                           alreadyIn || canAddSocio || canJoin;
                         const whatsappMessage = res
@@ -840,6 +859,24 @@ export default function ReservarPage() {
                                     <span title="Estás apuntado" className="text-3xl leading-none">
                                       🎾
                                     </span>
+                                  )}
+
+                                  {canManageReservation && res && (
+                                    <button
+                                      onClick={() =>
+                                        setManageReservation({
+                                          id: res.id,
+                                          date: res.date,
+                                          slotStart: res.slot_start,
+                                          slotEnd: res.slot_end,
+                                          courtName: c.name,
+                                          players: reservationPlayers,
+                                        })
+                                      }
+                                      className="rounded-full border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
+                                    >
+                                      Gestionar
+                                    </button>
                                   )}
 
                                   {!blocked &&
@@ -1005,6 +1042,14 @@ export default function ReservarPage() {
           )}
         </div>
       </Modal>
+
+      <ReservationManageDialog
+        open={!!manageReservation}
+        reservation={manageReservation}
+        onClose={() => setManageReservation(null)}
+        onChanged={handleManageChanged}
+        onError={setMsg}
+      />
 
     </div>
   );

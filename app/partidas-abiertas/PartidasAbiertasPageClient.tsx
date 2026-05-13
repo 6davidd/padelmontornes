@@ -392,7 +392,6 @@ export default function PartidasAbiertasPageClient({
 
   async function handleManageChanged() {
     await loadOpenMatches();
-    setManageReservation(null);
   }
 
   return (

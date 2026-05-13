@@ -462,7 +462,6 @@ export default function MisReservasPage() {
 
   async function handleManageChanged() {
     await load();
-    setManageReservation(null);
   }
 
   function openAddSocio(reservationId: string) {
