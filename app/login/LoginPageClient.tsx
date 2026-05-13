@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import PasswordField from "@/app/_components/PasswordField";
 import { syncSessionCookies } from "@/lib/auth-client";
 import { resetCachedCurrentMember } from "@/lib/client-current-member";
@@ -12,22 +12,25 @@ import { supabase } from "@/lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 
-export default function LoginPageClient() {
+export default function LoginPageClient({
+  nextPath,
+  hasPasswordSetupParams,
+  passwordSetupType,
+  searchQueryString,
+}: {
+  nextPath: string;
+  hasPasswordSetupParams: boolean;
+  passwordSetupType?: string;
+  searchQueryString: string;
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const passwordSetupType = searchParams.get("type");
   const passwordSetupAction =
     passwordSetupType === "invite" ? "crear tu contraseña" : "cambiar tu contraseña";
-  const hasPasswordSetupParams = Boolean(
-    searchParams.get("code") ||
-      searchParams.get("token_hash") ||
-      searchParams.get("type")
-  );
 
   useEffect(() => {
     const authLink = readBrowserAuthLinkState();
@@ -36,9 +39,9 @@ export default function LoginPageClient() {
       return;
     }
 
-    const nextUrl = `/reset-password${window.location.search}${window.location.hash}`;
+    const nextUrl = `/reset-password${searchQueryString}${window.location.hash}`;
     window.location.replace(nextUrl);
-  }, []);
+  }, [searchQueryString]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -61,7 +64,6 @@ export default function LoginPageClient() {
     const session = data.session ?? null;
     setCachedClientSession(session);
     syncSessionCookies(session);
-    const nextPath = searchParams.get("next") || "/";
     router.replace(nextPath);
     router.refresh();
   }

@@ -167,7 +167,7 @@ export default async function HomePage() {
   }
 
   return (
-    <ProtectedRouteFrame pathname="/" headerMode="home">
+    <ProtectedRouteFrame pathname="/" headerMode="home" isAdminOverride={isAdmin}>
       <div className="min-h-screen bg-gray-50 pb-8">
         <div className="mx-auto max-w-3xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8">
           <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">

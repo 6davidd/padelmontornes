@@ -1,27 +1,54 @@
-import { Suspense } from "react";
 import LoginPageClient from "./LoginPageClient";
 
-function LoginPageFallback() {
-  return (
-    <div className="min-h-[calc(100vh-var(--app-header-height))] bg-gray-50">
-      <div className="mx-auto max-w-md px-4 py-8 sm:px-6 sm:py-12">
-        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm sm:p-8">
-          <div className="h-8 w-40 rounded-xl bg-gray-100" />
-          <div className="mt-5 space-y-4">
-            <div className="h-12 rounded-2xl bg-gray-100" />
-            <div className="h-12 rounded-2xl bg-gray-100" />
-            <div className="h-12 rounded-2xl bg-gray-100" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+type LoginPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function getSearchParam(
+  searchParams: Record<string, string | string[] | undefined>,
+  name: string
+) {
+  const value = searchParams[name];
+  return Array.isArray(value) ? value[0] : value;
 }
 
-export default function LoginPage() {
+function buildQueryString(
+  searchParams: Record<string, string | string[] | undefined>
+) {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined) params.append(key, item);
+      }
+      continue;
+    }
+
+    if (value !== undefined) {
+      params.set(key, value);
+    }
+  }
+
+  const value = params.toString();
+  return value ? `?${value}` : "";
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const passwordSetupType = getSearchParam(resolvedSearchParams, "type");
+  const hasPasswordSetupParams = Boolean(
+    getSearchParam(resolvedSearchParams, "code") ||
+      getSearchParam(resolvedSearchParams, "token_hash") ||
+      passwordSetupType
+  );
+
   return (
-    <Suspense fallback={<LoginPageFallback />}>
-      <LoginPageClient />
-    </Suspense>
+    <LoginPageClient
+      nextPath={getSearchParam(resolvedSearchParams, "next") || "/"}
+      hasPasswordSetupParams={hasPasswordSetupParams}
+      passwordSetupType={passwordSetupType}
+      searchQueryString={buildQueryString(resolvedSearchParams)}
+    />
   );
 }

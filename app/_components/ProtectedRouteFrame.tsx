@@ -10,16 +10,22 @@ type ProtectedRouteFrameProps = {
   children: React.ReactNode;
   pathname: string;
   headerMode?: "home" | "menu";
+  isAdminOverride?: boolean;
 };
 
 export default async function ProtectedRouteFrame({
   children,
   pathname,
   headerMode = "menu",
+  isAdminOverride,
 }: ProtectedRouteFrameProps) {
   await requireAuthenticatedSession(pathname);
-  const member = await getRequestMemberAccess();
-  const isAdmin = Boolean(member?.is_active && isAdminRole(member.role));
+  const member =
+    typeof isAdminOverride === "boolean" ? null : await getRequestMemberAccess();
+  const isAdmin =
+    typeof isAdminOverride === "boolean"
+      ? isAdminOverride
+      : Boolean(member?.is_active && isAdminRole(member.role));
 
   return (
     <>

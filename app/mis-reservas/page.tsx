@@ -7,6 +7,7 @@ import { leaveReservationRequest } from "@/lib/client-reservation-actions";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts, type Court } from "@/lib/client-reference-data";
+import { isAdminRole } from "@/lib/auth-shared";
 import { buildReservationWhatsappMessage } from "@/lib/reservation-whatsapp-message";
 import {
   getTodayClubISODate,
@@ -24,6 +25,7 @@ import {
   ReservationPlayersPanel,
   type ReservationPlayerChip,
 } from "../_components/ReservationCard";
+import { ReservationManageDialog } from "../_components/ReservationManageDialog";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 type Item = {
@@ -67,6 +69,15 @@ type EnrichedReservation = Item & {
   isOpen: boolean;
 };
 
+type ManageReservation = {
+  id: string;
+  date: string;
+  slotStart: string;
+  slotEnd: string;
+  courtName: string;
+  players: ReservationPlayerChip[];
+};
+
 const CLUB_GREEN = "#0f5e2e";
 
 const toHM = (value: string) => value.slice(0, 5);
@@ -80,6 +91,9 @@ export default function MisReservasPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(getTodayClubISODate());
+  const [canManageReservations, setCanManageReservations] = useState(false);
+  const [manageReservation, setManageReservation] =
+    useState<ManageReservation | null>(null);
 
   const [addReservationId, setAddReservationId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -103,9 +117,12 @@ export default function MisReservasPage() {
         setPlayers([]);
         setMembersMap(new Map());
         setCourtsMap(new Map());
+        setCanManageReservations(false);
         setMsg("No hay sesión. Vuelve a iniciar sesión.");
         return;
       }
+
+      setCanManageReservations(Boolean(member.is_active && isAdminRole(member.role)));
 
       const courts = await getCourts();
       const nextCourtsMap = new Map<number, string>();
@@ -443,6 +460,11 @@ export default function MisReservasPage() {
     });
   }
 
+  async function handleManageChanged() {
+    await load();
+    setManageReservation(null);
+  }
+
   function openAddSocio(reservationId: string) {
     const reservation = reservations.find(
       (item) => item.reservation_id === reservationId
@@ -626,6 +648,23 @@ export default function MisReservasPage() {
                                       + Socio
                                     </ReservationActionButton>
                                   ) : null}
+                                  {canManageReservations ? (
+                                    <ReservationActionButton
+                                      size="sm"
+                                      onClick={() =>
+                                        setManageReservation({
+                                          id: reservation.reservation_id,
+                                          date: reservation.date,
+                                          slotStart: reservation.slot_start,
+                                          slotEnd: reservation.slot_end,
+                                          courtName: reservation.courtName,
+                                          players: reservation.playersList,
+                                        })
+                                      }
+                                    >
+                                      Gestionar
+                                    </ReservationActionButton>
+                                  ) : null}
                                   <ReservationActionButton
                                     tone="danger"
                                     size="sm"
@@ -662,6 +701,13 @@ export default function MisReservasPage() {
         onSelect={addSocio}
         suggestions={suggestions}
         searching={searching}
+      />
+      <ReservationManageDialog
+        open={!!manageReservation}
+        reservation={manageReservation}
+        onClose={() => setManageReservation(null)}
+        onChanged={handleManageChanged}
+        onError={setMsg}
       />
     </div>
   );

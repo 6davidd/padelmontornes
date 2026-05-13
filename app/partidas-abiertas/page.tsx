@@ -1,29 +1,14 @@
-﻿"use client";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getCurrentMember } from "@/lib/client-current-member";
-import { getClientSession } from "@/lib/client-session";
-import { getCourts } from "@/lib/client-reference-data";
-import { BookingDayChips } from "@/app/_components/BookingDayChips";
 import {
-  getTodayClubISODate,
-  getVisibleBookingDays,
-  isSundayISO,
-} from "@/lib/booking-window";
-import { getOpenMatchesByDay, toHM } from "@/lib/open-matches";
-import { supabase } from "../../lib/supabase";
-import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
-import { getDisplayName } from "../../lib/display-name";
-import { PageHeaderCard } from "../_components/PageHeaderCard";
-import {
-  ReservationActionButton,
-  ReservationCard,
-  ReservationOccupancy,
-  ReservationPlayersPanel,
-} from "../_components/ReservationCard";
-import { TimeRangeDisplay } from "../_components/time-range-display";
-
-const CLUB_GREEN = "#0f5e2e";
+  createServerSupabaseClient,
+  getRequestCurrentMember,
+  requireAuthenticatedSession,
+} from "@/lib/auth-server";
+import { isAdminRole } from "@/lib/auth-shared";
+import { getVisibleBookingDays } from "@/lib/booking-window";
+import { getDisplayName } from "@/lib/display-name";
+import PartidasAbiertasPageClient, {
+  type PartidasAbiertasInitialData,
+} from "./PartidasAbiertasPageClient";
 
 type ReservationRow = {
   id: string;
@@ -58,426 +43,108 @@ type CourtRow = {
   name: string;
 };
 
-export default function PartidasAbiertasPage() {
-  const [date, setDate] = useState(getTodayClubISODate());
-  const [hasAutoSelectedDate, setHasAutoSelectedDate] = useState(false);
+async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData> {
+  const session = await requireAuthenticatedSession("/partidas-abiertas");
+  const visibleDays = getVisibleBookingDays();
+  const supabase = createServerSupabaseClient(session.accessToken);
 
-  const [reservations, setReservations] = useState<ReservationRow[]>([]);
-  const [players, setPlayers] = useState<PlayerRow[]>([]);
-  const [blocks, setBlocks] = useState<BlockRow[]>([]);
-  const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
-  const [courtsMap, setCourtsMap] = useState<Map<number, string>>(new Map());
+  const [reservationsRes, blocksRes, courtsRes, member] = await Promise.all([
+    supabase
+      .from("reservations_public")
+      .select("id,date,slot_start,slot_end,court_id")
+      .in("date", visibleDays)
+      .order("date", { ascending: true })
+      .order("slot_start", { ascending: true })
+      .order("court_id", { ascending: true }),
+    supabase
+      .from("blocks")
+      .select("date,slot_start,slot_end,court_id")
+      .in("date", visibleDays),
+    supabase.from("courts").select("id,name").order("id", { ascending: true }),
+    getRequestCurrentMember(),
+  ]);
 
-  const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [joiningReservationIds, setJoiningReservationIds] = useState<string[]>([]);
-  const joiningReservationIdsRef = useRef(new Set<string>());
+  if (reservationsRes.error) {
+    throw new Error(reservationsRes.error.message);
+  }
 
-  const visibleDays = useMemo(() => getVisibleBookingDays(), []);
-  const isSunday = useMemo(() => isSundayISO(date), [date]);
+  if (blocksRes.error) {
+    throw new Error(blocksRes.error.message);
+  }
 
-  const slotsToShow = useMemo(() => {
-    if (isSunday) return [];
-    const d = new Date(`${date}T12:00:00`);
-    const day = d.getDay();
-    return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-  }, [date, isSunday]);
+  if (courtsRes.error) {
+    throw new Error(courtsRes.error.message);
+  }
 
-  const playersByReservation = useMemo(() => {
-    const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
+  const reservations = (reservationsRes.data ?? []) as ReservationRow[];
+  const blocks = (blocksRes.data ?? []) as BlockRow[];
+  const courts = ((courtsRes.data ?? []) as CourtRow[]).map(
+    (court) => [court.id, court.name] as [number, string]
+  );
+  const reservationIds = reservations.map((reservation) => reservation.id);
 
-    for (const p of players) {
-      const arr = m.get(p.reservation_id) ?? [];
-      arr.push({
-        seat: p.seat,
-        name: membersMap.get(p.member_user_id) ?? "Socio",
-        userId: p.member_user_id,
-      });
-      m.set(p.reservation_id, arr);
-    }
-
-    for (const [k, arr] of m.entries()) {
-      arr.sort((a, b) => a.seat - b.seat);
-      m.set(k, arr);
-    }
-
-    return m;
-  }, [players, membersMap]);
-
-  const openMatchesByDay = useMemo(() => {
-    return getOpenMatchesByDay({
+  if (reservationIds.length === 0) {
+    return {
       reservations,
-      playersByReservation,
-      getPlayerUserId: (player) => player.userId,
-      currentUserId,
       blocks,
-      visibleDays,
-    });
-  }, [reservations, playersByReservation, currentUserId, blocks, visibleDays]);
+      players: [],
+      members: [],
+      courts,
+      currentUserId: member?.user_id ?? null,
+      canManageReservations: Boolean(member?.is_active && isAdminRole(member.role)),
+    };
+  }
 
-  const openMatches = useMemo(
-    () => openMatchesByDay.get(date) ?? [],
-    [openMatchesByDay, date]
+  const playersRes = await supabase
+    .from("reservation_players")
+    .select("reservation_id,seat,member_user_id")
+    .in("reservation_id", reservationIds);
+
+  if (playersRes.error) {
+    throw new Error(playersRes.error.message);
+  }
+
+  const players = (playersRes.data ?? []) as PlayerRow[];
+  const userIds = Array.from(new Set(players.map((player) => player.member_user_id)));
+
+  if (userIds.length === 0) {
+    return {
+      reservations,
+      blocks,
+      players,
+      members: [],
+      courts,
+      currentUserId: member?.user_id ?? null,
+      canManageReservations: Boolean(member?.is_active && isAdminRole(member.role)),
+    };
+  }
+
+  const membersRes = await supabase
+    .from("members")
+    .select("user_id,full_name,alias,is_active")
+    .in("user_id", userIds);
+
+  if (membersRes.error) {
+    throw new Error(membersRes.error.message);
+  }
+
+  const members = ((membersRes.data ?? []) as MemberRow[]).map(
+    (row) => [row.user_id, getDisplayName(row)] as [string, string]
   );
 
-  const openMatchesCountByDay = useMemo(() => {
-    const counts = new Map<string, number>();
+  return {
+    reservations,
+    blocks,
+    players,
+    members,
+    courts,
+    currentUserId: member?.user_id ?? null,
+    canManageReservations: Boolean(member?.is_active && isAdminRole(member.role)),
+  };
+}
 
-    for (const [day, matches] of openMatchesByDay.entries()) {
-      counts.set(day, matches.length);
-    }
+export default async function PartidasAbiertasPage() {
+  const initialData = await getInitialOpenMatchesData();
 
-    return counts;
-  }, [openMatchesByDay]);
-
-  const hasAnyOpenMatches = visibleDays.some(
-    (day) => (openMatchesCountByDay.get(day) ?? 0) > 0
-  );
-  const isSelectingFirstOpenDay =
-    hasAnyOpenMatches && !hasAutoSelectedDate && (openMatchesCountByDay.get(date) ?? 0) === 0;
-
-  useEffect(() => {
-    if (hasAutoSelectedDate) return;
-
-    const firstDateWithMatches = visibleDays.find(
-      (day) => (openMatchesCountByDay.get(day) ?? 0) > 0
-    );
-
-    if (firstDateWithMatches) {
-      const timeoutId = window.setTimeout(() => {
-        setDate(firstDateWithMatches);
-        setHasAutoSelectedDate(true);
-      }, 0);
-
-      return () => {
-        window.clearTimeout(timeoutId);
-      };
-    }
-  }, [openMatchesCountByDay, visibleDays, hasAutoSelectedDate]);
-
-  function selectDate(day: string) {
-    setHasAutoSelectedDate(true);
-    setDate(day);
-  }
-
-  const loadOpenMatches = useCallback(async () => {
-    setMsg(null);
-    setLoading(true);
-
-    try {
-      const [reservationsRes, blocksRes, courts, member] = await Promise.all([
-        supabase
-          .from("reservations_public")
-          .select("id,date,slot_start,slot_end,court_id")
-          .in("date", visibleDays)
-          .order("date", { ascending: true })
-          .order("slot_start", { ascending: true })
-          .order("court_id", { ascending: true }),
-        supabase
-          .from("blocks")
-          .select("date,slot_start,slot_end,court_id")
-          .in("date", visibleDays),
-        getCourts(),
-        getCurrentMember(),
-      ]);
-
-      if (reservationsRes.error) {
-        setMsg(reservationsRes.error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (blocksRes.error) {
-        setMsg(blocksRes.error.message);
-        setLoading(false);
-        return;
-      }
-
-      setCurrentUserId(member?.user_id ?? null);
-      const resRows = (reservationsRes.data ?? []) as ReservationRow[];
-      const blockRows = (blocksRes.data ?? []) as BlockRow[];
-      setReservations(resRows);
-      setBlocks(blockRows);
-
-      const cMap = new Map<number, string>();
-      for (const row of courts as CourtRow[]) {
-        cMap.set(row.id, row.name);
-      }
-      setCourtsMap(cMap);
-
-      const ids = resRows.map((x) => x.id);
-      if (ids.length === 0) {
-        setPlayers([]);
-        setMembersMap(new Map());
-        setLoading(false);
-        return;
-      }
-
-      const p = await supabase
-        .from("reservation_players")
-        .select("reservation_id,seat,member_user_id")
-        .in("reservation_id", ids);
-
-      if (p.error) {
-        setMsg(p.error.message);
-        setLoading(false);
-        return;
-      }
-
-      const playerRows = (p.data ?? []) as PlayerRow[];
-      setPlayers(playerRows);
-
-      const userIds = Array.from(new Set(playerRows.map((x) => x.member_user_id)));
-      if (userIds.length === 0) {
-        setMembersMap(new Map());
-        setLoading(false);
-        return;
-      }
-
-      const m = await supabase
-        .from("members")
-        .select("user_id,full_name,alias,is_active")
-        .in("user_id", userIds);
-
-      if (m.error) {
-        setMsg(m.error.message);
-        setLoading(false);
-        return;
-      }
-
-      const map = new Map<string, string>();
-      for (const row of (m.data ?? []) as MemberRow[]) {
-        map.set(row.user_id, getDisplayName(row));
-      }
-      setMembersMap(map);
-      setLoading(false);
-    } catch (error) {
-      setMsg(error instanceof Error ? error.message : "No se han podido cargar las partidas.");
-      setLoading(false);
-    }
-  }, [visibleDays]);
-
-  useEffect(() => {
-    void loadOpenMatches();
-  }, [loadOpenMatches]);
-
-  async function getUserIdOrMsg() {
-    const member = await getCurrentMember();
-
-    if (!member) {
-      setMsg("No hay sesión. Vuelve a iniciar sesión.");
-      return null;
-    }
-
-    return member.user_id;
-  }
-
-  async function restoreScrollAfter(action: () => Promise<void>) {
-    const y = window.scrollY;
-    await action();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: y, behavior: "auto" });
-      });
-    });
-  }
-
-  async function joinSeat(resId: string, _seat: number | null, memberUserId: string) {
-    setMsg(null);
-
-    const session = await getClientSession();
-    if (!session?.access_token) {
-      setMsg("No hay sesión. Vuelve a iniciar sesión.");
-      return;
-    }
-
-    await restoreScrollAfter(async () => {
-      const res = await fetch("/api/reservations/join", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          reservationId: resId,
-          memberUserId,
-        }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setMsg(String(data?.error ?? "No se ha podido completar la operación."));
-        return;
-      }
-
-      await loadOpenMatches();
-    });
-  }
-
-  async function joinMe(resId: string) {
-    if (joiningReservationIdsRef.current.has(resId)) {
-      return;
-    }
-
-    joiningReservationIdsRef.current.add(resId);
-    setJoiningReservationIds((prev) => [...prev, resId]);
-
-    try {
-      const userId = await getUserIdOrMsg();
-      if (!userId) return;
-
-      const alreadyIn = (playersByReservation.get(resId) ?? []).some(
-        (x) => x.userId === userId
-      );
-
-      if (alreadyIn) {
-        setMsg("Ya estás apuntado en esta partida.");
-        return;
-      }
-
-      const taken = new Set((playersByReservation.get(resId) ?? []).map((x) => x.seat));
-      const freeSeat = [1, 2, 3, 4].find((s) => !taken.has(s));
-
-      if (!freeSeat) {
-        setMsg("Esta partida ya está completa.");
-        return;
-      }
-
-      await joinSeat(resId, freeSeat, userId);
-    } finally {
-      joiningReservationIdsRef.current.delete(resId);
-      setJoiningReservationIds((prev) =>
-        prev.filter((currentId) => currentId !== resId)
-      );
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 pb-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        <PageHeaderCard title="Partidas abiertas" contentClassName="space-y-3">
-          <BookingDayChips
-            days={visibleDays}
-            selectedDay={date}
-            onSelect={selectDate}
-            counts={openMatchesCountByDay}
-            accentColor={CLUB_GREEN}
-          />
-
-          {msg && (
-            <div className="mt-4 border border-yellow-300 rounded-2xl p-4 bg-yellow-50">
-              <p className="text-sm text-yellow-900">{msg}</p>
-            </div>
-          )}
-        </PageHeaderCard>
-
-        {loading ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
-            Cargando…
-          </div>
-        ) : isSelectingFirstOpenDay ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-5 text-gray-700">
-            Cargando…
-          </div>
-        ) : !hasAnyOpenMatches ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-8 sm:p-10 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-3xl">
-              🎾
-            </div>
-            <div className="mt-4 text-xl font-bold text-gray-900">
-              No hay partidas abiertas
-            </div>
-            <div className="mt-2 text-sm text-gray-600">
-              Cuando se abra una nueva partida, te aparecerá aquí para poder unirte.
-            </div>
-          </div>
-        ) : isSunday ? (
-          <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
-            <div className="text-lg font-bold text-red-800">Club cerrado</div>
-            <div className="mt-2 text-sm text-red-700">
-              Los domingos no hay partidas abiertas.
-            </div>
-          </div>
-        ) : openMatches.length === 0 ? (
-          <div className="bg-white border border-gray-300 rounded-3xl shadow-sm p-6 text-center">
-            <div className="text-sm font-semibold text-gray-700">
-              No hay partidas abiertas.
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {slotsToShow
-              .filter((slot) =>
-                openMatches.some(
-                  (match) =>
-                    toHM(match.slot_start) === toHM(slot.start) &&
-                    toHM(match.slot_end) === toHM(slot.end)
-                )
-              )
-              .map((slot) => {
-                const matchesInSlot = openMatches.filter(
-                  (match) =>
-                    toHM(match.slot_start) === toHM(slot.start) &&
-                    toHM(match.slot_end) === toHM(slot.end)
-                );
-
-                return (
-                  <div
-                    key={slot.start}
-                    className="bg-white border border-gray-300 rounded-3xl shadow-sm overflow-hidden"
-                  >
-                    <div className="px-4 sm:px-5 py-4 border-b border-gray-200">
-                      <div className="flex items-center">
-                        <TimeRangeDisplay start={slot.start} end={slot.end} />
-                      </div>
-                    </div>
-
-                    <div className="p-5">
-                      <div className="grid grid-cols-1 gap-4">
-                        {matchesInSlot.map((match) => {
-                          const courtName =
-                            courtsMap.get(match.court_id) ?? `Pista ${match.court_id}`;
-
-                          return (
-                            <ReservationCard
-                              key={match.id}
-                              title={courtName}
-                              tone="open"
-                              stackHeaderOnMobile={false}
-                              occupancy={
-                                <ReservationOccupancy
-                                  filled={match.playersCount}
-                                  total={4}
-                                  accentColor={CLUB_GREEN}
-                                  label={`${match.playersCount}/4`}
-                                />
-                              }
-                              topActions={
-                                <ReservationActionButton
-                                  tone="primary"
-                                  size="sm"
-                                  loading={joiningReservationIds.includes(match.id)}
-                                  onClick={() => joinMe(match.id)}
-                                >
-                                  Unirme
-                                </ReservationActionButton>
-                              }
-                            >
-                              <ReservationPlayersPanel players={match.playersList} />
-                            </ReservationCard>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        )}
-      </div>
-
-    </div>
-  );
+  return <PartidasAbiertasPageClient initialData={initialData} />;
 }
