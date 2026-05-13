@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 type MemberSearchSuggestion = {
   user_id: string;
   label: string;
@@ -32,21 +34,32 @@ export function MemberSearchDialog({
   placeholder = "Buscar por nombre o alias...",
   emptyMessage = "Sin resultados.",
 }: MemberSearchDialogProps) {
+  const inputWrapRef = useRef<HTMLDivElement | null>(null);
+
   if (!open) return null;
 
   const trimmedQuery = query.trim();
   const isWaitingForQuery = trimmedQuery.length < minChars;
+  function scrollSearchIntoView() {
+    window.setTimeout(() => {
+      inputWrapRef.current?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    }, 80);
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <button
         className="absolute inset-0 bg-black/30 backdrop-blur-[1px]"
         onClick={onClose}
         aria-label="Cerrar"
       />
 
-      <div className="relative w-full max-w-md rounded-3xl border border-gray-300 bg-white p-5 shadow-xl sm:p-6">
-        <div className="flex items-start justify-between gap-3">
+      <div className="relative flex max-h-[min(88dvh,38rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-xl">
+        <div className="shrink-0 border-b border-gray-100 px-4 py-4 sm:px-5">
+          <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-lg font-bold text-gray-900">{title}</div>
             {description ? (
@@ -61,11 +74,14 @@ export function MemberSearchDialog({
             Cerrar
           </button>
         </div>
+        </div>
 
-        <div className="mt-5 space-y-4">
+        <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-4 sm:px-5 sm:pb-5">
+        <div ref={inputWrapRef} className="scroll-mt-6 space-y-4">
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
+            onFocus={scrollSearchIntoView}
             placeholder={placeholder}
             className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
           />
@@ -83,7 +99,7 @@ export function MemberSearchDialog({
               {emptyMessage}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="max-h-72 space-y-3 overflow-y-auto">
               {suggestions.map((suggestion) => (
                 <button
                   key={suggestion.user_id}
@@ -95,6 +111,7 @@ export function MemberSearchDialog({
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

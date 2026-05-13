@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addReservationPlayerRequest,
   removeReservationPlayerRequest,
@@ -61,6 +61,7 @@ export function ReservationManageDialog({
   const [suggestions, setSuggestions] = useState<MemberSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const addSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setPlayers(reservation?.players ?? []);
@@ -208,8 +209,17 @@ export function ReservationManageDialog({
   const isBusy = !!removingUserId || !!addingUserId;
   const isFull = players.length >= 4;
 
+  function scrollAddSectionIntoView() {
+    window.setTimeout(() => {
+      addSectionRef.current?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    }, 80);
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/35 backdrop-blur-[1px]"
@@ -217,8 +227,9 @@ export function ReservationManageDialog({
         aria-label="Cerrar"
       />
 
-      <div className="relative max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-3xl border border-gray-300 bg-white p-5 shadow-2xl sm:p-6">
-        <div className="flex items-start justify-between gap-3">
+      <div className="relative flex max-h-[min(88dvh,42rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-2xl">
+        <div className="shrink-0 border-b border-gray-100 px-4 py-4 sm:px-5">
+          <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-lg font-bold text-gray-900">Gestionar</div>
             <div className="mt-1 text-sm font-semibold text-gray-600">
@@ -235,8 +246,10 @@ export function ReservationManageDialog({
             Cerrar
           </button>
         </div>
+        </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+        <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-4 sm:px-5 sm:pb-6">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 bg-gray-50 p-3">
           <div>
             <div className="text-[11px] font-semibold uppercase text-gray-500">
               Día
@@ -304,7 +317,10 @@ export function ReservationManageDialog({
           )}
         </div>
 
-        <div className="mt-5 border-t border-gray-200 pt-4">
+        <div
+          ref={addSectionRef}
+          className="mt-5 scroll-mt-6 border-t border-gray-200 pt-4"
+        >
           <div className="flex items-center justify-between gap-3">
             <div className="font-semibold text-gray-900">Añadir socio</div>
             <div className="text-sm font-semibold text-gray-600">{players.length}/4</div>
@@ -319,6 +335,7 @@ export function ReservationManageDialog({
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onFocus={scrollAddSectionIntoView}
                 disabled={isBusy}
                 placeholder="Buscar socio..."
                 className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200 disabled:opacity-60"
@@ -351,6 +368,7 @@ export function ReservationManageDialog({
               )}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

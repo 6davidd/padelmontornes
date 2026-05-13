@@ -650,6 +650,7 @@ export default function MisReservasPage() {
                                   {canManageReservations ? (
                                     <ReservationActionButton
                                       size="sm"
+                                      className="px-2.5 py-1.5 text-xs shadow-none"
                                       onClick={() =>
                                         setManageReservation({
                                           id: reservation.reservation_id,

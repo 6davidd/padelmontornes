@@ -179,7 +179,7 @@ function Modal({
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-gray-200 bg-white p-4 shadow-xl sm:p-5">
+      <div className="relative max-h-[min(88dvh,42rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-gray-200 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] shadow-xl sm:p-5 sm:pb-5">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold text-gray-900">{title}</div>
           <button
@@ -215,6 +215,7 @@ export default function AdminCrearPartidasPage() {
   const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLDivElement | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [expandedReservationId, setExpandedReservationId] = useState<string | null>(
     null
@@ -480,6 +481,15 @@ export default function AdminCrearPartidasPage() {
       return [...prev, userId];
     });
     setSearch("");
+  }
+
+  function scrollSearchIntoView() {
+    window.setTimeout(() => {
+      searchRef.current?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    }, 80);
   }
 
   async function createMatch() {
@@ -856,12 +866,15 @@ export default function AdminCrearPartidasPage() {
                 Añadir socio
               </div>
 
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar socio..."
-                className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
-              />
+              <div ref={searchRef} className="scroll-mt-6">
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  onFocus={scrollSearchIntoView}
+                  placeholder="Buscar socio..."
+                  className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-500 focus:border-gray-400 focus:ring-2 focus:ring-green-200"
+                />
+              </div>
 
               {!canSearchMembers ? null : filteredMembers.length === 0 ? (
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 text-sm text-gray-700">

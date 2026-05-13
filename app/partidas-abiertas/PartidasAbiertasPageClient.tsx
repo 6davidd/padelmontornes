@@ -484,6 +484,7 @@ export default function PartidasAbiertasPageClient({
                               {canManageReservations ? (
                                 <ReservationActionButton
                                   size="sm"
+                                  className="px-2.5 py-1.5 text-xs shadow-none"
                                   onClick={() =>
                                     setManageReservation({
                                       id: match.id,

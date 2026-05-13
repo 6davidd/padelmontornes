@@ -122,7 +122,7 @@ function Modal({
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative w-full max-w-md rounded-3xl border border-gray-200 bg-white p-5 shadow-xl sm:p-6">
+      <div className="relative max-h-[min(88dvh,38rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-gray-200 bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+5rem)] shadow-xl sm:p-6 sm:pb-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold text-gray-900">{title}</div>
           <button
@@ -170,6 +170,7 @@ export default function ReservarPage() {
     Array<{ user_id: string; label: string }>
   >([]);
   const [searching, setSearching] = useState(false);
+  const addSocioSearchRef = useRef<HTMLDivElement | null>(null);
 
   const visibleDays = useMemo(() => getVisibleBookingDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
@@ -728,6 +729,15 @@ export default function ReservarPage() {
 
   }
 
+  function scrollAddSocioSearchIntoView() {
+    window.setTimeout(() => {
+      addSocioSearchRef.current?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    }, 80);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
@@ -873,7 +883,7 @@ export default function ReservarPage() {
                                           players: reservationPlayers,
                                         })
                                       }
-                                      className="rounded-full border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
+                                      className="rounded-full border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-800 shadow-none transition hover:bg-gray-50 active:scale-[0.99]"
                                     >
                                       Gestionar
                                     </button>
@@ -1012,12 +1022,15 @@ export default function ReservarPage() {
         title="Añadir socio"
       >
         <div className="space-y-4">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nombre o alias…"
-            className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
-          />
+          <div ref={addSocioSearchRef} className="scroll-mt-6">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onFocus={scrollAddSocioSearchIntoView}
+              placeholder="Buscar por nombre o alias…"
+              className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200"
+            />
+          </div>
 
           {q.trim().length < 2 ? null : searching ? (
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
