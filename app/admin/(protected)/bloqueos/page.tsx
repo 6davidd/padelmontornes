@@ -9,7 +9,7 @@ import {
   getSaturdaySlotOverrides,
   type SaturdaySlotOverrideRow,
 } from "@/lib/client-saturday-slots";
-import { WEEKDAY_SLOTS } from "@/lib/slots";
+import { mergeAndSortSlots, WEEKDAY_SLOTS } from "@/lib/slots";
 import { supabase } from "@/lib/supabase";
 
 type Court = {
@@ -48,12 +48,21 @@ function isSundayISO(dateISO: string) {
 
 function getSlotsForDate(
   dateISO: string,
-  saturdaySlots: SaturdaySlotOverrideRow[]
+  saturdaySlots: SaturdaySlotOverrideRow[],
+  blocks: BlockRow[]
 ) {
   if (isSundayISO(dateISO)) return [];
-  return isSaturdayISO(dateISO)
+  const configuredSlots = isSaturdayISO(dateISO)
     ? getConfiguredSlotsForDate(dateISO, saturdaySlots)
     : WEEKDAY_SLOTS;
+  const blockedSlots = blocks
+    .filter((block) => block.date === dateISO)
+    .map((block) => ({
+      start: toHM(block.slot_start),
+      end: toHM(block.slot_end),
+    }));
+
+  return mergeAndSortSlots([...configuredSlots, ...blockedSlots]);
 }
 
 function classNames(...xs: Array<string | false | null | undefined>) {
@@ -262,7 +271,7 @@ export default function AdminBloqueosPage() {
         ) : (
           <div className="space-y-6">
             {visibleDates.map((dateISO) => {
-              const slots = getSlotsForDate(dateISO, saturdaySlots);
+              const slots = getSlotsForDate(dateISO, saturdaySlots, blocks);
               const sunday = isSundayISO(dateISO);
               const saturday = isSaturdayISO(dateISO);
 
