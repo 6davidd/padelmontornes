@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
 import { TimeRangeDisplay } from "@/app/_components/time-range-display";
 import { getCourts } from "@/lib/client-reference-data";
+import { getClientSession } from "@/lib/client-session";
 import {
   getConfiguredSlotsForDate,
   getSaturdaySlotOverrides,
@@ -179,12 +180,28 @@ export default function AdminBloqueosPage() {
 
     setSavingKey(key);
 
+    const session = await getClientSession();
+    if (!session?.access_token) {
+      setSavingKey(null);
+      setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
+      return;
+    }
+
     if (existing) {
-      const del = await supabase.from("blocks").delete().eq("id", existing.id);
+      const del = await fetch(
+        `/api/admin/blocks?id=${encodeURIComponent(existing.id)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+      const data = await del.json().catch(() => null);
       setSavingKey(null);
 
-      if (del.error) {
-        setMsg(del.error.message);
+      if (!del.ok || !data?.ok) {
+        setMsg(String(data?.error ?? "No se ha podido quitar el bloqueo."));
         return;
       }
 
@@ -192,18 +209,26 @@ export default function AdminBloqueosPage() {
       return;
     }
 
-    const ins = await supabase.from("blocks").insert({
-      date: dateISO,
-      slot_start: slotStart,
-      slot_end: slotEnd,
-      court_id: courtId,
-      reason: reason.trim() || "Bloqueado",
+    const ins = await fetch("/api/admin/blocks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        date: dateISO,
+        slotStart,
+        slotEnd,
+        courtId,
+        reason: reason.trim() || "Bloqueado",
+      }),
     });
+    const data = await ins.json().catch(() => null);
 
     setSavingKey(null);
 
-    if (ins.error) {
-      setMsg(ins.error.message);
+    if (!ins.ok || !data?.ok) {
+      setMsg(String(data?.error ?? "No se ha podido crear el bloqueo."));
       return;
     }
 

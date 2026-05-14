@@ -213,7 +213,7 @@ export default function AdminHorariosSabadoPage() {
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <PageHeaderCard title="Horario sábados" contentClassName="space-y-3">
           <label className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-3.5 py-3 text-sm shadow-sm">
-            <span className="font-semibold text-gray-800">Sábado</span>
+            <span className="font-semibold text-gray-800">Fecha</span>
             <select
               value={date}
               onChange={(event) => setDate(event.target.value)}
