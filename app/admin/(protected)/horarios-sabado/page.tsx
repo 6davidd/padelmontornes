@@ -58,6 +58,21 @@ function formatSaturdayLabel(dateISO: string) {
   }).format(date);
 }
 
+function getQuarterHourStartOptions() {
+  const lastStartMinutes = 22 * 60 + 30;
+
+  return Array.from({ length: lastStartMinutes / 15 + 1 }, (_, index) => {
+    const totalMinutes = index * 15;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}`;
+  });
+}
+
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -74,6 +89,7 @@ export default function AdminHorariosSabadoPage() {
   const [ok, setOk] = useState<string | null>(null);
 
   const saturdayOptions = useMemo(() => getUpcomingSaturdays(), []);
+  const hourOptions = useMemo(() => getQuarterHourStartOptions(), []);
   const isSaturday = useMemo(() => isSaturdayISO(date), [date]);
   const selectedSlots = useMemo(
     () => getConfiguredSlotsForDate(date, slots),
@@ -250,14 +266,19 @@ export default function AdminHorariosSabadoPage() {
               <div className="text-sm font-semibold text-gray-900">
                 Hora de inicio
               </div>
-              <input
-                type="time"
-                step={900}
+              <select
                 value={slotStart}
                 onChange={(event) => setSlotStart(event.target.value)}
                 disabled={!isSaturday}
                 className="app-form-control w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-green-200 disabled:opacity-60"
-              />
+              >
+                <option value="">Seleccionar hora</option>
+                {hourOptions.map((hour) => (
+                  <option key={hour} value={hour}>
+                    {hour}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <LoadingButton
