@@ -76,7 +76,7 @@ export function MemberSearchDialog({
         </div>
         </div>
 
-        <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-4 sm:px-5 sm:pb-5">
+        <div className="min-h-0 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 sm:px-5 sm:pb-5">
         <div ref={inputWrapRef} className="scroll-mt-6 space-y-4">
           <input
             value={query}
@@ -99,7 +99,7 @@ export function MemberSearchDialog({
               {emptyMessage}
             </div>
           ) : (
-            <div className="max-h-72 space-y-3 overflow-y-auto">
+            <div className="max-h-[min(42dvh,18rem)] space-y-3 overflow-y-auto pb-1">
               {suggestions.map((suggestion) => (
                 <button
                   key={suggestion.user_id}

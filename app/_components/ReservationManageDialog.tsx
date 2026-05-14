@@ -248,7 +248,7 @@ export function ReservationManageDialog({
         </div>
         </div>
 
-        <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-4 sm:px-5 sm:pb-6">
+        <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 sm:px-5 sm:pb-6">
         <div className="grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 bg-gray-50 p-3">
           <div>
             <div className="text-[11px] font-semibold uppercase text-gray-500">
@@ -350,7 +350,7 @@ export function ReservationManageDialog({
                   Sin resultados.
                 </div>
               ) : (
-                <div className="max-h-56 space-y-2 overflow-y-auto">
+                <div className="max-h-[min(38dvh,16rem)] space-y-2 overflow-y-auto pb-1">
                   {suggestions.map((suggestion) => (
                     <button
                       key={suggestion.user_id}

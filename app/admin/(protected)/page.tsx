@@ -59,8 +59,7 @@ export default async function AdminPage() {
           <TileLink href="/admin/bloqueos" title="Bloquear pistas" />
           <TileLink
             href="/admin/horarios-sabado"
-            title="Horarios de sábado"
-            description="Configura los horarios disponibles de cada sábado."
+            title="Horario sábados"
           />
           <TileLink href="/admin/socios" title="Socios" />
           {isOwner && (

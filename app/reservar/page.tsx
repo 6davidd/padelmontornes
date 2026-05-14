@@ -127,7 +127,7 @@ function Modal({
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative max-h-[min(88dvh,38rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-gray-200 bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+5rem)] shadow-xl sm:p-6 sm:pb-6">
+      <div className="relative max-h-[min(88dvh,38rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-gray-200 bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-xl sm:p-6 sm:pb-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold text-gray-900">{title}</div>
           <button
@@ -805,10 +805,10 @@ export default function ReservarPage() {
         ) : isSaturday && slotsToShow.length === 0 ? (
           <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
             <div className="text-lg font-bold text-gray-900">
-              Sin horarios configurados
+              Horario no definido
             </div>
             <div className="mt-2 text-sm text-gray-600">
-              Todavía no hay horarios configurados para este sábado.
+              El club todavía no ha definido el horario de este sábado.
             </div>
           </div>
         ) : (
@@ -1068,7 +1068,7 @@ export default function ReservarPage() {
               Sin resultados.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="max-h-[min(42dvh,18rem)] space-y-3 overflow-y-auto pb-1">
               {suggestions.map((s) => (
                 <button
                   key={s.user_id}

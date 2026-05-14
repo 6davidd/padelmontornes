@@ -31,6 +31,28 @@ function getNextSaturdayISO() {
   return today;
 }
 
+function getUpcomingSaturdays(count = 16) {
+  const firstSaturday = getNextSaturdayISO();
+
+  return Array.from({ length: count }, (_, index) =>
+    addDaysToISODate(firstSaturday, index * 7)
+  );
+}
+
+function formatSaturdayLabel(dateISO: string) {
+  const date = new Date(`${dateISO}T12:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateISO;
+  }
+
+  return new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+}
+
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -46,6 +68,7 @@ export default function AdminHorariosSabadoPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  const saturdayOptions = useMemo(() => getUpcomingSaturdays(), []);
   const isSaturday = useMemo(() => isSaturdayISO(date), [date]);
   const selectedSlots = useMemo(
     () => getConfiguredSlotsForDate(date, slots),
@@ -178,24 +201,21 @@ export default function AdminHorariosSabadoPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <PageHeaderCard title="Horarios de sábado" contentClassName="space-y-3">
+        <PageHeaderCard title="Horario sábados" contentClassName="space-y-3">
           <label className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-3.5 py-3 text-sm shadow-sm">
             <span className="font-semibold text-gray-800">Sábado</span>
-            <input
-              type="date"
+            <select
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="app-date-input min-w-0 bg-transparent text-right font-semibold text-gray-900 outline-none"
-            />
+              className="min-w-0 flex-1 bg-transparent text-right font-semibold text-gray-900 outline-none"
+            >
+              {saturdayOptions.map((saturday) => (
+                <option key={saturday} value={saturday}>
+                  {formatSaturdayLabel(saturday)}
+                </option>
+              ))}
+            </select>
           </label>
-
-          {!isSaturday && (
-            <div className="rounded-2xl border border-yellow-300 bg-yellow-50 px-3.5 py-3">
-              <p className="text-sm font-semibold text-yellow-900">
-                Selecciona un sábado para gestionar horarios.
-              </p>
-            </div>
-          )}
 
           {msg && (
             <div className="rounded-2xl border border-yellow-300 bg-yellow-50 px-3.5 py-3">
@@ -211,7 +231,9 @@ export default function AdminHorariosSabadoPage() {
         </PageHeaderCard>
 
         <div className="rounded-3xl border border-gray-300 bg-white p-5 shadow-sm">
-          <div className="text-lg font-bold text-gray-900">Añadir horario</div>
+          <div className="text-lg font-bold text-gray-900">
+            Definir horario especial
+          </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <label className="space-y-2">
@@ -268,8 +290,8 @@ export default function AdminHorariosSabadoPage() {
               Elige un sábado.
             </div>
           ) : selectedSlots.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-              Todavía no hay horarios configurados para este sábado.
+            <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-semibold text-yellow-900">
+              Horario no definido.
             </div>
           ) : (
             <div className="mt-4 space-y-3">

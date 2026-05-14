@@ -280,10 +280,10 @@ export default function AdminBloqueosPage() {
                   ) : saturday && slots.length === 0 ? (
                     <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
                       <div className="text-lg font-bold text-gray-900">
-                        Sin horarios configurados
+                        Horario no definido
                       </div>
                       <div className="mt-2 text-sm text-gray-600">
-                        Todavía no hay horarios configurados para este sábado.
+                        Define primero el horario especial de este sábado.
                       </div>
                     </div>
                   ) : (
