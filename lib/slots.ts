@@ -20,6 +20,15 @@ export function isValidHMTime(time: string) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
 }
 
+export function isQuarterHourHMTime(time: string) {
+  if (!isValidHMTime(time)) {
+    return false;
+  }
+
+  const [, minutes] = time.split(":").map(Number);
+  return minutes % 15 === 0;
+}
+
 export function addMinutesToHM(time: string, minutesToAdd: number) {
   if (!isValidHMTime(time)) {
     return null;

@@ -14,7 +14,12 @@ import {
   getSaturdaySlotOverrides,
   type SaturdaySlotOverrideRow,
 } from "@/lib/client-saturday-slots";
-import { getSlotEndFromStart, isValidHMTime, toHM } from "@/lib/slots";
+import {
+  getSlotEndFromStart,
+  isQuarterHourHMTime,
+  isValidHMTime,
+  toHM,
+} from "@/lib/slots";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -124,6 +129,11 @@ export default function AdminHorariosSabadoPage() {
 
     if (!isValidHMTime(slotStart) || !slotEndPreview) {
       setMsg("Indica una hora de inicio válida.");
+      return;
+    }
+
+    if (!isQuarterHourHMTime(slotStart)) {
+      setMsg("La hora debe ir en intervalos de 15 minutos.");
       return;
     }
 
@@ -242,6 +252,7 @@ export default function AdminHorariosSabadoPage() {
               </div>
               <input
                 type="time"
+                step={900}
                 value={slotStart}
                 onChange={(event) => setSlotStart(event.target.value)}
                 disabled={!isSaturday}

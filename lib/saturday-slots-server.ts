@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isSaturdayISO, isSundayISO } from "@/lib/booking-window";
 import {
   getSlotEndFromStart,
+  isQuarterHourHMTime,
   mergeAndSortSlots,
   toHM,
   WEEKDAY_SLOTS,
@@ -90,6 +91,10 @@ export async function isReservableSlot(params: {
 }
 
 export function buildSaturdaySlot(slotStart: string): Slot | null {
+  if (!isQuarterHourHMTime(toHM(slotStart))) {
+    return null;
+  }
+
   const end = getSlotEndFromStart(slotStart);
 
   if (!end) {
