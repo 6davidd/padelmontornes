@@ -5,15 +5,26 @@ import { isOwnerRole, isSuperadminRole } from "@/lib/auth-shared";
 
 const CLUB_GREEN = "#0f5e2e";
 
-function TileLink({ href, title }: { href: string; title: string }) {
+function TileLink({
+  href,
+  title,
+  description,
+}: {
+  href: string;
+  title: string;
+  description?: string;
+}) {
   return (
     <Link
       href={href}
-      className="flex items-center rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5 transition hover:bg-gray-50 hover:ring-black/10 active:scale-[0.99]"
+      className="flex flex-col rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5 transition hover:bg-gray-50 hover:ring-black/10 active:scale-[0.99]"
     >
       <span className="text-base font-semibold text-gray-900 sm:text-lg">
         {title}
       </span>
+      {description && (
+        <span className="mt-1 text-sm text-gray-600">{description}</span>
+      )}
     </Link>
   );
 }
@@ -46,6 +57,11 @@ export default async function AdminPage() {
         <div className="grid grid-cols-1 gap-4">
           <TileLink href="/admin/crear-partidas" title="Crear partidas" />
           <TileLink href="/admin/bloqueos" title="Bloquear pistas" />
+          <TileLink
+            href="/admin/horarios-sabado"
+            title="Horarios de sábado"
+            description="Configura los horarios disponibles de cada sábado."
+          />
           <TileLink href="/admin/socios" title="Socios" />
           {isOwner && (
             <TileLink href="/admin/importar-socios" title="Importar socios" />

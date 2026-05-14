@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
 import { TimeRangeDisplay } from "@/app/_components/time-range-display";
 import { getCourts } from "@/lib/client-reference-data";
-import { SATURDAY_SLOTS, WEEKDAY_SLOTS } from "@/lib/slots";
+import {
+  getConfiguredSlotsForDate,
+  getSaturdaySlotOverrides,
+  type SaturdaySlotOverrideRow,
+} from "@/lib/client-saturday-slots";
+import { WEEKDAY_SLOTS } from "@/lib/slots";
 import { supabase } from "@/lib/supabase";
 
 type Court = {
@@ -41,9 +46,14 @@ function isSundayISO(dateISO: string) {
   return d.getDay() === 0;
 }
 
-function getSlotsForDate(dateISO: string) {
+function getSlotsForDate(
+  dateISO: string,
+  saturdaySlots: SaturdaySlotOverrideRow[]
+) {
   if (isSundayISO(dateISO)) return [];
-  return isSaturdayISO(dateISO) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
+  return isSaturdayISO(dateISO)
+    ? getConfiguredSlotsForDate(dateISO, saturdaySlots)
+    : WEEKDAY_SLOTS;
 }
 
 function classNames(...xs: Array<string | false | null | undefined>) {
@@ -78,6 +88,7 @@ export default function AdminBloqueosPage() {
   const [reason, setReason] = useState("");
   const [courts, setCourts] = useState<Court[]>([]);
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
+  const [saturdaySlots, setSaturdaySlots] = useState<SaturdaySlotOverrideRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [loadingPage, setLoadingPage] = useState(true);
   const [loadingBlocks, setLoadingBlocks] = useState(false);
@@ -108,20 +119,24 @@ export default function AdminBloqueosPage() {
     setMsg(null);
     setLoadingBlocks(true);
 
-    const { data, error } = await supabase
-      .from("blocks")
-      .select("id,date,slot_start,slot_end,court_id,reason")
-      .in("date", visibleDates)
-      .order("date", { ascending: true })
-      .order("slot_start", { ascending: true });
+    const [blocksRes, saturdaySlotRows] = await Promise.all([
+      supabase
+        .from("blocks")
+        .select("id,date,slot_start,slot_end,court_id,reason")
+        .in("date", visibleDates)
+        .order("date", { ascending: true })
+        .order("slot_start", { ascending: true }),
+      getSaturdaySlotOverrides(visibleDates),
+    ]);
 
-    if (error) {
-      setMsg(error.message);
+    if (blocksRes.error) {
+      setMsg(blocksRes.error.message);
       setLoadingBlocks(false);
       return;
     }
 
-    setBlocks((data as BlockRow[]) ?? []);
+    setBlocks((blocksRes.data as BlockRow[]) ?? []);
+    setSaturdaySlots(saturdaySlotRows);
     setLoadingBlocks(false);
   }
 
@@ -247,8 +262,9 @@ export default function AdminBloqueosPage() {
         ) : (
           <div className="space-y-6">
             {visibleDates.map((dateISO) => {
-              const slots = getSlotsForDate(dateISO);
+              const slots = getSlotsForDate(dateISO, saturdaySlots);
               const sunday = isSundayISO(dateISO);
+              const saturday = isSaturdayISO(dateISO);
 
               return (
                 <div key={dateISO} className="space-y-3">
@@ -259,6 +275,15 @@ export default function AdminBloqueosPage() {
                       </div>
                       <div className="mt-2 text-sm text-red-700">
                         Los domingos no hay franjas para bloquear.
+                      </div>
+                    </div>
+                  ) : saturday && slots.length === 0 ? (
+                    <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
+                      <div className="text-lg font-bold text-gray-900">
+                        Sin horarios configurados
+                      </div>
+                      <div className="mt-2 text-sm text-gray-600">
+                        Todavía no hay horarios configurados para este sábado.
                       </div>
                     </div>
                   ) : (

@@ -21,7 +21,12 @@ import {
   isSundayISO,
 } from "@/lib/booking-window";
 import { getDisplayName } from "@/lib/display-name";
-import { SATURDAY_SLOTS, WEEKDAY_SLOTS } from "@/lib/slots";
+import { toHM } from "@/lib/slots";
+import {
+  getSaturdaySlotOverrides,
+  getSlotsForBookingDate,
+  type SaturdaySlotOverrideRow,
+} from "@/lib/client-saturday-slots";
 import { supabase } from "@/lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
@@ -67,6 +72,7 @@ type VisibleDaysAdminData = {
   blocks: BlockRow[];
   players: PlayerRow[];
   membersMap: Map<string, string>;
+  saturdaySlots: SaturdaySlotOverrideRow[];
 };
 
 type SelectedMatch = {
@@ -103,8 +109,6 @@ function formatDateShort(dateISO: string) {
 
   return `${capitalizeFirst(weekday)} ${day}/${month}`;
 }
-
-const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -207,6 +211,9 @@ export default function AdminCrearPartidasPage() {
   const [allPlayers, setAllPlayers] = useState<PlayerRow[]>([]);
   const [allBlocks, setAllBlocks] = useState<BlockRow[]>([]);
   const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
+  const [allSaturdaySlots, setAllSaturdaySlots] = useState<
+    SaturdaySlotOverrideRow[]
+  >([]);
   const [activeMembers, setActiveMembers] = useState<MemberRow[]>([]);
 
   const [msg, setMsg] = useState<string | null>(null);
@@ -235,9 +242,17 @@ export default function AdminCrearPartidasPage() {
   );
 
   const slotsToShow = useMemo(() => {
-    if (isSunday || isOutOfRange) return [];
-    return isSaturdayISO(date) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-  }, [date, isSunday, isOutOfRange]);
+    return getSlotsForBookingDate({
+      date,
+      isSunday,
+      isOutOfRange,
+      saturdaySlots: allSaturdaySlots,
+      existingSlots: reservations.map((reservation) => ({
+        start: toHM(reservation.slot_start),
+        end: toHM(reservation.slot_end),
+      })),
+    });
+  }, [allSaturdaySlots, date, isSunday, isOutOfRange, reservations]);
 
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
@@ -308,10 +323,11 @@ export default function AdminCrearPartidasPage() {
     setAllBlocks(data.blocks);
     setAllPlayers(data.players);
     setMembersMap(data.membersMap);
+    setAllSaturdaySlots(data.saturdaySlots);
   }
 
   async function fetchVisibleDaysData(): Promise<VisibleDaysAdminData> {
-    const [reservationsRes, blocksRes] = await Promise.all([
+    const [reservationsRes, blocksRes, saturdaySlots] = await Promise.all([
       supabase
         .from("reservations_public")
         .select("id,date,slot_start,slot_end,court_id")
@@ -326,6 +342,7 @@ export default function AdminCrearPartidasPage() {
         .order("date", { ascending: true })
         .order("slot_start", { ascending: true })
         .order("court_id", { ascending: true }),
+      getSaturdaySlotOverrides(fetchDates),
     ]);
 
     if (reservationsRes.error) {
@@ -346,6 +363,7 @@ export default function AdminCrearPartidasPage() {
         blocks,
         players: [],
         membersMap: new Map(),
+        saturdaySlots,
       };
     }
 
@@ -367,6 +385,7 @@ export default function AdminCrearPartidasPage() {
         blocks,
         players,
         membersMap: new Map(),
+        saturdaySlots,
       };
     }
 
@@ -389,6 +408,7 @@ export default function AdminCrearPartidasPage() {
       blocks,
       players,
       membersMap,
+      saturdaySlots,
     };
   }
 
@@ -635,6 +655,15 @@ export default function AdminCrearPartidasPage() {
             <div className="text-lg font-bold text-red-800">Club cerrado</div>
             <div className="mt-2 text-sm text-red-700">
               Los domingos no se pueden crear partidas.
+            </div>
+          </div>
+        ) : isSaturdayISO(date) && slotsToShow.length === 0 ? (
+          <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
+            <div className="text-lg font-bold text-gray-900">
+              Sin horarios configurados
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              Todavía no hay horarios configurados para este sábado.
             </div>
           </div>
         ) : courts.length === 0 ? (

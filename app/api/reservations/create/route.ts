@@ -1,15 +1,14 @@
 import { after, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
-import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../../lib/slots";
 import {
   getAdvanceLimitMessage,
   isDateWithinGeneralBookingWindow,
-  isSaturdayISO,
   isSundayISO,
 } from "../../../../lib/booking-window";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 import { getDisplayName } from "../../../../lib/display-name";
 import { sendBookingEmail } from "../../../../lib/server-booking-email";
+import { isReservableSlot } from "../../../../lib/saturday-slots-server";
 
 type Body = {
   date?: string;
@@ -17,11 +16,6 @@ type Body = {
   slotStart?: string;
   slotEnd?: string;
 };
-
-function isValidSlot(dateISO: string, slotStart: string, slotEnd: string) {
-  const slots = isSaturdayISO(dateISO) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-  return slots.some((slot) => slot.start === slotStart && slot.end === slotEnd);
-}
 
 function getCreateReservationErrorMessage(error: {
   message?: string | null;
@@ -97,7 +91,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!isValidSlot(date, slotStart, slotEnd)) {
+    if (!(await isReservableSlot({ date, slotStart, slotEnd }))) {
       return NextResponse.json(
         { ok: false, error: "El horario no es válido para ese día." },
         { status: 400 }

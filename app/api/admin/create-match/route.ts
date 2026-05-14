@@ -1,16 +1,15 @@
 import { after, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
-import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../../../lib/slots";
 import { getDisplayName } from "../../../../lib/display-name";
 import {
   canCreateAdminMatchOnDate,
-  isSaturdayISO,
   isSundayISO,
 } from "../../../../lib/booking-window";
 import { isAdminRole } from "../../../../lib/auth-shared";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 import { sendBookingEmail } from "../../../../lib/server-booking-email";
 import { maybeSendAllCourtsFullAlert } from "../../../../lib/server-all-courts-full-alert";
+import { isReservableSlot } from "../../../../lib/saturday-slots-server";
 
 type Body = {
   date?: string;
@@ -46,11 +45,6 @@ type PlayerRow = {
   seat: number;
   member_user_id: string;
 };
-
-function isValidSlot(dateISO: string, slotStart: string, slotEnd: string) {
-  const slots = isSaturdayISO(dateISO) ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-  return slots.some((slot) => slot.start === slotStart && slot.end === slotEnd);
-}
 
 function toHM(t: string) {
   return t?.length >= 5 ? t.slice(0, 5) : t;
@@ -186,7 +180,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!isValidSlot(date, slotStart, slotEnd)) {
+    if (!(await isReservableSlot({ date, slotStart, slotEnd }))) {
       return NextResponse.json(
         { ok: false, error: "El horario no es válido para ese día." },
         { status: 400 }

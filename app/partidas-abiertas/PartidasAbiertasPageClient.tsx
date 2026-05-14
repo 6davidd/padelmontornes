@@ -11,9 +11,13 @@ import {
   getVisibleBookingDays,
   isSundayISO,
 } from "@/lib/booking-window";
+import {
+  getSaturdaySlotOverrides,
+  getSlotsForBookingDate,
+  type SaturdaySlotOverrideRow,
+} from "@/lib/client-saturday-slots";
 import { getOpenMatchesByDay, toHM } from "@/lib/open-matches";
 import { supabase } from "../../lib/supabase";
-import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
 import {
@@ -69,6 +73,7 @@ export type PartidasAbiertasInitialData = {
   courts: Array<[number, string]>;
   currentUserId: string | null;
   canManageReservations: boolean;
+  saturdaySlots: SaturdaySlotOverrideRow[];
 };
 
 type ManageReservation = {
@@ -99,6 +104,9 @@ export default function PartidasAbiertasPageClient({
   const [courtsMap, setCourtsMap] = useState<Map<number, string>>(
     () => new Map(initialData.courts)
   );
+  const [saturdaySlots, setSaturdaySlots] = useState<SaturdaySlotOverrideRow[]>(
+    initialData.saturdaySlots
+  );
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -117,11 +125,18 @@ export default function PartidasAbiertasPageClient({
   const isSunday = useMemo(() => isSundayISO(date), [date]);
 
   const slotsToShow = useMemo(() => {
-    if (isSunday) return [];
-    const d = new Date(`${date}T12:00:00`);
-    const day = d.getDay();
-    return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-  }, [date, isSunday]);
+    return getSlotsForBookingDate({
+      date,
+      isSunday,
+      saturdaySlots,
+      existingSlots: reservations
+        .filter((reservation) => reservation.date === date)
+        .map((reservation) => ({
+          start: toHM(reservation.slot_start),
+          end: toHM(reservation.slot_end),
+        })),
+    });
+  }, [date, isSunday, reservations, saturdaySlots]);
 
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
@@ -205,7 +220,8 @@ export default function PartidasAbiertasPageClient({
     setLoading(true);
 
     try {
-      const [reservationsRes, blocksRes, courts, member] = await Promise.all([
+      const [reservationsRes, blocksRes, courts, member, saturdaySlotRows] =
+        await Promise.all([
         supabase
           .from("reservations_public")
           .select("id,date,slot_start,slot_end,court_id")
@@ -218,8 +234,9 @@ export default function PartidasAbiertasPageClient({
           .select("date,slot_start,slot_end,court_id")
           .in("date", visibleDays),
         getCourts(),
-        getCurrentMember(),
-      ]);
+          getCurrentMember(),
+          getSaturdaySlotOverrides(visibleDays),
+        ]);
 
       if (reservationsRes.error) {
         setMsg(reservationsRes.error.message);
@@ -235,6 +252,7 @@ export default function PartidasAbiertasPageClient({
 
       setCurrentUserId(member?.user_id ?? null);
       setCanManageReservations(Boolean(member?.is_active && isAdminRole(member.role)));
+      setSaturdaySlots(saturdaySlotRows);
       const resRows = (reservationsRes.data ?? []) as ReservationRow[];
       const blockRows = (blocksRes.data ?? []) as BlockRow[];
       setReservations(resRows);
@@ -479,37 +497,6 @@ export default function PartidasAbiertasPageClient({
                         {matchesInSlot.map((match) => {
                           const courtName =
                             courtsMap.get(match.court_id) ?? `Pista ${match.court_id}`;
-                          const topActions = (
-                            <>
-                              {canManageReservations ? (
-                                <ReservationActionButton
-                                  size="sm"
-                                  className="px-2.5 py-1.5 text-xs shadow-none"
-                                  onClick={() =>
-                                    setManageReservation({
-                                      id: match.id,
-                                      date: match.date,
-                                      slotStart: match.slot_start,
-                                      slotEnd: match.slot_end,
-                                      courtName,
-                                      players: match.playersList,
-                                    })
-                                  }
-                                >
-                                  Gestionar
-                                </ReservationActionButton>
-                              ) : null}
-                              <ReservationActionButton
-                                tone="primary"
-                                size="sm"
-                                loading={joiningReservationIds.includes(match.id)}
-                                onClick={() => joinMe(match.id)}
-                              >
-                                Unirme
-                              </ReservationActionButton>
-                            </>
-                          );
-
                           return (
                             <ReservationCard
                               key={match.id}
@@ -524,7 +511,35 @@ export default function PartidasAbiertasPageClient({
                                   label={`${match.playersCount}/4`}
                                 />
                               }
-                              topActions={topActions}
+                              topActions={
+                                <ReservationActionButton
+                                  tone="primary"
+                                  size="sm"
+                                  loading={joiningReservationIds.includes(match.id)}
+                                  onClick={() => joinMe(match.id)}
+                                >
+                                  Unirme
+                                </ReservationActionButton>
+                              }
+                              footerActions={
+                                canManageReservations ? (
+                                  <ReservationActionButton
+                                    size="sm"
+                                    onClick={() =>
+                                      setManageReservation({
+                                        id: match.id,
+                                        date: match.date,
+                                        slotStart: match.slot_start,
+                                        slotEnd: match.slot_end,
+                                        courtName,
+                                        players: match.playersList,
+                                      })
+                                    }
+                                  >
+                                    Gestionar
+                                  </ReservationActionButton>
+                                ) : null
+                              }
                             >
                               <ReservationPlayersPanel players={match.playersList} />
                             </ReservationCard>

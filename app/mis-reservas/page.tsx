@@ -637,7 +637,7 @@ export default function MisReservasPage() {
                                 />
 
                                 <div className="flex flex-wrap items-center justify-end gap-2">
-                                  {reservation.isOpen ? (
+                                  {reservation.isOpen && !canManageReservations ? (
                                     <ReservationActionButton
                                       size="sm"
                                       onClick={() =>
@@ -650,7 +650,6 @@ export default function MisReservasPage() {
                                   {canManageReservations ? (
                                     <ReservationActionButton
                                       size="sm"
-                                      className="px-2.5 py-1.5 text-xs shadow-none"
                                       onClick={() =>
                                         setManageReservation({
                                           id: reservation.reservation_id,

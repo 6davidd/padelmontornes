@@ -43,12 +43,20 @@ type CourtRow = {
   name: string;
 };
 
+type SaturdaySlotOverrideRow = {
+  id: string;
+  date: string;
+  slot_start: string;
+  slot_end: string;
+};
+
 async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData> {
   const session = await requireAuthenticatedSession("/partidas-abiertas");
   const visibleDays = getVisibleBookingDays();
   const supabase = createServerSupabaseClient(session.accessToken);
 
-  const [reservationsRes, blocksRes, courtsRes, member] = await Promise.all([
+  const [reservationsRes, blocksRes, courtsRes, member, saturdaySlotsRes] =
+    await Promise.all([
     supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
@@ -61,8 +69,14 @@ async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData>
       .select("date,slot_start,slot_end,court_id")
       .in("date", visibleDays),
     supabase.from("courts").select("id,name").order("id", { ascending: true }),
-    getRequestCurrentMember(),
-  ]);
+      getRequestCurrentMember(),
+      supabase
+        .from("saturday_slot_overrides")
+        .select("id,date,slot_start,slot_end")
+        .in("date", visibleDays)
+        .order("date", { ascending: true })
+        .order("slot_start", { ascending: true }),
+    ]);
 
   if (reservationsRes.error) {
     throw new Error(reservationsRes.error.message);
@@ -76,8 +90,13 @@ async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData>
     throw new Error(courtsRes.error.message);
   }
 
+  if (saturdaySlotsRes.error) {
+    throw new Error(saturdaySlotsRes.error.message);
+  }
+
   const reservations = (reservationsRes.data ?? []) as ReservationRow[];
   const blocks = (blocksRes.data ?? []) as BlockRow[];
+  const saturdaySlots = (saturdaySlotsRes.data ?? []) as SaturdaySlotOverrideRow[];
   const courts = ((courtsRes.data ?? []) as CourtRow[]).map(
     (court) => [court.id, court.name] as [number, string]
   );
@@ -92,6 +111,7 @@ async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData>
       courts,
       currentUserId: member?.user_id ?? null,
       canManageReservations: Boolean(member?.is_active && isAdminRole(member.role)),
+      saturdaySlots,
     };
   }
 
@@ -116,6 +136,7 @@ async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData>
       courts,
       currentUserId: member?.user_id ?? null,
       canManageReservations: Boolean(member?.is_active && isAdminRole(member.role)),
+      saturdaySlots,
     };
   }
 
@@ -140,6 +161,7 @@ async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData>
     courts,
     currentUserId: member?.user_id ?? null,
     canManageReservations: Boolean(member?.is_active && isAdminRole(member.role)),
+    saturdaySlots,
   };
 }
 

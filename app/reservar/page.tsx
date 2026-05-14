@@ -13,11 +13,17 @@ import {
   getTodayClubISODate,
   getVisibleBookingDays,
   isDateWithinGeneralBookingWindow,
+  isSaturdayISO,
   isSundayISO,
 } from "@/lib/booking-window";
 import { supabase } from "../../lib/supabase";
 import { buildReservationWhatsappMessage } from "../../lib/reservation-whatsapp-message";
-import { WEEKDAY_SLOTS, SATURDAY_SLOTS } from "../../lib/slots";
+import { toHM } from "../../lib/slots";
+import {
+  getSaturdaySlotOverrides,
+  getSlotsForBookingDate,
+  type SaturdaySlotOverrideRow,
+} from "../../lib/client-saturday-slots";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
 import { ReservationWhatsappButton } from "../_components/ReservationWhatsappButton";
@@ -71,6 +77,7 @@ type VisibleDaysBookingData = {
   blocks: BlockRow[];
   players: PlayerRow[];
   membersMap: Map<string, string>;
+  saturdaySlots: SaturdaySlotOverrideRow[];
 };
 
 type ManageReservation = {
@@ -81,8 +88,6 @@ type ManageReservation = {
   courtName: string;
   players: ReservationPlayerChip[];
 };
-
-const toHM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t);
 
 function getCreateReservationKey(date: string, slotStart: string, courtId: number) {
   return `${date}-${slotStart}-${courtId}`;
@@ -146,6 +151,9 @@ export default function ReservarPage() {
   const [allBlocks, setAllBlocks] = useState<BlockRow[]>([]);
   const [allPlayers, setAllPlayers] = useState<PlayerRow[]>([]);
   const [membersMap, setMembersMap] = useState<Map<string, string>>(new Map());
+  const [allSaturdaySlots, setAllSaturdaySlots] = useState<
+    SaturdaySlotOverrideRow[]
+  >([]);
 
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,6 +182,7 @@ export default function ReservarPage() {
 
   const visibleDays = useMemo(() => getVisibleBookingDays(), []);
   const isSunday = useMemo(() => isSundayISO(date), [date]);
+  const isSaturday = useMemo(() => isSaturdayISO(date), [date]);
   const isOutOfRange = useMemo(() => !isDateWithinGeneralBookingWindow(date), [date]);
   const reservations = useMemo(
     () => allReservations.filter((reservation) => reservation.date === date),
@@ -185,11 +194,17 @@ export default function ReservarPage() {
   );
 
   const slotsToShow = useMemo(() => {
-    if (isSunday || isOutOfRange) return [];
-    const d = new Date(`${date}T12:00:00`);
-    const day = d.getDay();
-    return day === 6 ? SATURDAY_SLOTS : WEEKDAY_SLOTS;
-  }, [date, isSunday, isOutOfRange]);
+    return getSlotsForBookingDate({
+      date,
+      isSunday,
+      isOutOfRange,
+      saturdaySlots: allSaturdaySlots,
+      existingSlots: reservations.map((reservation) => ({
+        start: toHM(reservation.slot_start),
+        end: toHM(reservation.slot_end),
+      })),
+    });
+  }, [allSaturdaySlots, date, isSunday, isOutOfRange, reservations]);
 
   const playersByReservation = useMemo(() => {
     const m = new Map<string, Array<{ seat: number; name: string; userId: string }>>();
@@ -230,10 +245,11 @@ export default function ReservarPage() {
     setAllBlocks(data.blocks);
     setAllPlayers(data.players);
     setMembersMap(data.membersMap);
+    setAllSaturdaySlots(data.saturdaySlots);
   }
 
   async function fetchVisibleDaysData(): Promise<VisibleDaysBookingData> {
-    const [reservationsRes, blocksRes] = await Promise.all([
+    const [reservationsRes, blocksRes, saturdaySlots] = await Promise.all([
       supabase
         .from("reservations_public")
         .select("id,date,slot_start,slot_end,court_id")
@@ -248,6 +264,7 @@ export default function ReservarPage() {
         .order("date", { ascending: true })
         .order("slot_start", { ascending: true })
         .order("court_id", { ascending: true }),
+      getSaturdaySlotOverrides(visibleDays),
     ]);
 
     if (reservationsRes.error) {
@@ -268,6 +285,7 @@ export default function ReservarPage() {
         blocks,
         players: [],
         membersMap: new Map(),
+        saturdaySlots,
       };
     }
 
@@ -289,6 +307,7 @@ export default function ReservarPage() {
         blocks,
         players,
         membersMap: new Map(),
+        saturdaySlots,
       };
     }
 
@@ -311,6 +330,7 @@ export default function ReservarPage() {
       blocks,
       players,
       membersMap,
+      saturdaySlots,
     };
   }
 
@@ -782,6 +802,15 @@ export default function ReservarPage() {
               Los domingos no se pueden hacer reservas.
             </div>
           </div>
+        ) : isSaturday && slotsToShow.length === 0 ? (
+          <div className="rounded-3xl border border-gray-300 bg-white p-6 text-center shadow-sm">
+            <div className="text-lg font-bold text-gray-900">
+              Sin horarios configurados
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              Todavía no hay horarios configurados para este sábado.
+            </div>
+          </div>
         ) : (
           <div className="space-y-6">
             {slotsToShow.map((s) => {
@@ -816,7 +845,7 @@ export default function ReservarPage() {
                         const canManageReservation =
                           !!res && !blocked && canManageOpenMatches;
                         const showExpandedActions =
-                          alreadyIn || canAddSocio || canJoin;
+                          alreadyIn || canAddSocio || canJoin || canManageReservation;
                         const whatsappMessage = res
                           ? buildReservationWhatsappMessage({
                               date: res.date,
@@ -869,24 +898,6 @@ export default function ReservarPage() {
                                     <span title="Estás apuntado" className="text-3xl leading-none">
                                       🎾
                                     </span>
-                                  )}
-
-                                  {canManageReservation && res && (
-                                    <button
-                                      onClick={() =>
-                                        setManageReservation({
-                                          id: res.id,
-                                          date: res.date,
-                                          slotStart: res.slot_start,
-                                          slotEnd: res.slot_end,
-                                          courtName: c.name,
-                                          players: reservationPlayers,
-                                        })
-                                      }
-                                      className="rounded-full border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-800 shadow-none transition hover:bg-gray-50 active:scale-[0.99]"
-                                    >
-                                      Gestionar
-                                    </button>
                                   )}
 
                                   {!blocked &&
@@ -970,14 +981,30 @@ export default function ReservarPage() {
                                       )}
 
                                       <div className="flex flex-wrap items-center justify-end gap-2">
-                                        {canAddSocio && (
+                                        {canManageReservation ? (
+                                          <ReservationActionButton
+                                            size="sm"
+                                            onClick={() =>
+                                              setManageReservation({
+                                                id: res.id,
+                                                date: res.date,
+                                                slotStart: res.slot_start,
+                                                slotEnd: res.slot_end,
+                                                courtName: c.name,
+                                                players: reservationPlayers,
+                                              })
+                                            }
+                                          >
+                                            Gestionar
+                                          </ReservationActionButton>
+                                        ) : canAddSocio ? (
                                           <button
                                             onClick={() => openAddSocio(res.id)}
                                             className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
                                           >
                                             + Socio
                                           </button>
-                                        )}
+                                        ) : null}
 
                                         {alreadyIn ? (
                                           <ReservationActionButton
