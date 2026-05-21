@@ -1,7 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { CLUB_NAME } from "@/lib/brand";
 import HeaderMenuClient from "./HeaderMenuClient";
+
+/* eslint-disable @next/next/no-img-element */
 
 const CLUB_GREEN = "#0f5e2e";
 const LOGO_WIDTH = 128;
@@ -51,13 +52,13 @@ export default function Header({
             href="/"
             className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-2xl outline-none transition hover:opacity-95 focus-visible:ring-2 focus-visible:ring-green-200"
           >
-            <Image
-              src="/logo.png"
+            <img
+              src="/logo-header.png"
               alt={CLUB_NAME}
               width={LOGO_WIDTH}
               height={LOGO_HEIGHT}
-              sizes="(min-width: 640px) 52px, 48px"
-              priority
+              fetchPriority="high"
+              decoding="async"
               className="h-12 w-auto shrink-0 object-contain sm:h-[3.25rem]"
             />
 

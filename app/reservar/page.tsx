@@ -1,10 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { leaveReservationRequest } from "@/lib/client-reservation-actions";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
+import { getSupabaseClient } from "@/lib/client-supabase";
 import { isAdminRole } from "@/lib/auth-shared";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
 import {
@@ -16,7 +18,6 @@ import {
   isSaturdayISO,
   isSundayISO,
 } from "@/lib/booking-window";
-import { supabase } from "../../lib/supabase";
 import { buildReservationWhatsappMessage } from "../../lib/reservation-whatsapp-message";
 import { toHM } from "../../lib/slots";
 import {
@@ -26,7 +27,6 @@ import {
 } from "../../lib/client-saturday-slots";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
-import { ReservationWhatsappButton } from "../_components/ReservationWhatsappButton";
 import { LoadingButton } from "../_components/LoadingButton";
 import {
   ReservationActionButton,
@@ -34,10 +34,25 @@ import {
   ReservationStatusBadge,
   type ReservationPlayerChip,
 } from "../_components/ReservationCard";
-import { ReservationManageDialog } from "../_components/ReservationManageDialog";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
+
+const ReservationManageDialog = dynamic(
+  () =>
+    import("../_components/ReservationManageDialog").then(
+      (module) => module.ReservationManageDialog
+    ),
+  { ssr: false }
+);
+
+const ReservationWhatsappButton = dynamic(
+  () =>
+    import("../_components/ReservationWhatsappButton").then(
+      (module) => module.ReservationWhatsappButton
+    ),
+  { ssr: false }
+);
 
 type Court = { id: number; name: string };
 
@@ -249,6 +264,7 @@ export default function ReservarPage() {
   }
 
   async function fetchVisibleDaysData(): Promise<VisibleDaysBookingData> {
+    const supabase = await getSupabaseClient();
     const [reservationsRes, blocksRes, saturdaySlots] = await Promise.all([
       supabase
         .from("reservations_public")
@@ -413,6 +429,7 @@ export default function ReservarPage() {
   }
 
   async function findReservationBySlot(slotStart: string, courtId: number) {
+    const supabase = await getSupabaseClient();
     const res = await supabase
       .from("reservations_public")
       .select("id,date,slot_start,slot_end,court_id")
@@ -684,6 +701,7 @@ export default function ReservarPage() {
 
       setSearching(true);
 
+      const supabase = await getSupabaseClient();
       const res = await supabase
         .from("members")
         .select("user_id,full_name,alias,is_active,email")

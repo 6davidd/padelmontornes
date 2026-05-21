@@ -1,6 +1,6 @@
 import { isSaturdayISO } from "@/lib/booking-window";
 import { mergeAndSortSlots, toHM, WEEKDAY_SLOTS, type Slot } from "@/lib/slots";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/client-supabase";
 
 export type SaturdaySlotOverrideRow = {
   id: string;
@@ -16,6 +16,7 @@ export async function getSaturdaySlotOverrides(dates: string[]) {
     return [];
   }
 
+  const supabase = await getSupabaseClient();
   const res = await supabase
     .from("saturday_slot_overrides")
     .select("id,date,slot_start,slot_end")

@@ -1,5 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { getSupabaseClient } from "./client-supabase";
 
 let cachedSession: Session | null | undefined;
 let sessionRequest: Promise<Session | null> | null = null;
@@ -14,8 +14,8 @@ export async function getClientSession(): Promise<Session | null> {
   }
 
   if (!sessionRequest) {
-    sessionRequest = supabase.auth
-      .getSession()
+    sessionRequest = getSupabaseClient()
+      .then((supabase) => supabase.auth.getSession())
       .then(({ data }) => {
         cachedSession = data.session ?? null;
         return cachedSession;

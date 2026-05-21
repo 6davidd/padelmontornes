@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { CLUB_NAME } from "@/lib/brand";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
+
+/* eslint-disable @next/next/no-img-element */
 
 const CLUB_GREEN = "#0f5e2e";
 const DEVELOPER_WHATSAPP_URL = buildWhatsAppUrl(
@@ -228,13 +229,13 @@ function ScreenshotGuide({
 }) {
   return (
     <div className="relative overflow-hidden rounded-[2rem] border border-gray-200 bg-white shadow-sm">
-      <Image
+      <img
         src={src}
         alt={alt}
         width={945}
         height={2048}
-        quality={75}
-        sizes="(min-width: 640px) 18rem, calc(100vw - 4rem)"
+        loading="lazy"
+        decoding="async"
         className="h-auto w-full select-none"
       />
     </div>

@@ -1,9 +1,11 @@
 ﻿"use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts } from "@/lib/client-reference-data";
+import { getSupabaseClient } from "@/lib/client-supabase";
 import { isAdminRole } from "@/lib/auth-shared";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
 import {
@@ -17,7 +19,6 @@ import {
   type SaturdaySlotOverrideRow,
 } from "@/lib/client-saturday-slots";
 import { getOpenMatchesByDay, toHM } from "@/lib/open-matches";
-import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
 import {
@@ -27,10 +28,17 @@ import {
   ReservationPlayersPanel,
   type ReservationPlayerChip,
 } from "../_components/ReservationCard";
-import { ReservationManageDialog } from "../_components/ReservationManageDialog";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 const CLUB_GREEN = "#0f5e2e";
+
+const ReservationManageDialog = dynamic(
+  () =>
+    import("../_components/ReservationManageDialog").then(
+      (module) => module.ReservationManageDialog
+    ),
+  { ssr: false }
+);
 
 type ReservationRow = {
   id: string;
@@ -220,6 +228,7 @@ export default function PartidasAbiertasPageClient({
     setLoading(true);
 
     try {
+      const supabase = await getSupabaseClient();
       const [reservationsRes, blocksRes, courts, member, saturdaySlotRows] =
         await Promise.all([
         supabase

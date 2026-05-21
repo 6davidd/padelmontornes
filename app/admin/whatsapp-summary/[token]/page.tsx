@@ -58,9 +58,12 @@ async function loadDailySummary(
 }
 
 async function loadWhatsappMessage(token: string) {
-  return (
-    (await loadAllCourtsFullAlert(token)) ?? (await loadDailySummary(token))
-  );
+  const [allCourtsFullAlert, dailySummary] = await Promise.all([
+    loadAllCourtsFullAlert(token),
+    loadDailySummary(token),
+  ]);
+
+  return allCourtsFullAlert ?? dailySummary;
 }
 
 export default async function WhatsappSummaryPage({ params }: PageProps) {

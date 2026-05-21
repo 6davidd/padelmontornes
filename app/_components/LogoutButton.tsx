@@ -1,10 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { syncSessionCookies } from "@/lib/auth-client";
-import { resetCachedCurrentMember } from "@/lib/client-current-member";
-import { setCachedClientSession } from "@/lib/client-session";
-import { supabase } from "@/lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -12,6 +8,19 @@ export default function LogoutButton() {
   const router = useRouter();
 
   async function logout() {
+    const [
+      { getSupabaseClient },
+      { syncSessionCookies },
+      { resetCachedCurrentMember },
+      { setCachedClientSession },
+    ] = await Promise.all([
+      import("@/lib/client-supabase"),
+      import("@/lib/auth-client"),
+      import("@/lib/client-current-member"),
+      import("@/lib/client-session"),
+    ]);
+    const supabase = await getSupabaseClient();
+
     await supabase.auth.signOut();
     resetCachedCurrentMember();
     setCachedClientSession(null);

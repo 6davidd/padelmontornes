@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { getSupabaseClient } from "./client-supabase";
 
 export type Court = {
   id: number;
@@ -19,6 +19,7 @@ export async function getCourts(): Promise<Court[]> {
 
   if (!courtsRequest) {
     courtsRequest = (async () => {
+      const supabase = await getSupabaseClient();
       const { data, error } = await supabase
         .from("courts")
         .select("id,name")

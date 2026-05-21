@@ -1,10 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CLUB_NAME } from "@/lib/brand";
+
+/* eslint-disable @next/next/no-img-element */
 
 const CLUB_GREEN = "#0f5e2e";
 const LOGO_WIDTH = 128;
@@ -135,12 +136,13 @@ export default function HeaderMenuClient({ isAdmin }: { isAdmin: boolean }) {
         <div className="overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl ring-1 ring-black/5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-              <Image
-                src="/logo.png"
+              <img
+                src="/logo-header.png"
                 alt={CLUB_NAME}
                 width={LOGO_WIDTH}
                 height={LOGO_HEIGHT}
-                sizes="40px"
+                loading="lazy"
+                decoding="async"
                 className="h-12 w-auto shrink-0 object-contain"
               />
 

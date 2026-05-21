@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookingDayChips } from "@/app/_components/BookingDayChips";
@@ -7,15 +8,14 @@ import { leaveReservationRequest } from "@/lib/client-reservation-actions";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getClientSession } from "@/lib/client-session";
 import { getCourts, type Court } from "@/lib/client-reference-data";
+import { getSupabaseClient } from "@/lib/client-supabase";
 import { isAdminRole } from "@/lib/auth-shared";
 import { buildReservationWhatsappMessage } from "@/lib/reservation-whatsapp-message";
 import {
   getTodayClubISODate,
   getVisibleBookingDays,
 } from "@/lib/booking-window";
-import { supabase } from "../../lib/supabase";
 import { getDisplayName } from "../../lib/display-name";
-import { MemberSearchDialog } from "../_components/MemberSearchDialog";
 import { PageHeaderCard } from "../_components/PageHeaderCard";
 import { ReservationWhatsappButton } from "../_components/ReservationWhatsappButton";
 import {
@@ -25,7 +25,6 @@ import {
   ReservationPlayersPanel,
   type ReservationPlayerChip,
 } from "../_components/ReservationCard";
-import { ReservationManageDialog } from "../_components/ReservationManageDialog";
 import { TimeRangeDisplay } from "../_components/time-range-display";
 
 type Item = {
@@ -82,6 +81,22 @@ const CLUB_GREEN = "#0f5e2e";
 
 const toHM = (value: string) => value.slice(0, 5);
 
+const MemberSearchDialog = dynamic(
+  () =>
+    import("../_components/MemberSearchDialog").then(
+      (module) => module.MemberSearchDialog
+    ),
+  { ssr: false }
+);
+
+const ReservationManageDialog = dynamic(
+  () =>
+    import("../_components/ReservationManageDialog").then(
+      (module) => module.ReservationManageDialog
+    ),
+  { ssr: false }
+);
+
 export default function MisReservasPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -133,6 +148,7 @@ export default function MisReservasPage() {
 
       setCourtsMap(nextCourtsMap);
 
+      const supabase = await getSupabaseClient();
       const reservationIdsRes = await supabase
         .from("reservation_players")
         .select("reservation_id")
@@ -384,6 +400,7 @@ export default function MisReservasPage() {
 
       setSearching(true);
 
+      const supabase = await getSupabaseClient();
       const membersRes = await supabase
         .from("members")
         .select("user_id,full_name,alias,email,is_active")

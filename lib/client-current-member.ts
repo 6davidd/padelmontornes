@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { getSupabaseClient } from "./client-supabase";
 import { getClientUser } from "./client-session";
 import type { MemberRole } from "./auth-shared";
 
@@ -37,6 +37,7 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
         return null;
       }
 
+      const supabase = await getSupabaseClient();
       const memberRes = await supabase
         .from("members")
         .select("user_id,full_name,alias,email,is_active,role")

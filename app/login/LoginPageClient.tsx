@@ -7,8 +7,8 @@ import PasswordField from "@/app/_components/PasswordField";
 import { syncSessionCookies } from "@/lib/auth-client";
 import { resetCachedCurrentMember } from "@/lib/client-current-member";
 import { setCachedClientSession } from "@/lib/client-session";
+import { getSupabaseClient } from "@/lib/client-supabase";
 import { readBrowserAuthLinkState } from "@/lib/auth-link";
-import { supabase } from "@/lib/supabase";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -48,6 +48,7 @@ export default function LoginPageClient({
     setMsg(null);
     setLoading(true);
 
+    const supabase = await getSupabaseClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,

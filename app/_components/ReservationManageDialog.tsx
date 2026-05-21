@@ -5,9 +5,9 @@ import {
   addReservationPlayerRequest,
   removeReservationPlayerRequest,
 } from "@/lib/client-reservation-actions";
+import { getSupabaseClient } from "@/lib/client-supabase";
 import { getDisplayName } from "@/lib/display-name";
 import { formatSpanishWeekdayDay, toHM } from "@/lib/spanish-date";
-import { supabase } from "@/lib/supabase";
 import {
   ReservationActionButton,
   ReservationOccupancy,
@@ -102,6 +102,7 @@ export function ReservationManageDialog({
 
       setSearching(true);
 
+      const supabase = await getSupabaseClient();
       const res = await supabase
         .from("members")
         .select("user_id,full_name,alias,email,is_active")
