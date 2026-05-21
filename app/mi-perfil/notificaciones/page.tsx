@@ -86,7 +86,7 @@ function ToggleSwitch({
       aria-label={label}
       disabled={disabled}
       onClick={onToggle}
-      className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border px-1 outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border px-1 outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed ${
         enabled ? "border-transparent" : "border-gray-300 bg-gray-50"
       }`}
       style={enabled ? { backgroundColor: CLUB_GREEN } : undefined}
@@ -106,9 +106,7 @@ export default function MiPerfilNotificacionesPage() {
     NOTIFICATION_PREFERENCE_DEFAULTS
   );
   const [loading, setLoading] = useState(true);
-  const [savingKey, setSavingKey] = useState<NotificationPreferenceKey | null>(
-    null
-  );
+  const [savingKeys, setSavingKeys] = useState<NotificationPreferenceKey[]>([]);
   const [expandedInfoKey, setExpandedInfoKey] =
     useState<NotificationPreferenceKey | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -159,44 +157,53 @@ export default function MiPerfilNotificacionesPage() {
   }, []);
 
   async function handleToggle(key: NotificationPreferenceKey) {
-    if (!memberUserId || savingKey) {
+    if (!memberUserId || savingKeys.includes(key)) {
       return;
     }
 
-    const previousPreferences = preferences;
-    const nextPreferences = {
-      ...preferences,
-      [key]: !preferences[key],
+    const previousValue = preferences[key];
+    const nextValue = !previousValue;
+    const updatePayload: { member_user_id: string } & Partial<
+      Record<NotificationPreferenceKey, boolean>
+    > = {
+      member_user_id: memberUserId,
+      [key]: nextValue,
     };
 
-    setPreferences(nextPreferences);
-    setSavingKey(key);
+    setPreferences((current) => ({
+      ...current,
+      [key]: nextValue,
+    }));
+    setSavingKeys((current) =>
+      current.includes(key) ? current : [...current, key]
+    );
     setMsg(null);
 
     const supabase = await getSupabaseClient();
     const res = await supabase
       .from("notification_preferences")
-      .upsert(
-        {
-          member_user_id: memberUserId,
-          ...nextPreferences,
-        },
-        { onConflict: "member_user_id" }
-      )
+      .upsert(updatePayload, { onConflict: "member_user_id" })
       .select(NOTIFICATION_PREFERENCE_SELECT)
       .single();
 
     if (res.error) {
-      setPreferences(previousPreferences);
+      setPreferences((current) => ({
+        ...current,
+        [key]: previousValue,
+      }));
       setMsg("No se ha podido guardar el cambio. Inténtalo de nuevo.");
-      setSavingKey(null);
+      setSavingKeys((current) => current.filter((item) => item !== key));
       return;
     }
 
-    setPreferences(
-      normalizeNotificationPreferences(res.data as NotificationPreferenceRow | null)
+    const savedPreferences = normalizeNotificationPreferences(
+      res.data as NotificationPreferenceRow | null
     );
-    setSavingKey(null);
+    setPreferences((current) => ({
+      ...current,
+      [key]: savedPreferences[key],
+    }));
+    setSavingKeys((current) => current.filter((item) => item !== key));
   }
 
   return (
@@ -230,10 +237,14 @@ export default function MiPerfilNotificacionesPage() {
                 const isInfoOpen = expandedInfoKey === option.key;
 
                 return (
-                  <div key={option.key} className="p-4 sm:p-5">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={option.key} className="px-4 py-5 sm:px-5">
+                    <div
+                      className={`flex justify-between gap-3 ${
+                        isInfoOpen ? "items-start" : "items-center"
+                      }`}
+                    >
                       <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-start gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                           <h2 className="min-w-0 text-[15px] font-bold leading-5 text-gray-900 sm:text-base sm:leading-6">
                             {option.title}
                           </h2>
@@ -247,7 +258,7 @@ export default function MiPerfilNotificacionesPage() {
                                 current === option.key ? null : option.key
                               )
                             }
-                            className="-mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 outline-none transition hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-2 focus-visible:ring-green-200"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-500 outline-none transition hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-2 focus-visible:ring-green-200"
                           >
                             <InfoIcon />
                           </button>
@@ -265,7 +276,7 @@ export default function MiPerfilNotificacionesPage() {
 
                       <ToggleSwitch
                         enabled={enabled}
-                        disabled={savingKey !== null}
+                        disabled={savingKeys.includes(option.key)}
                         label={`${enabled ? "Desactivar" : "Activar"} ${
                           option.title
                         }`}
