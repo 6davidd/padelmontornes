@@ -1,7 +1,7 @@
 import Link from "next/link";
 import BackButton from "@/app/_components/BackButton";
 import { getRequestMemberAccess } from "@/lib/auth-server";
-import { isOwnerRole, isSuperadminRole } from "@/lib/auth-shared";
+import { isSuperadminRole } from "@/lib/auth-shared";
 
 const CLUB_GREEN = "#0f5e2e";
 
@@ -32,7 +32,6 @@ function TileLink({
 export default async function AdminPage() {
   const member = await getRequestMemberAccess();
   const isSuperadmin = isSuperadminRole(member?.role);
-  const isOwner = isOwnerRole(member?.role);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
@@ -62,9 +61,6 @@ export default async function AdminPage() {
             title="Horario sábados"
           />
           <TileLink href="/admin/socios" title="Socios" />
-          {isOwner && (
-            <TileLink href="/admin/importar-socios" title="Importar socios" />
-          )}
           {isSuperadmin && (
             <TileLink href="/admin/contabilidad" title="Contabilidad" />
           )}
