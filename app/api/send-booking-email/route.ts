@@ -2,10 +2,12 @@ import {
   sendBookingEmail,
   type BookingEmailType,
 } from "@/lib/server-booking-email";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 type Body = {
   type: BookingEmailType;
   to: string;
+  memberUserId?: string;
   fullName?: string;
   addedByName?: string;
   openedByName?: string;
@@ -29,7 +31,27 @@ export async function POST(req: Request) {
       );
     }
 
-    const data = await sendBookingEmail(body);
+    let memberUserId = body.memberUserId;
+
+    if (!memberUserId) {
+      const normalizedEmail = to.trim().toLowerCase();
+      const memberRes = await supabaseAdmin
+        .from("members")
+        .select("user_id")
+        .eq("email", normalizedEmail)
+        .maybeSingle();
+
+      if (memberRes.error) {
+        throw new Error(memberRes.error.message);
+      }
+
+      memberUserId = String(memberRes.data?.user_id ?? "");
+    }
+
+    const data = await sendBookingEmail({
+      ...body,
+      memberUserId: memberUserId || undefined,
+    });
 
     return Response.json({ ok: true, data });
   } catch (error) {

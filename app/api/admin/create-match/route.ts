@@ -52,6 +52,7 @@ function toHM(t: string) {
 
 async function sendAdminOpenedMatchEmail(params: {
   to: string;
+  memberUserId: string;
   fullName?: string;
   openedByName?: string;
   date: string;
@@ -64,6 +65,7 @@ async function sendAdminOpenedMatchEmail(params: {
     await sendBookingEmail({
       type: "admin_opened_match",
       to: params.to,
+      memberUserId: params.memberUserId,
       fullName: params.fullName ?? "",
       openedByName: params.openedByName ?? "",
       date: params.date,
@@ -79,6 +81,7 @@ async function sendAdminOpenedMatchEmail(params: {
 
 async function sendMatchCompletedEmail(params: {
   to: string;
+  memberUserId: string;
   fullName?: string;
   date: string;
   slotStart: string;
@@ -91,6 +94,7 @@ async function sendMatchCompletedEmail(params: {
     await sendBookingEmail({
       type: "match_completed",
       to: params.to,
+      memberUserId: params.memberUserId,
       fullName: params.fullName ?? "",
       date: params.date,
       slotStart: params.slotStart,
@@ -392,6 +396,7 @@ export async function POST(req: Request) {
           .flatMap((member) => {
             const baseTask = sendAdminOpenedMatchEmail({
               to: member.email ?? "",
+              memberUserId: member.user_id,
               fullName: getDisplayName(member),
               openedByName: adminDisplayName,
               date,
@@ -413,6 +418,7 @@ export async function POST(req: Request) {
               baseTask,
               sendMatchCompletedEmail({
                 to: member.email ?? "",
+                memberUserId: member.user_id,
                 fullName: getDisplayName(member),
                 date,
                 slotStart: toHM(slotStart),

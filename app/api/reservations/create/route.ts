@@ -221,6 +221,7 @@ export async function POST(req: Request) {
         await sendBookingEmail({
           type: "booking_created",
           to: auth.member.email,
+          memberUserId: auth.member.user_id,
           fullName: getDisplayName(auth.member),
           date,
           slotStart,

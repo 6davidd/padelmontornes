@@ -294,6 +294,7 @@ export async function POST(req: Request) {
             sendBookingEmail({
               type: joinedSelf ? "booking_created" : "added_to_match",
               to: targetMember.email,
+              memberUserId: targetMember.user_id,
               fullName: getDisplayName(targetMember),
               addedByName,
               date: reservation.date,
@@ -316,6 +317,7 @@ export async function POST(req: Request) {
               sendBookingEmail({
                 type: "match_completed",
                 to: member.email,
+                memberUserId: member.user_id,
                 fullName: getDisplayName(member),
                 date: reservation.date,
                 slotStart,

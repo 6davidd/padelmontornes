@@ -9,6 +9,8 @@ import {
   renderMatchPlayers,
   escapeHtml,
 } from "@/lib/email-templates";
+import type { NotificationPreferenceType } from "@/lib/notification-preferences";
+import { isMemberNotificationEnabled } from "@/lib/server-notification-preferences";
 
 export type BookingEmailType =
   | "booking_created"
@@ -19,6 +21,7 @@ export type BookingEmailType =
 export type BookingEmailPayload = {
   type: BookingEmailType;
   to: string;
+  memberUserId?: string;
   fullName?: string;
   addedByName?: string;
   openedByName?: string;
@@ -28,6 +31,16 @@ export type BookingEmailPayload = {
   courtName: string;
   playersCount?: number;
   players?: string[];
+};
+
+const BOOKING_EMAIL_NOTIFICATION_TYPE: Record<
+  BookingEmailType,
+  NotificationPreferenceType
+> = {
+  booking_created: "booking_created",
+  added_to_match: "added_to_match",
+  admin_opened_match: "added_to_match",
+  match_completed: "match_completed",
 };
 
 function buildBookingEmail(payload: BookingEmailPayload) {
@@ -146,6 +159,20 @@ export async function sendBookingEmail(payload: BookingEmailPayload) {
     !payload.courtName
   ) {
     throw new Error("Faltan datos obligatorios.");
+  }
+
+  if (payload.memberUserId) {
+    const enabled = await isMemberNotificationEnabled(
+      payload.memberUserId,
+      BOOKING_EMAIL_NOTIFICATION_TYPE[payload.type]
+    );
+
+    if (!enabled) {
+      return {
+        skipped: true,
+        reason: "notification_preference_disabled",
+      };
+    }
   }
 
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {

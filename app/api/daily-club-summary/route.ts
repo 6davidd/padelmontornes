@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { CLUB_NAME } from "@/lib/brand";
 import { getDisplayName, getNameWithFirstSurname } from "@/lib/display-name";
 import { getAppUrl, getDailySummaryRecipients } from "@/lib/server-email-config";
+import { getNotificationPreferencesForMembers } from "@/lib/server-notification-preferences";
 import { getResendClient } from "@/lib/server-resend";
 import {
   emailShell,
@@ -281,9 +282,20 @@ async function sendClosedMatchReminders(params: {
 
   let remindersSent = 0;
   let remindersSkipped = 0;
+  const reminderPreferences = await getNotificationPreferencesForMembers(
+    closedMatches.flatMap((match) =>
+      match.playerDetails.map((player) => player.userId)
+    ),
+    "match_reminder"
+  );
 
   for (const match of closedMatches) {
     for (const player of match.playerDetails) {
+      if (reminderPreferences.get(player.userId) === false) {
+        remindersSkipped++;
+        continue;
+      }
+
       const existingLogRes = await supabase
         .from("match_reminder_logs")
         .select("id")
