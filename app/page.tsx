@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { isAdminRole } from "@/lib/auth-shared";
 import {
   getRequestCurrentMember,
   requireAuthenticatedSession,
 } from "@/lib/auth-server";
 import { getDisplayName } from "@/lib/display-name";
+import HomeOpenMatchesCountBadge from "./_components/HomeOpenMatchesCountBadge";
 import LogoutButton from "./_components/LogoutButton";
 import OpenMatchesCountBadge from "./_components/OpenMatchesCountBadge";
 import ProtectedRouteFrame from "./_components/ProtectedRouteFrame";
@@ -37,10 +39,11 @@ function TileLink({
 }
 
 export default async function HomePage() {
-  await requireAuthenticatedSession("/");
+  const session = await requireAuthenticatedSession("/");
   const member = await getRequestCurrentMember();
   const displayName = member ? getDisplayName(member) : null;
   const isAdmin = Boolean(member?.is_active && isAdminRole(member.role));
+  const openMatchesCountEnabled = Boolean(member?.is_active);
   let msg: string | null = null;
 
   if (!member) {
@@ -79,7 +82,22 @@ export default async function HomePage() {
             <TileLink
               href="/partidas-abiertas"
               title="Partidas abiertas"
-              badge={<OpenMatchesCountBadge enabled={Boolean(member?.is_active)} />}
+              badge={
+                <Suspense
+                  fallback={
+                    <OpenMatchesCountBadge
+                      enabled={openMatchesCountEnabled}
+                      count={null}
+                    />
+                  }
+                >
+                  <HomeOpenMatchesCountBadge
+                    enabled={openMatchesCountEnabled}
+                    accessToken={session.accessToken}
+                    currentUserId={member?.user_id ?? null}
+                  />
+                </Suspense>
+              }
             />
             <TileLink href="/reservar" title="Reservar pista" />
             <TileLink href="/mis-reservas" title="Mis reservas" />
