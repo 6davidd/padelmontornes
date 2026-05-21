@@ -86,21 +86,14 @@ function ToggleSwitch({
       aria-label={label}
       disabled={disabled}
       onClick={onToggle}
-      className={`relative inline-flex h-8 w-[4.75rem] shrink-0 items-center rounded-full border px-1 outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border px-1 outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-60 ${
         enabled ? "border-transparent" : "border-gray-300 bg-gray-50"
       }`}
       style={enabled ? { backgroundColor: CLUB_GREEN } : undefined}
     >
       <span
-        className={`absolute top-1/2 -translate-y-1/2 text-[11px] font-bold leading-none ${
-          enabled ? "left-3 text-white" : "right-2.5 text-gray-500"
-        }`}
-      >
-        {enabled ? "ON" : "OFF"}
-      </span>
-      <span
         className={`relative z-10 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
-          enabled ? "translate-x-11" : "translate-x-0"
+          enabled ? "translate-x-6" : "translate-x-0"
         }`}
       />
     </button>
@@ -119,7 +112,6 @@ export default function MiPerfilNotificacionesPage() {
   const [expandedInfoKey, setExpandedInfoKey] =
     useState<NotificationPreferenceKey | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPreferences() {
@@ -180,7 +172,6 @@ export default function MiPerfilNotificacionesPage() {
     setPreferences(nextPreferences);
     setSavingKey(key);
     setMsg(null);
-    setOk(null);
 
     const supabase = await getSupabaseClient();
     const res = await supabase
@@ -205,7 +196,6 @@ export default function MiPerfilNotificacionesPage() {
     setPreferences(
       normalizeNotificationPreferences(res.data as NotificationPreferenceRow | null)
     );
-    setOk("Preferencias actualizadas.");
     setSavingKey(null);
   }
 
@@ -224,12 +214,6 @@ export default function MiPerfilNotificacionesPage() {
         {msg ? (
           <div className="rounded-2xl border border-yellow-300 bg-yellow-50 p-4">
             <p className="text-sm text-yellow-900">{msg}</p>
-          </div>
-        ) : null}
-
-        {ok ? (
-          <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
-            <p className="text-sm text-green-900">{ok}</p>
           </div>
         ) : null}
 
