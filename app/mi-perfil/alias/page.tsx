@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import {
   getCurrentMember,
@@ -90,16 +89,7 @@ export default function MiPerfilAliasPage() {
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <PageHeaderCard
           title="Alias"
-          showBackButton={false}
           contentClassName="space-y-2"
-          actions={
-            <Link
-              href="/mi-perfil"
-              className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
-            >
-              Mi perfil
-            </Link>
-          }
         >
           <p className="text-sm leading-6 text-gray-600 sm:text-base">
             Elige el nombre con el que te ve el resto en la app.

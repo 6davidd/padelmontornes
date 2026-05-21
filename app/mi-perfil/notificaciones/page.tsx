@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCurrentMember } from "@/lib/client-current-member";
 import { getSupabaseClient } from "@/lib/client-supabase";
@@ -33,13 +32,13 @@ const notificationOptions: NotificationOption[] = [
     key: "added_to_match_email",
     title: "Me han añadido a una partida",
     explanation:
-      "Recibirás un correo cuando un alguien te añada manualmente a una partida.",
+      "Recibirás un correo cuando un administrador te añada manualmente a una partida.",
   },
   {
     key: "match_reminder_email",
     title: "Recordatorio de partida",
     explanation:
-      "Recibirás un correo recordatorio la noche antes de tus partidas.",
+      "Recibirás un recordatorio antes de tus próximas partidas, si esta función está activa.",
   },
   {
     key: "match_completed_email",
@@ -68,24 +67,6 @@ function InfoIcon() {
   );
 }
 
-function MailIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.1"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 6h16v12H4z" />
-      <path d="m4 7 8 6 8-6" />
-    </svg>
-  );
-}
-
 function ToggleSwitch({
   enabled,
   disabled,
@@ -105,28 +86,23 @@ function ToggleSwitch({
       aria-label={label}
       disabled={disabled}
       onClick={onToggle}
-      className="inline-flex min-w-20 items-center justify-end gap-2 rounded-full px-1 py-1 outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-60"
+      className={`relative inline-flex h-8 w-[4.75rem] shrink-0 items-center rounded-full border px-1 outline-none transition focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+        enabled ? "border-transparent" : "border-gray-300 bg-gray-50"
+      }`}
+      style={enabled ? { backgroundColor: CLUB_GREEN } : undefined}
     >
       <span
-        className="relative h-7 w-12 rounded-full border transition"
-        style={
-          enabled
-            ? {
-                backgroundColor: CLUB_GREEN,
-                borderColor: CLUB_GREEN,
-              }
-            : undefined
-        }
+        className={`absolute top-1/2 -translate-y-1/2 text-[11px] font-bold leading-none ${
+          enabled ? "left-3 text-white" : "right-2.5 text-gray-500"
+        }`}
       >
-        <span
-          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
-            enabled ? "left-6" : "left-1"
-          }`}
-        />
-      </span>
-      <span className="w-8 text-left text-xs font-bold text-gray-700">
         {enabled ? "ON" : "OFF"}
       </span>
+      <span
+        className={`relative z-10 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
+          enabled ? "translate-x-11" : "translate-x-0"
+        }`}
+      />
     </button>
   );
 }
@@ -238,16 +214,7 @@ export default function MiPerfilNotificacionesPage() {
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <PageHeaderCard
           title="Notificaciones"
-          showBackButton={false}
           contentClassName="space-y-2"
-          actions={
-            <Link
-              href="/mi-perfil"
-              className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
-            >
-              Mi perfil
-            </Link>
-          }
         >
           <p className="text-sm leading-6 text-gray-600 sm:text-base">
             Activa o desactiva las notificaciones por correo electrónico.
@@ -280,57 +247,46 @@ export default function MiPerfilNotificacionesPage() {
 
                 return (
                   <div key={option.key} className="p-4 sm:p-5">
-                    <div className="flex items-start gap-3">
-                      <span
-                        className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-green-100 bg-green-50 text-green-900"
-                        style={{ color: CLUB_GREEN }}
-                      >
-                        <MailIcon />
-                      </span>
-
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <h2 className="text-base font-bold text-gray-900">
-                                {option.title}
-                              </h2>
-                              <button
-                                type="button"
-                                aria-label={`Ver información sobre ${option.title}`}
-                                aria-controls={infoId}
-                                aria-expanded={isInfoOpen}
-                                onClick={() =>
-                                  setExpandedInfoKey((current) =>
-                                    current === option.key ? null : option.key
-                                  )
-                                }
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 outline-none transition hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-2 focus-visible:ring-green-200"
-                              >
-                                <InfoIcon />
-                              </button>
-                            </div>
-
-                            {isInfoOpen ? (
-                              <p
-                                id={infoId}
-                                className="mt-2 text-sm leading-5 text-gray-600"
-                              >
-                                {option.explanation}
-                              </p>
-                            ) : null}
-                          </div>
-
-                          <ToggleSwitch
-                            enabled={enabled}
-                            disabled={savingKey !== null}
-                            label={`${enabled ? "Desactivar" : "Activar"} ${
-                              option.title
-                            }`}
-                            onToggle={() => handleToggle(option.key)}
-                          />
+                        <div className="flex min-w-0 items-start gap-2">
+                          <h2 className="min-w-0 text-[15px] font-bold leading-5 text-gray-900 sm:text-base sm:leading-6">
+                            {option.title}
+                          </h2>
+                          <button
+                            type="button"
+                            aria-label={`Ver información sobre ${option.title}`}
+                            aria-controls={infoId}
+                            aria-expanded={isInfoOpen}
+                            onClick={() =>
+                              setExpandedInfoKey((current) =>
+                                current === option.key ? null : option.key
+                              )
+                            }
+                            className="-mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 outline-none transition hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-2 focus-visible:ring-green-200"
+                          >
+                            <InfoIcon />
+                          </button>
                         </div>
+
+                        {isInfoOpen ? (
+                          <p
+                            id={infoId}
+                            className="mt-2 text-sm leading-5 text-gray-600"
+                          >
+                            {option.explanation}
+                          </p>
+                        ) : null}
                       </div>
+
+                      <ToggleSwitch
+                        enabled={enabled}
+                        disabled={savingKey !== null}
+                        label={`${enabled ? "Desactivar" : "Activar"} ${
+                          option.title
+                        }`}
+                        onToggle={() => handleToggle(option.key)}
+                      />
                     </div>
                   </div>
                 );
