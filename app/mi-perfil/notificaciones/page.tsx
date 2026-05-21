@@ -32,13 +32,13 @@ const notificationOptions: NotificationOption[] = [
     key: "added_to_match_email",
     title: "Me han añadido a una partida",
     explanation:
-      "Recibirás un correo cuando un administrador te añada manualmente a una partida.",
+      "Recibirás un correo cuando un alguien te añada a una partida.",
   },
   {
     key: "match_reminder_email",
     title: "Recordatorio de partida",
     explanation:
-      "Recibirás un recordatorio antes de tus próximas partidas, si esta función está activa.",
+      "Recibirás un recordatorio la noche antes de tus próximas partidas.",
   },
   {
     key: "match_completed_email",
