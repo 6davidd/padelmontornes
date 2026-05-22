@@ -528,6 +528,19 @@ async function runDailySummary() {
     }
   }
 
+  if (openMatches.length === 0 && closedMatches.length === 0) {
+    return {
+      ok: true,
+      skipped: true,
+      targetDate,
+      reason: "no_matches",
+      openCount: 0,
+      closedCount: 0,
+      remindersSent: 0,
+      remindersSkipped: 0,
+    };
+  }
+
   const messageText = buildWhatsappMessage({
     targetDate,
     openMatches,
