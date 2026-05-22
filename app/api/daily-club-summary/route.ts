@@ -138,6 +138,7 @@ function buildWhatsappMessage(params: {
   closedMatches: ClosedMatch[];
 }) {
   const { targetDate, openMatches, closedMatches } = params;
+  const timeSeparator = "--------------------";
 
   const lines: string[] = [];
   lines.push(`🎾 Partidas de mañana - ${capitalize(formatDateLongES(targetDate))}`);
@@ -149,7 +150,16 @@ function buildWhatsappMessage(params: {
   if (openMatches.length === 0) {
     lines.push("No hay partidas abiertas");
   } else {
+    let previousSlotStart: string | null = null;
+
     for (const match of openMatches) {
+      if (previousSlotStart && previousSlotStart !== match.slotStart) {
+        lines.push(timeSeparator);
+        lines.push("");
+      }
+
+      previousSlotStart = match.slotStart;
+
       lines.push(`${match.slotStart}-${match.slotEnd} · ${match.courtName}`);
 
       for (const player of match.players) {
@@ -172,7 +182,16 @@ function buildWhatsappMessage(params: {
   if (closedMatches.length === 0) {
     lines.push("No hay partidas cerradas");
   } else {
+    let previousSlotStart: string | null = null;
+
     for (const match of closedMatches) {
+      if (previousSlotStart && previousSlotStart !== match.slotStart) {
+        lines.push(timeSeparator);
+        lines.push("");
+      }
+
+      previousSlotStart = match.slotStart;
+
       lines.push(`${match.slotStart}-${match.slotEnd} · ${match.courtName}`);
 
       for (const player of match.players) {
