@@ -65,6 +65,12 @@ type ClosedMatch = {
   }>;
 };
 
+type DailySummaryOptions = {
+  targetDate?: string;
+  dayLabel?: string;
+  sendReminders?: boolean;
+};
+
 function esc(s: string) {
   return escapeHtml(s);
 }
@@ -74,6 +80,10 @@ function toISODateLocal(d: Date) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function todayISO() {
+  return toISODateLocal(new Date());
 }
 
 function tomorrowISO() {
@@ -108,6 +118,68 @@ function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
+function isValidISODate(dateISO: string) {
+  const match = dateISO.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function parseBooleanParam(value: string | null, fallback: boolean) {
+  if (value == null) return fallback;
+
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "si", "sí"].includes(normalized)) return true;
+  if (["0", "false", "no"].includes(normalized)) return false;
+
+  throw new Error("sendReminders debe ser true o false.");
+}
+
+function getDefaultDayLabel(targetDate: string) {
+  if (targetDate === todayISO()) return "hoy";
+  if (targetDate === tomorrowISO()) return "mañana";
+  return formatDateLongES(targetDate);
+}
+
+function getDailySummaryRequestOptions(req: Request): DailySummaryOptions {
+  const url = new URL(req.url);
+  const targetDateParam = url.searchParams.get("targetDate")?.trim();
+  const dateAlias = url.searchParams.get("date")?.trim().toLowerCase();
+
+  let targetDate: string | undefined;
+  if (targetDateParam) {
+    targetDate = targetDateParam;
+  } else if (dateAlias === "today" || dateAlias === "hoy") {
+    targetDate = todayISO();
+  } else if (dateAlias === "tomorrow" || dateAlias === "manana" || dateAlias === "mañana") {
+    targetDate = tomorrowISO();
+  } else if (dateAlias) {
+    targetDate = dateAlias;
+  }
+
+  if (targetDate && !isValidISODate(targetDate)) {
+    throw new Error("targetDate debe tener formato YYYY-MM-DD.");
+  }
+
+  const dayLabelParam = url.searchParams.get("label")?.trim();
+  const dayLabel = dayLabelParam || (targetDate ? getDefaultDayLabel(targetDate) : undefined);
+
+  return {
+    targetDate,
+    dayLabel,
+    sendReminders: parseBooleanParam(url.searchParams.get("sendReminders"), true),
+  };
+}
+
 function renderReminderPlayers(players: string[]) {
   if (!players || players.length === 0) return "";
 
@@ -134,14 +206,15 @@ function renderReminderPlayers(players: string[]) {
 
 function buildWhatsappMessage(params: {
   targetDate: string;
+  dayLabel: string;
   openMatches: OpenMatch[];
   closedMatches: ClosedMatch[];
 }) {
-  const { targetDate, openMatches, closedMatches } = params;
+  const { targetDate, dayLabel, openMatches, closedMatches } = params;
   const timeSeparator = "--------------------";
 
   const lines: string[] = [];
-  lines.push(`🎾 Partidas de mañana - ${capitalize(formatDateLongES(targetDate))}`);
+  lines.push(`🎾 Partidas de ${dayLabel} - ${capitalize(formatDateLongES(targetDate))}`);
   lines.push("");
 
   lines.push("🟢 ABIERTAS");
@@ -207,12 +280,13 @@ function buildWhatsappMessage(params: {
 
 function buildEmailHtml(params: {
   targetDate: string;
+  dayLabel: string;
   messageText: string;
   openCount: number;
   closedCount: number;
   openUrl: string;
 }) {
-  const { targetDate, messageText, openCount, closedCount, openUrl } = params;
+  const { targetDate, dayLabel, messageText, openCount, closedCount, openUrl } = params;
 
   const detailsHtml = `
     ${matchInfoRow("Abiertas", String(openCount))}
@@ -239,7 +313,7 @@ ${esc(messageText)}
   return emailShell({
     preheader: "Aquí tienes el resumen diario del club.",
     title: "Resumen de partidas",
-    intro: `Resumen de partidas para <strong>${esc(capitalize(formatDateLongES(targetDate)))}</strong>.`,
+    intro: `Resumen de partidas de <strong>${esc(dayLabel)}</strong> para <strong>${esc(capitalize(formatDateLongES(targetDate)))}</strong>.`,
     badge: `${openCount} abiertas · ${closedCount} cerradas`,
     matchDetailsHtml: detailsHtml,
     extraHtml,
@@ -405,14 +479,18 @@ async function sendClosedMatchReminders(params: {
   };
 }
 
-async function runDailySummary() {
-  const targetDate = tomorrowISO();
+async function runDailySummary(options: DailySummaryOptions = {}) {
+  const targetDate = options.targetDate ?? tomorrowISO();
+  const dayLabel = options.dayLabel ?? getDefaultDayLabel(targetDate);
+  const shouldSendReminders =
+    options.sendReminders !== false && targetDate === tomorrowISO();
 
   if (isSundayISO(targetDate)) {
     return {
       ok: true,
       skipped: true,
       targetDate,
+      dayLabel,
       reason: "sunday",
     };
   }
@@ -533,24 +611,32 @@ async function runDailySummary() {
       ok: true,
       skipped: true,
       targetDate,
+      dayLabel,
       reason: "no_matches",
       openCount: 0,
       closedCount: 0,
       remindersSent: 0,
       remindersSkipped: 0,
+      remindersEnabled: shouldSendReminders,
     };
   }
 
   const messageText = buildWhatsappMessage({
     targetDate,
+    dayLabel,
     openMatches,
     closedMatches,
   });
 
-  const reminderResult = await sendClosedMatchReminders({
-    targetDate,
-    closedMatches,
-  });
+  const reminderResult = shouldSendReminders
+    ? await sendClosedMatchReminders({
+        targetDate,
+        closedMatches,
+      })
+    : {
+        remindersSent: 0,
+        remindersSkipped: 0,
+      };
 
   const token = crypto.randomUUID().replaceAll("-", "");
 
@@ -582,10 +668,11 @@ async function runDailySummary() {
     throw new Error("Falta configurar RESEND_API_KEY o EMAIL_FROM.");
   }
 
-  const subject = `Resumen de partidas · ${formatEmailSubjectDate(targetDate)}`;
+  const subject = `Resumen de partidas de ${dayLabel} · ${formatEmailSubjectDate(targetDate)}`;
 
   const html = buildEmailHtml({
     targetDate,
+    dayLabel,
     messageText,
     openCount: openMatches.length,
     closedCount: closedMatches.length,
@@ -610,6 +697,7 @@ async function runDailySummary() {
   return {
     ok: true,
     targetDate,
+    dayLabel,
     openCount: openMatches.length,
     closedCount: closedMatches.length,
     token,
@@ -617,6 +705,7 @@ async function runDailySummary() {
     emailData,
     remindersSent: reminderResult.remindersSent,
     remindersSkipped: reminderResult.remindersSkipped,
+    remindersEnabled: shouldSendReminders,
   };
 }
 
@@ -626,7 +715,7 @@ export async function GET(req: Request) {
       return Response.json({ ok: false, error: "No autorizado" }, { status: 401 });
     }
 
-    const result = await runDailySummary();
+    const result = await runDailySummary(getDailySummaryRequestOptions(req));
     return Response.json(result);
   } catch (error) {
     return Response.json(
@@ -645,7 +734,7 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, error: "No autorizado" }, { status: 401 });
     }
 
-    const result = await runDailySummary();
+    const result = await runDailySummary(getDailySummaryRequestOptions(req));
     return Response.json(result);
   } catch (error) {
     return Response.json(
