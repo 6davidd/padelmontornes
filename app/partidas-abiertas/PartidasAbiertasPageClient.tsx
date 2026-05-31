@@ -142,6 +142,7 @@ export default function PartidasAbiertasPageClient({
         .map((reservation) => ({
           start: toHM(reservation.slot_start),
           end: toHM(reservation.slot_end),
+          courtId: reservation.court_id,
         })),
     });
   }, [date, isSunday, reservations, saturdaySlots]);
@@ -460,7 +461,7 @@ export default function PartidasAbiertasPageClient({
               Cuando se abra una nueva partida, te aparecerá aquí para poder unirte.
             </div>
           </div>
-        ) : isSunday ? (
+        ) : isSunday && slotsToShow.length === 0 ? (
           <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
             <div className="text-lg font-bold text-red-800">Club cerrado</div>
             <div className="mt-2 text-sm text-red-700">

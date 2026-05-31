@@ -1,20 +1,6 @@
-create extension if not exists pgcrypto;
-
-create table if not exists public.saturday_slot_overrides (
-  id uuid primary key default gen_random_uuid(),
-  date date not null,
-  slot_start time not null,
-  slot_end time not null,
-  court_ids integer[] null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  created_by uuid references auth.users(id) on delete set null,
-  constraint saturday_slot_overrides_unique_date_start unique (date, slot_start),
-  constraint saturday_slot_overrides_court_ids_not_empty
-    check (court_ids is null or cardinality(court_ids) > 0),
-  constraint saturday_slot_overrides_duration_90_minutes
-    check (slot_end = slot_start + interval '90 minutes')
-);
+-- Migracion segura para convertir horarios de sabado en horarios especiales.
+-- Mantiene la tabla public.saturday_slot_overrides para no romper datos ni codigo
+-- desplegado, pero permite guardar cualquier fecha concreta.
 
 alter table public.saturday_slot_overrides
   drop constraint if exists saturday_slot_overrides_date_is_saturday;
@@ -35,9 +21,6 @@ alter table public.saturday_slot_overrides
 comment on table public.saturday_slot_overrides is
   'Horarios especiales por fecha concreta. El nombre de tabla se mantiene por compatibilidad con la primera version de horarios de sabado.';
 
-create index if not exists saturday_slot_overrides_date_idx
-  on public.saturday_slot_overrides (date, slot_start);
-
 create or replace function public.set_saturday_slot_overrides_updated_at()
 returns trigger
 language plpgsql
@@ -55,12 +38,6 @@ create trigger saturday_slot_overrides_set_updated_at
   before update on public.saturday_slot_overrides
   for each row
   execute function public.set_saturday_slot_overrides_updated_at();
-
-alter table public.saturday_slot_overrides enable row level security;
-
-revoke all on table public.saturday_slot_overrides from anon;
-grant select, insert, update, delete on table public.saturday_slot_overrides
-  to authenticated;
 
 drop policy if exists "Authenticated members can read saturday slots"
   on public.saturday_slot_overrides;

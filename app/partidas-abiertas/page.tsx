@@ -48,14 +48,26 @@ type SaturdaySlotOverrideRow = {
   date: string;
   slot_start: string;
   slot_end: string;
+  court_ids: number[] | null;
 };
+
+function isMissingCourtIdsError(error: { message?: string; code?: string }) {
+  const message = (error.message ?? "").toLocaleLowerCase("es-ES");
+  return message.includes("court_ids") || error.code === "PGRST204";
+}
 
 async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData> {
   const session = await requireAuthenticatedSession("/partidas-abiertas");
   const visibleDays = getVisibleBookingDays();
   const supabase = createServerSupabaseClient(session.accessToken);
 
-  const [reservationsRes, blocksRes, courtsRes, member, saturdaySlotsRes] =
+  const [
+    reservationsRes,
+    blocksRes,
+    courtsRes,
+    member,
+    initialSaturdaySlotsRes,
+  ] =
     await Promise.all([
     supabase
       .from("reservations_public")
@@ -72,11 +84,21 @@ async function getInitialOpenMatchesData(): Promise<PartidasAbiertasInitialData>
       getRequestCurrentMember(),
       supabase
         .from("saturday_slot_overrides")
-        .select("id,date,slot_start,slot_end")
+        .select("id,date,slot_start,slot_end,court_ids")
         .in("date", visibleDays)
         .order("date", { ascending: true })
         .order("slot_start", { ascending: true }),
     ]);
+  let saturdaySlotsRes = initialSaturdaySlotsRes;
+
+  if (saturdaySlotsRes.error && isMissingCourtIdsError(saturdaySlotsRes.error)) {
+    saturdaySlotsRes = (await supabase
+      .from("saturday_slot_overrides")
+      .select("id,date,slot_start,slot_end")
+      .in("date", visibleDays)
+      .order("date", { ascending: true })
+      .order("slot_start", { ascending: true })) as typeof initialSaturdaySlotsRes;
+  }
 
   if (reservationsRes.error) {
     throw new Error(reservationsRes.error.message);

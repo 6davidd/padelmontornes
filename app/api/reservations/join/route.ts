@@ -3,7 +3,6 @@ import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import {
   getAdvanceLimitMessage,
   isDateWithinGeneralBookingWindow,
-  isSundayISO,
 } from "../../../../lib/booking-window";
 import { isAdminRole } from "../../../../lib/auth-shared";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
@@ -131,13 +130,6 @@ export async function POST(req: Request) {
     if (!isDateWithinGeneralBookingWindow(reservation.date)) {
       return NextResponse.json(
         { ok: false, error: getAdvanceLimitMessage("unirse") },
-        { status: 400 }
-      );
-    }
-
-    if (isSundayISO(reservation.date)) {
-      return NextResponse.json(
-        { ok: false, error: "Domingo cerrado: no se puede gestionar esa partida." },
         { status: 400 }
       );
     }

@@ -1,10 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { getDisplayName } from "../../../../lib/display-name";
-import {
-  canCreateAdminMatchOnDate,
-  isSundayISO,
-} from "../../../../lib/booking-window";
+import { canCreateAdminMatchOnDate } from "../../../../lib/booking-window";
 import { isAdminRole } from "../../../../lib/auth-shared";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 import { sendBookingEmail } from "../../../../lib/server-booking-email";
@@ -177,16 +174,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (isSundayISO(date)) {
+    if (!(await isReservableSlot({ date, slotStart, slotEnd, courtId }))) {
       return NextResponse.json(
-        { ok: false, error: "Domingo cerrado: no se pueden crear partidas." },
-        { status: 400 }
-      );
-    }
-
-    if (!(await isReservableSlot({ date, slotStart, slotEnd }))) {
-      return NextResponse.json(
-        { ok: false, error: "El horario no es válido para ese día." },
+        { ok: false, error: "El horario no es válido para esa pista." },
         { status: 400 }
       );
     }

@@ -6,11 +6,13 @@ import { TimeRangeDisplay } from "@/app/_components/time-range-display";
 import { getCourts } from "@/lib/client-reference-data";
 import { getClientSession } from "@/lib/client-session";
 import {
-  getConfiguredSlotsForDate,
+  getCourtsForBookingSlot,
+  getSlotsForBookingDate,
   getSaturdaySlotOverrides,
   type SaturdaySlotOverrideRow,
 } from "@/lib/client-saturday-slots";
-import { mergeAndSortSlots, WEEKDAY_SLOTS } from "@/lib/slots";
+import { isSaturdayISO, isSundayISO } from "@/lib/booking-window";
+import { toHM } from "@/lib/slots";
 import { supabase } from "@/lib/supabase";
 
 type Court = {
@@ -37,40 +39,29 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function isSaturdayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 6;
-}
-
-function isSundayISO(dateISO: string) {
-  const d = new Date(`${dateISO}T12:00:00`);
-  return d.getDay() === 0;
-}
-
 function getSlotsForDate(
   dateISO: string,
   saturdaySlots: SaturdaySlotOverrideRow[],
   blocks: BlockRow[]
 ) {
-  if (isSundayISO(dateISO)) return [];
-  const configuredSlots = isSaturdayISO(dateISO)
-    ? getConfiguredSlotsForDate(dateISO, saturdaySlots)
-    : WEEKDAY_SLOTS;
   const blockedSlots = blocks
     .filter((block) => block.date === dateISO)
     .map((block) => ({
       start: toHM(block.slot_start),
       end: toHM(block.slot_end),
+      courtId: block.court_id,
     }));
 
-  return mergeAndSortSlots([...configuredSlots, ...blockedSlots]);
+  return getSlotsForBookingDate({
+    date: dateISO,
+    saturdaySlots,
+    existingSlots: blockedSlots,
+  });
 }
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
-
-const toHM = (t: string) => (t.length >= 5 ? t.slice(0, 5) : t);
 
 function Badge({
   children,
@@ -302,7 +293,7 @@ export default function AdminBloqueosPage() {
 
               return (
                 <div key={dateISO} className="space-y-3">
-                  {sunday ? (
+                  {sunday && slots.length === 0 ? (
                     <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
                       <div className="text-lg font-bold text-red-800">
                         Club cerrado
@@ -321,18 +312,21 @@ export default function AdminBloqueosPage() {
                       </div>
                     </div>
                   ) : (
-                    slots.map((slot) => (
-                      <div
-                        key={`${dateISO}-${slot.start}`}
-                        className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm"
-                      >
-                        <div className="min-w-0 border-b border-gray-200 px-4 py-4 sm:px-5">
-                          <TimeRangeDisplay start={slot.start} end={slot.end} />
-                        </div>
+                    slots.map((slot) => {
+                      const courtsForSlot = getCourtsForBookingSlot(slot, courts);
 
-                        <div className="p-5">
-                          <div className="grid grid-cols-1 gap-4">
-                            {courts.map((court) => {
+                      return (
+                        <div
+                          key={`${dateISO}-${slot.start}`}
+                          className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm"
+                        >
+                          <div className="min-w-0 border-b border-gray-200 px-4 py-4 sm:px-5">
+                            <TimeRangeDisplay start={slot.start} end={slot.end} />
+                          </div>
+
+                          <div className="p-5">
+                            <div className="grid grid-cols-1 gap-4">
+                              {courtsForSlot.map((court) => {
                               const key = `${dateISO}-${slot.start}-${court.id}`;
                               const block = blockMap.get(key);
                               const blocked = !!block;
@@ -408,11 +402,12 @@ export default function AdminBloqueosPage() {
                                   </div>
                                 </div>
                               );
-                            })}
+                              })}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               );

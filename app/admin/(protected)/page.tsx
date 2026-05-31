@@ -57,8 +57,8 @@ export default async function AdminPage() {
           <TileLink href="/admin/crear-partidas" title="Crear partidas" />
           <TileLink href="/admin/bloqueos" title="Bloquear pistas" />
           <TileLink
-            href="/admin/horarios-sabado"
-            title="Horario sábados"
+            href="/admin/horarios-especiales"
+            title="Horarios especiales"
           />
           <TileLink href="/admin/socios" title="Socios" />
           {isSuperadmin && (
