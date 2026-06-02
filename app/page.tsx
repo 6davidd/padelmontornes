@@ -89,24 +89,6 @@ function HelpIcon({ className = "h-6 w-6" }: { className?: string }) {
   );
 }
 
-function UserIcon({ className = "h-6 w-6" }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 21a8 8 0 0 0-16 0" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
 function ShieldIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg
@@ -125,24 +107,6 @@ function ShieldIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </svg>
-  );
-}
-
 function QuickTile({
   href,
   title,
@@ -157,7 +121,7 @@ function QuickTile({
   return (
     <Link
       href={href}
-      className="relative flex min-h-[112px] flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-center shadow-sm transition hover:border-green-200 hover:bg-green-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.99]"
+      className="relative flex min-h-[104px] flex-col items-center justify-center gap-2.5 rounded-lg border border-slate-200 bg-white p-2.5 text-center shadow-sm transition hover:border-green-200 hover:bg-green-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.99]"
     >
       {badge ? <span className="absolute right-2 top-2">{badge}</span> : null}
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-green-800 ring-1 ring-green-100">
@@ -189,8 +153,7 @@ export default async function HomePage() {
       <main className="min-h-screen bg-slate-50 pb-8">
         <div className="mx-auto max-w-3xl px-4 pt-4 sm:px-6 sm:pt-7">
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <p className="text-sm font-medium text-slate-500">Zona socio</p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">
+            <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">
               Hola, {displayName ?? "socio"}
             </h1>
 
@@ -210,7 +173,7 @@ export default async function HomePage() {
             </section>
           ) : null}
 
-          <section className="mt-3 grid grid-cols-2 gap-3">
+          <section className="mt-3 grid grid-cols-3 gap-2.5 sm:gap-3">
             <QuickTile
               href="/partidas-abiertas"
               title="Partidas abiertas"
@@ -238,19 +201,15 @@ export default async function HomePage() {
               icon={<BookmarkIcon />}
             />
             <QuickTile href="/ayuda" title="Ayuda" icon={<HelpIcon />} />
-            <QuickTile href="/mi-perfil" title="Mi perfil" icon={<UserIcon />} />
           </section>
 
           {isAdmin ? (
             <Link
               href="/admin"
-              className="mt-3 flex min-h-12 items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 active:scale-[0.99]"
+              className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 active:scale-[0.99]"
             >
-              <span className="flex items-center gap-2">
-                <ShieldIcon />
-                Panel de administrador
-              </span>
-              <ArrowRightIcon className="text-slate-300" />
+              <ShieldIcon className="h-4 w-4" />
+              Admin
             </Link>
           ) : null}
 
