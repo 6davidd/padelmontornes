@@ -13,25 +13,7 @@ import ProtectedRouteFrame from "./_components/ProtectedRouteFrame";
 
 const CLUB_GREEN = "#0f5e2e";
 
-function ArrowRightIcon({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-function CalendarIcon({ className = "h-5 w-5" }: { className?: string }) {
+function CalendarIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
@@ -51,34 +33,139 @@ function CalendarIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-function ActionRow({
+function UsersIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function BookmarkIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
+    </svg>
+  );
+}
+
+function HelpIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+function UserIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 21a8 8 0 0 0-16 0" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function ShieldIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function QuickTile({
   href,
   title,
-  description,
+  icon,
   badge,
 }: {
   href: string;
   title: string;
-  description: string;
+  icon: React.ReactNode;
   badge?: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
-      className="flex min-h-[72px] items-center gap-3 border-b border-slate-100 px-4 py-3 transition last:border-b-0 hover:bg-green-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-300 active:bg-green-50"
+      className="relative flex min-h-[112px] flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-center shadow-sm transition hover:border-green-200 hover:bg-green-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.99]"
     >
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="text-base font-semibold text-slate-950">
-            {title}
-          </span>
-          {badge ? <span className="shrink-0">{badge}</span> : null}
-        </span>
-        <span className="mt-0.5 block text-sm leading-5 text-slate-500">
-          {description}
-        </span>
+      {badge ? <span className="absolute right-2 top-2">{badge}</span> : null}
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-green-800 ring-1 ring-green-100">
+        {icon}
       </span>
-      <ArrowRightIcon className="h-4 w-4 shrink-0 text-slate-300" />
+      <span className="text-sm font-semibold leading-5 text-slate-950">
+        {title}
+      </span>
     </Link>
   );
 }
@@ -103,16 +190,16 @@ export default async function HomePage() {
         <div className="mx-auto max-w-3xl px-4 pt-4 sm:px-6 sm:pt-7">
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <p className="text-sm font-medium text-slate-500">Zona socio</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">
+            <h1 className="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">
               Hola, {displayName ?? "socio"}
             </h1>
 
             <Link
               href="/reservar"
-              className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.99]"
+              className="mt-4 flex min-h-14 w-full items-center justify-center gap-3 rounded-lg px-5 py-3.5 text-lg font-semibold text-white shadow-sm transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300 active:scale-[0.99]"
               style={{ backgroundColor: CLUB_GREEN }}
             >
-              <CalendarIcon className="h-5 w-5" />
+              <CalendarIcon className="h-6 w-6" />
               Reservar pista
             </Link>
           </section>
@@ -123,11 +210,11 @@ export default async function HomePage() {
             </section>
           ) : null}
 
-          <section className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <ActionRow
+          <section className="mt-3 grid grid-cols-2 gap-3">
+            <QuickTile
               href="/partidas-abiertas"
               title="Partidas abiertas"
-              description="Apuntate a una partida con plazas."
+              icon={<UsersIcon />}
               badge={
                 <Suspense
                   fallback={
@@ -145,16 +232,13 @@ export default async function HomePage() {
                 </Suspense>
               }
             />
-            <ActionRow
+            <QuickTile
               href="/mis-reservas"
               title="Mis reservas"
-              description="Consulta tus pistas y partidas."
+              icon={<BookmarkIcon />}
             />
-            <ActionRow
-              href="/ayuda"
-              title="Ayuda"
-              description="Dudas frecuentes y guias rapidas."
-            />
+            <QuickTile href="/ayuda" title="Ayuda" icon={<HelpIcon />} />
+            <QuickTile href="/mi-perfil" title="Mi perfil" icon={<UserIcon />} />
           </section>
 
           {isAdmin ? (
@@ -162,8 +246,11 @@ export default async function HomePage() {
               href="/admin"
               className="mt-3 flex min-h-12 items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 active:scale-[0.99]"
             >
-              Panel de administrador
-              <ArrowRightIcon className="h-4 w-4 text-slate-300" />
+              <span className="flex items-center gap-2">
+                <ShieldIcon />
+                Panel de administrador
+              </span>
+              <ArrowRightIcon className="text-slate-300" />
             </Link>
           ) : null}
 
