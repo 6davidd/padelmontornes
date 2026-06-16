@@ -213,6 +213,10 @@ export default function TorneoSabadoPublicClient() {
       const data = (await res.json().catch(() => null)) as PublicApiResponse | null;
 
       if (!res.ok || !data?.ok || !data.tournament) {
+        if (res.status === 404 || (data?.ok && !data.tournament)) {
+          setTournament(null);
+        }
+
         setError(String(data?.error ?? "No se ha podido cargar el torneo."));
         return;
       }

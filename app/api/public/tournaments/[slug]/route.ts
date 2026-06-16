@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import {
   normalizeTournamentEvent,
+  TORNEO_SABADO_SLUG,
   type TournamentEventRow,
 } from "@/lib/tournament-sabado";
 
@@ -26,6 +27,13 @@ export async function GET(_req: Request, context: RouteContext) {
       return NextResponse.json(
         { ok: false, error: "Falta el torneo." },
         { status: 400 }
+      );
+    }
+
+    if (cleanSlug !== TORNEO_SABADO_SLUG) {
+      return NextResponse.json(
+        { ok: false, error: "Torneo no disponible." },
+        { status: 404 }
       );
     }
 

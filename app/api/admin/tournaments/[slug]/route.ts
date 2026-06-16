@@ -7,6 +7,7 @@ import {
   createInitialTournamentPayload,
   normalizeTournamentEvent,
   normalizeTournamentState,
+  TORNEO_SABADO_SLUG,
   type TournamentEventRow,
 } from "@/lib/tournament-sabado";
 
@@ -59,6 +60,17 @@ function getCleanSlug(slug: string) {
   return slug.trim();
 }
 
+function isSupportedTournamentSlug(slug: string) {
+  return slug === TORNEO_SABADO_SLUG;
+}
+
+function tournamentNotAvailableResponse() {
+  return NextResponse.json(
+    { ok: false, error: "Torneo no disponible." },
+    { status: 404 }
+  );
+}
+
 async function getTournament(slug: string) {
   return supabaseAdmin
     .from("tournament_events")
@@ -82,6 +94,10 @@ export async function GET(req: Request, context: RouteContext) {
         { ok: false, error: "Falta el torneo." },
         { status: 400 }
       );
+    }
+
+    if (!isSupportedTournamentSlug(cleanSlug)) {
+      return tournamentNotAvailableResponse();
     }
 
     const res = await getTournament(cleanSlug);
@@ -125,6 +141,10 @@ export async function POST(req: Request, context: RouteContext) {
         { ok: false, error: "Falta el torneo." },
         { status: 400 }
       );
+    }
+
+    if (!isSupportedTournamentSlug(cleanSlug)) {
+      return tournamentNotAvailableResponse();
     }
 
     const existingRes = await getTournament(cleanSlug);
@@ -214,6 +234,10 @@ async function updateTournament(req: Request, context: RouteContext) {
         { ok: false, error: "Falta el torneo." },
         { status: 400 }
       );
+    }
+
+    if (!isSupportedTournamentSlug(cleanSlug)) {
+      return tournamentNotAvailableResponse();
     }
 
     const parsedBody = await req.json().catch(() => null);

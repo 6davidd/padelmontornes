@@ -29,7 +29,7 @@ alter table public.tournament_events
 alter table public.tournament_events
   add column if not exists updated_at timestamptz not null default now();
 
-create index if not exists tournament_events_slug_idx
+create unique index if not exists tournament_events_slug_key
   on public.tournament_events (slug);
 
 comment on table public.tournament_events is

@@ -579,7 +579,7 @@ export function updateTournamentMatchWinner(
   }
 
   const previousWinner = match.winner.trim();
-  match.winner = winner;
+  match.winner = cleanWinner;
 
   if (match.nextMatchId && match.nextSlot && cleanWinner) {
     assignMatchPlayer(bracket, match.nextMatchId, match.nextSlot, cleanWinner);
