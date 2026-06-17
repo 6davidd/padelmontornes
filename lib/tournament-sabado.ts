@@ -7,7 +7,7 @@ import {
 } from "./booking-window";
 
 export const TORNEO_SABADO_SLUG = "torneo-sabado";
-export const TOURNAMENT_DEFAULT_NAME = "Torneo sábado Montornés";
+export const TOURNAMENT_DEFAULT_NAME = "Torneo Montornés";
 export const TOURNAMENT_AUTO_REFRESH_MS = 12000;
 
 export const TOURNAMENT_GROUP_IDS = ["A", "B", "C", "D"] as const;
@@ -19,12 +19,23 @@ export type TournamentBracketKey = "mainBracket" | "consolationBracket";
 export type TournamentPlayer = {
   id: string;
   name: string;
+  memberUserIds: string[];
+  pointsFor: number;
+  pointsAgainst: number;
+};
+
+export type TournamentGroupMatch = {
+  id: string;
+  pair1Id: string;
+  pair2Id: string;
+  score: string;
 };
 
 export type TournamentGroup = {
   id: TournamentGroupId;
   name: string;
   players: TournamentPlayer[];
+  matches: TournamentGroupMatch[];
   standings: Record<TournamentPlace, string>;
 };
 
@@ -87,20 +98,58 @@ function stringValue(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
 }
 
+function numberValue(value: unknown, fallback = 0) {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+      ? Number(value)
+      : Number.NaN;
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function createGroup(id: TournamentGroupId): TournamentGroup {
+  const players = Array.from({ length: 4 }, (_, index) => ({
+    id: `${id}${index + 1}`,
+    name: "",
+    memberUserIds: ["", ""],
+    pointsFor: 0,
+    pointsAgainst: 0,
+  }));
+
   return {
     id,
     name: `Grupo ${id}`,
-    players: Array.from({ length: 4 }, (_, index) => ({
-      id: `${id}${index + 1}`,
-      name: "",
-    })),
+    players,
+    matches: createGroupMatches(id, players.map((player) => player.id)),
     standings: {
       first: "",
       second: "",
       third: "",
     },
   };
+}
+
+function createGroupMatches(
+  groupId: TournamentGroupId,
+  playerIds: string[]
+): TournamentGroupMatch[] {
+  const pairings = [
+    [0, 1],
+    [2, 3],
+    [0, 2],
+    [1, 3],
+    [0, 3],
+    [1, 2],
+  ] as const;
+
+  return pairings.map(([left, right], index) => ({
+    id: `${groupId}-match-${index + 1}`,
+    pair1Id: playerIds[left] ?? "",
+    pair2Id: playerIds[right] ?? "",
+    score: "",
+  }));
 }
 
 function createMatch(params: {
@@ -264,6 +313,16 @@ function normalizeGroup(source: unknown, fallback: TournamentGroup) {
   const sourceStandings = isRecord(sourceRecord.standings)
     ? sourceRecord.standings
     : {};
+  const sourceMatches = Array.isArray(sourceRecord.matches)
+    ? sourceRecord.matches
+    : [];
+  const sourceMatchesById = new Map<string, Record<string, unknown>>();
+
+  for (const match of sourceMatches) {
+    if (isRecord(match) && typeof match.id === "string") {
+      sourceMatchesById.set(match.id, match);
+    }
+  }
 
   return {
     ...fallback,
@@ -282,6 +341,25 @@ function normalizeGroup(source: unknown, fallback: TournamentGroup) {
       return {
         id: player.id,
         name: stringValue(row.name),
+        memberUserIds: normalizeMemberUserIds(row.memberUserIds),
+        pointsFor: numberValue(row.pointsFor),
+        pointsAgainst: numberValue(row.pointsAgainst),
+      };
+    }),
+    matches: fallback.matches.map((match, index) => {
+      const row = sourceMatchesById.get(match.id);
+      const indexedRow = sourceMatches[index];
+      const sourceMatch = isRecord(row)
+        ? row
+        : isRecord(indexedRow)
+        ? indexedRow
+        : {};
+
+      return {
+        id: match.id,
+        pair1Id: stringValue(sourceMatch.pair1Id, match.pair1Id),
+        pair2Id: stringValue(sourceMatch.pair2Id, match.pair2Id),
+        score: stringValue(sourceMatch.score),
       };
     }),
     standings: {
@@ -290,6 +368,14 @@ function normalizeGroup(source: unknown, fallback: TournamentGroup) {
       third: stringValue(sourceStandings.third),
     },
   } satisfies TournamentGroup;
+}
+
+function normalizeMemberUserIds(value: unknown) {
+  const ids = Array.isArray(value)
+    ? value.map((item) => (typeof item === "string" ? item : ""))
+    : [];
+
+  return [ids[0] ?? "", ids[1] ?? ""];
 }
 
 function normalizeBracket(source: unknown, fallback: TournamentBracket) {
@@ -364,7 +450,7 @@ export function normalizeTournamentState(value: unknown): TournamentState {
 export function normalizeTournamentEvent(row: TournamentEventRow) {
   return {
     ...row,
-    state: normalizeTournamentState(row.state),
+    state: syncBracketEntrantsFromStandings(normalizeTournamentState(row.state)),
   } satisfies TournamentEvent;
 }
 
@@ -395,7 +481,7 @@ export function createInitialTournamentPayload(params?: {
     name: params?.name?.trim() || TOURNAMENT_DEFAULT_NAME,
     date: params?.date === null ? null : params?.date ?? getNextSaturdayISODate(),
     public_enabled: true,
-    state: createEmptyTournamentState(),
+    state: syncBracketEntrantsFromStandings(createEmptyTournamentState()),
   };
 }
 
@@ -414,10 +500,112 @@ export function getGroupStandingName(
   fallback = `${STANDING_LABELS[place]} Grupo ${groupId}`
 ) {
   const group = state.groups.find((candidate) => candidate.id === groupId);
-  const playerId = group?.standings[place];
+  const playerId = group ? getGroupStandingPlayerId(group, place) : "";
   const playerName = group?.players.find((player) => player.id === playerId)?.name;
 
   return playerName?.trim() || fallback;
+}
+
+export function getTournamentPlayerDiff(player: TournamentPlayer) {
+  return player.pointsFor - player.pointsAgainst;
+}
+
+export function parseTournamentScore(score: string) {
+  const pairs = score.match(/\d+\s*[-:]\s*\d+/g) ?? [];
+  let pointsFor = 0;
+  let pointsAgainst = 0;
+  let validPairs = 0;
+
+  for (const pair of pairs) {
+    const [left, right] = pair.split(/[-:]/).map((value) => Number(value.trim()));
+
+    if (Number.isFinite(left) && Number.isFinite(right)) {
+      validPairs += 1;
+      pointsFor += left;
+      pointsAgainst += right;
+    }
+  }
+
+  return { pointsFor, pointsAgainst, valid: validPairs > 0 };
+}
+
+export function getGroupPlayerStats(group: TournamentGroup, playerId: string) {
+  let pointsFor = 0;
+  let pointsAgainst = 0;
+  let played = 0;
+
+  for (const match of group.matches) {
+    if (match.pair1Id !== playerId && match.pair2Id !== playerId) {
+      continue;
+    }
+
+    const parsed = parseTournamentScore(match.score);
+    if (!parsed.valid) {
+      continue;
+    }
+
+    played += 1;
+
+    if (match.pair1Id === playerId) {
+      pointsFor += parsed.pointsFor;
+      pointsAgainst += parsed.pointsAgainst;
+    } else {
+      pointsFor += parsed.pointsAgainst;
+      pointsAgainst += parsed.pointsFor;
+    }
+  }
+
+  const player = group.players.find((candidate) => candidate.id === playerId);
+
+  if (played === 0 && player) {
+    pointsFor = player.pointsFor;
+    pointsAgainst = player.pointsAgainst;
+  }
+
+  return {
+    played,
+    pointsFor,
+    pointsAgainst,
+    diff: pointsFor - pointsAgainst,
+  };
+}
+
+export function getSortedGroupPlayers(group: TournamentGroup) {
+  return [...group.players].sort((a, b) => {
+    const statsA = getGroupPlayerStats(group, a.id);
+    const statsB = getGroupPlayerStats(group, b.id);
+    const diff = statsB.diff - statsA.diff;
+    if (diff !== 0) {
+      return diff;
+    }
+
+    const pointsFor = statsB.pointsFor - statsA.pointsFor;
+    if (pointsFor !== 0) {
+      return pointsFor;
+    }
+
+    return a.id.localeCompare(b.id);
+  });
+}
+
+export function getGroupStandingPlayerId(
+  group: TournamentGroup,
+  place: TournamentPlace
+) {
+  const indexByPlace: Record<TournamentPlace, number> = {
+    first: 0,
+    second: 1,
+    third: 2,
+  };
+
+  return getSortedGroupPlayers(group)[indexByPlace[place]]?.id ?? "";
+}
+
+export function isTournamentGroupComplete(group: TournamentGroup) {
+  return (
+    group.matches.length > 0 &&
+    group.matches.every((match) => parseTournamentScore(match.score).valid)
+  );
 }
 
 function cloneState(state: TournamentState): TournamentState {
@@ -455,81 +643,142 @@ function assignMatchPlayer(
   }
 }
 
+function clearMatchWinnerAndDownstream(
+  bracket: TournamentBracket,
+  match: TournamentMatch
+) {
+  const previousWinner = match.winner.trim();
+
+  match.score = "";
+  match.winner = "";
+
+  if (!match.nextMatchId || !match.nextSlot || !previousWinner) {
+    if (!match.nextMatchId) {
+      bracket.champion = "";
+    }
+
+    return;
+  }
+
+  const nextMatch = findMatch(bracket, match.nextMatchId);
+  const currentNextPlayer =
+    match.nextSlot === 1 ? nextMatch?.player1 : nextMatch?.player2;
+
+  if (nextMatch && currentNextPlayer?.trim() === previousWinner) {
+    assignMatchPlayer(bracket, nextMatch.id, match.nextSlot, "");
+    clearMatchWinnerAndDownstream(bracket, nextMatch);
+  }
+}
+
+function assignBracketEntrant(
+  bracket: TournamentBracket,
+  matchId: string,
+  slot: 1 | 2,
+  value: string
+) {
+  const match = findMatch(bracket, matchId);
+
+  if (!match) {
+    return;
+  }
+
+  const previousValue = slot === 1 ? match.player1 : match.player2;
+  assignMatchPlayer(bracket, matchId, slot, value);
+
+  if (previousValue.trim() !== value.trim()) {
+    clearMatchWinnerAndDownstream(bracket, match);
+  }
+}
+
+function getReadyGroupStandingName(
+  state: TournamentState,
+  groupId: TournamentGroupId,
+  place: TournamentPlace
+) {
+  const group = state.groups.find((candidate) => candidate.id === groupId);
+
+  if (!group || !isTournamentGroupComplete(group)) {
+    return "";
+  }
+
+  return getGroupStandingName(state, groupId, place, "");
+}
+
 export function syncBracketEntrantsFromStandings(state: TournamentState) {
   const next = cloneState(normalizeTournamentState(state));
 
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.mainBracket,
     "main-qf-1",
     1,
-    getGroupStandingName(next, "A", "first")
+    getReadyGroupStandingName(next, "A", "first")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.mainBracket,
     "main-qf-1",
     2,
-    getGroupStandingName(next, "B", "second")
+    getReadyGroupStandingName(next, "B", "second")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.mainBracket,
     "main-qf-2",
     1,
-    getGroupStandingName(next, "C", "first")
+    getReadyGroupStandingName(next, "C", "first")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.mainBracket,
     "main-qf-2",
     2,
-    getGroupStandingName(next, "D", "second")
+    getReadyGroupStandingName(next, "D", "second")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.mainBracket,
     "main-qf-3",
     1,
-    getGroupStandingName(next, "B", "first")
+    getReadyGroupStandingName(next, "B", "first")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.mainBracket,
     "main-qf-3",
     2,
-    getGroupStandingName(next, "A", "second")
+    getReadyGroupStandingName(next, "A", "second")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.mainBracket,
     "main-qf-4",
     1,
-    getGroupStandingName(next, "D", "first")
+    getReadyGroupStandingName(next, "D", "first")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.mainBracket,
     "main-qf-4",
     2,
-    getGroupStandingName(next, "C", "second")
+    getReadyGroupStandingName(next, "C", "second")
   );
 
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.consolationBracket,
     "cons-sf-1",
     1,
-    getGroupStandingName(next, "A", "third")
+    getReadyGroupStandingName(next, "A", "third")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.consolationBracket,
     "cons-sf-1",
     2,
-    getGroupStandingName(next, "B", "third")
+    getReadyGroupStandingName(next, "B", "third")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.consolationBracket,
     "cons-sf-2",
     1,
-    getGroupStandingName(next, "C", "third")
+    getReadyGroupStandingName(next, "C", "third")
   );
-  assignMatchPlayer(
+  assignBracketEntrant(
     next.consolationBracket,
     "cons-sf-2",
     2,
-    getGroupStandingName(next, "D", "third")
+    getReadyGroupStandingName(next, "D", "third")
   );
 
   return next;

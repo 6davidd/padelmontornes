@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import {
   normalizeTournamentEvent,
+  type TournamentEvent,
   TORNEO_SABADO_SLUG,
   type TournamentEventRow,
 } from "@/lib/tournament-sabado";
@@ -17,6 +18,22 @@ type RouteContext = {
 
 const TOURNAMENT_SELECT =
   "id,slug,name,date,public_enabled,state,created_at,updated_at";
+
+function sanitizePublicTournament(tournament: TournamentEvent) {
+  return {
+    ...tournament,
+    state: {
+      ...tournament.state,
+      groups: tournament.state.groups.map((group) => ({
+        ...group,
+        players: group.players.map((player) => ({
+          ...player,
+          memberUserIds: [],
+        })),
+      })),
+    },
+  } satisfies TournamentEvent;
+}
 
 export async function GET(_req: Request, context: RouteContext) {
   try {
@@ -60,7 +77,9 @@ export async function GET(_req: Request, context: RouteContext) {
 
     return NextResponse.json({
       ok: true,
-      tournament: normalizeTournamentEvent(res.data as TournamentEventRow),
+      tournament: sanitizePublicTournament(
+        normalizeTournamentEvent(res.data as TournamentEventRow)
+      ),
     });
   } catch (error) {
     return NextResponse.json(

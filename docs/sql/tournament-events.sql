@@ -58,18 +58,11 @@ alter table public.tournament_events enable row level security;
 revoke all on table public.tournament_events from anon;
 revoke all on table public.tournament_events from authenticated;
 
-grant select on table public.tournament_events to anon;
 grant select, insert, update, delete on table public.tournament_events
   to authenticated;
 
 drop policy if exists "Public can read enabled tournament events"
   on public.tournament_events;
-
-create policy "Public can read enabled tournament events"
-  on public.tournament_events
-  for select
-  to anon, authenticated
-  using (public_enabled is true);
 
 drop policy if exists "Admins can manage tournament events"
   on public.tournament_events;

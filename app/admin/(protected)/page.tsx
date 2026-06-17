@@ -56,7 +56,7 @@ export default async function AdminPage() {
         <div className="grid grid-cols-1 gap-4">
           <TileLink
             href="/admin/torneo-sabado"
-            title="Torneo sábado"
+            title="Torneo"
             description="Grupos, cuadros, resultados y QR público"
           />
           <TileLink href="/admin/crear-partidas" title="Crear partidas" />

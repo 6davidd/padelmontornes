@@ -4,8 +4,8 @@ import TorneoSabadoPublicClient from "./TorneoSabadoPublicClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Torneo sábado | Padel Montornés",
-  description: "Cuadro público del torneo de sábado de Padel Montornés.",
+  title: "Torneo | Padel Montornés",
+  description: "Cuadro público del torneo de Padel Montornés.",
 };
 
 export default function TorneoSabadoPage() {

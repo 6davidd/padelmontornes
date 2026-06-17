@@ -323,6 +323,7 @@ export default function ResetPasswordPageClient() {
           ) : ready ? (
             <form onSubmit={onSubmit} className="mt-5 space-y-5">
               <PasswordField
+                id="reset-password-new"
                 label="Nueva contraseña"
                 value={password}
                 onChange={setPassword}
@@ -337,6 +338,7 @@ export default function ResetPasswordPageClient() {
               </p>
 
               <PasswordField
+                id="reset-password-repeat"
                 label="Repetir contraseña"
                 value={password2}
                 onChange={setPassword2}

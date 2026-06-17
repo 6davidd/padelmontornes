@@ -89,6 +89,27 @@ function HelpIcon({ className = "h-6 w-6" }: { className?: string }) {
   );
 }
 
+function TrophyIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+      <path d="M17 5h2a2 2 0 0 1 0 4h-2" />
+      <path d="M7 5H5a2 2 0 0 0 0 4h2" />
+    </svg>
+  );
+}
+
 function ShieldIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg
@@ -173,7 +194,12 @@ export default async function HomePage() {
             </section>
           ) : null}
 
-          <section className="mt-3 grid grid-cols-3 gap-2.5 sm:gap-3">
+          <section className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+            <QuickTile
+              href={isAdmin ? "/admin/torneo-sabado" : "/torneo-sabado"}
+              title="Torneo"
+              icon={<TrophyIcon />}
+            />
             <QuickTile
               href="/partidas-abiertas"
               title="Partidas abiertas"
