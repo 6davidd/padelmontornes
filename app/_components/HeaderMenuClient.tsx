@@ -23,8 +23,8 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Inicio" },
   {
-    href: "/torneo-sabado",
-    adminHref: "/admin/torneo-sabado",
+    href: "/torneo",
+    adminHref: "/admin/torneo",
     label: "Torneo",
   },
   { href: "/partidas-abiertas", label: "Partidas abiertas" },

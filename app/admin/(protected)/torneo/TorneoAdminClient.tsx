@@ -17,7 +17,7 @@ import {
   parseTournamentScore,
   syncBracketEntrantsFromStandings,
   TOURNAMENT_DEFAULT_NAME,
-  TORNEO_SABADO_SLUG,
+  TORNEO_SLUG,
   updateTournamentMatch,
   updateTournamentMatchWinner,
   type TournamentBracket,
@@ -28,7 +28,7 @@ import {
   type TournamentGroupId,
   type TournamentMatch,
   type TournamentState,
-} from "@/lib/tournament-sabado";
+} from "@/lib/tournament";
 
 type AdminTab = "groups" | "main" | "consolation";
 
@@ -206,7 +206,7 @@ function QRCard({
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "torneo-sabado-qr.svg";
+    link.download = "torneo-qr.svg";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -756,7 +756,7 @@ function BracketEditor({
   );
 }
 
-export default function TorneoSabadoAdminClient() {
+export default function TorneoAdminClient() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [tournament, setTournament] = useState<TournamentEvent | null>(null);
   const [name, setName] = useState(TOURNAMENT_DEFAULT_NAME);
@@ -767,7 +767,7 @@ export default function TorneoSabadoAdminClient() {
   );
   const [activeMembers, setActiveMembers] = useState<MemberRow[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTab>("groups");
-  const [publicUrl, setPublicUrl] = useState("/torneo-sabado");
+  const [publicUrl, setPublicUrl] = useState("/torneo");
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -776,7 +776,7 @@ export default function TorneoSabadoAdminClient() {
   const lastSavedSnapshotRef = useRef("");
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const apiUrl = `/api/admin/tournaments/${TORNEO_SABADO_SLUG}`;
+  const apiUrl = `/api/admin/tournaments/${TORNEO_SLUG}`;
 
   const activeBracket = useMemo(() => {
     return activeTab === "main" ? state.mainBracket : state.consolationBracket;
@@ -879,7 +879,7 @@ export default function TorneoSabadoAdminClient() {
   }, [apiUrl]);
 
   useEffect(() => {
-    setPublicUrl(`${window.location.origin}/torneo-sabado`);
+    setPublicUrl(`${window.location.origin}/torneo`);
     void loadTournament();
   }, [loadTournament]);
 

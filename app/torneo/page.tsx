@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import TorneoSabadoPublicClient from "./TorneoSabadoPublicClient";
+import TorneoPublicClient from "./TorneoPublicClient";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +8,6 @@ export const metadata: Metadata = {
   description: "Cuadro público del torneo de Padel Montornés.",
 };
 
-export default function TorneoSabadoPage() {
-  return <TorneoSabadoPublicClient />;
+export default function TorneoPage() {
+  return <TorneoPublicClient />;
 }

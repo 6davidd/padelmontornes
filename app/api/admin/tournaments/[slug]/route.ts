@@ -7,9 +7,9 @@ import {
   createInitialTournamentPayload,
   normalizeTournamentEvent,
   normalizeTournamentState,
-  TORNEO_SABADO_SLUG,
+  TORNEO_SLUG,
   type TournamentEventRow,
-} from "@/lib/tournament-sabado";
+} from "@/lib/tournament";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +61,7 @@ function getCleanSlug(slug: string) {
 }
 
 function isSupportedTournamentSlug(slug: string) {
-  return slug === TORNEO_SABADO_SLUG;
+  return slug === TORNEO_SLUG;
 }
 
 function tournamentNotAvailableResponse() {

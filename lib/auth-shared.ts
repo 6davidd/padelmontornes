@@ -36,7 +36,7 @@ export function isOwnerRole(role: MemberRole | null | undefined) {
 export function isPublicPath(pathname: string) {
   return (
     pathname === "/ayuda" ||
-    pathname === "/torneo-sabado" ||
+    pathname === "/torneo" ||
     pathname === "/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||

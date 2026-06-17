@@ -196,7 +196,7 @@ export default async function HomePage() {
 
           <section className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
             <QuickTile
-              href={isAdmin ? "/admin/torneo-sabado" : "/torneo-sabado"}
+              href={isAdmin ? "/admin/torneo" : "/torneo"}
               title="Torneo"
               icon={<TrophyIcon />}
             />

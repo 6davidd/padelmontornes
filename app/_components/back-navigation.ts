@@ -7,7 +7,7 @@ const HIDDEN_BACK_BUTTON_PATHS = new Set([
   "/forgot-password",
   "/login",
   "/reset-password",
-  "/torneo-sabado",
+  "/torneo",
 ]);
 
 const NON_TRACKED_PATHS = new Set([
@@ -15,7 +15,7 @@ const NON_TRACKED_PATHS = new Set([
   "/forgot-password",
   "/login",
   "/reset-password",
-  "/torneo-sabado",
+  "/torneo",
 ]);
 
 export function normalizePathname(pathname?: string | null) {

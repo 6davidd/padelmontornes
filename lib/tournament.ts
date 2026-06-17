@@ -6,7 +6,7 @@ import {
   isSaturdayISO,
 } from "./booking-window";
 
-export const TORNEO_SABADO_SLUG = "torneo-sabado";
+export const TORNEO_SLUG = "torneo";
 export const TOURNAMENT_DEFAULT_NAME = "Torneo Montornés";
 export const TOURNAMENT_AUTO_REFRESH_MS = 12000;
 
@@ -477,7 +477,7 @@ export function createInitialTournamentPayload(params?: {
   date?: string | null;
 }) {
   return {
-    slug: params?.slug ?? TORNEO_SABADO_SLUG,
+    slug: params?.slug ?? TORNEO_SLUG,
     name: params?.name?.trim() || TOURNAMENT_DEFAULT_NAME,
     date: params?.date === null ? null : params?.date ?? getNextSaturdayISODate(),
     public_enabled: true,

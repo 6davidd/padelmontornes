@@ -10,13 +10,13 @@ import {
   getSortedGroupPlayers,
   normalizeTournamentEvent,
   TOURNAMENT_AUTO_REFRESH_MS,
-  TORNEO_SABADO_SLUG,
+  TORNEO_SLUG,
   type TournamentBracket,
   type TournamentEvent,
   type TournamentEventRow,
   type TournamentGroup,
   type TournamentMatch,
-} from "@/lib/tournament-sabado";
+} from "@/lib/tournament";
 
 type PublicTab = "main" | "consolation";
 type MobileSection = "groups" | "round-0" | "round-1" | "round-2";
@@ -369,14 +369,14 @@ function GroupCard({ group }: { group: TournamentGroup }) {
   );
 }
 
-export default function TorneoSabadoPublicClient() {
+export default function TorneoPublicClient() {
   const [tournament, setTournament] = useState<TournamentEvent | null>(null);
   const [activeTab, setActiveTab] = useState<PublicTab>("main");
   const [mobileSection, setMobileSection] = useState<MobileSection>("groups");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
-  const [publicUrl, setPublicUrl] = useState("/torneo-sabado");
+  const [publicUrl, setPublicUrl] = useState("/torneo");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
 
   const selectedBracket = useMemo(() => {
@@ -417,7 +417,7 @@ export default function TorneoSabadoPublicClient() {
     }
 
     try {
-      const res = await fetch(`/api/public/tournaments/${TORNEO_SABADO_SLUG}`, {
+      const res = await fetch(`/api/public/tournaments/${TORNEO_SLUG}`, {
         cache: "no-store",
       });
       const data = (await res.json().catch(() => null)) as PublicApiResponse | null;
@@ -444,7 +444,7 @@ export default function TorneoSabadoPublicClient() {
   }, []);
 
   useEffect(() => {
-    setPublicUrl(`${window.location.origin}/torneo-sabado`);
+    setPublicUrl(`${window.location.origin}/torneo`);
     void loadTournament();
 
     const intervalId = window.setInterval(() => {

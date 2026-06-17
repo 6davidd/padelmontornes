@@ -3,9 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import {
   normalizeTournamentEvent,
   type TournamentEvent,
-  TORNEO_SABADO_SLUG,
+  TORNEO_SLUG,
   type TournamentEventRow,
-} from "@/lib/tournament-sabado";
+} from "@/lib/tournament";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +47,7 @@ export async function GET(_req: Request, context: RouteContext) {
       );
     }
 
-    if (cleanSlug !== TORNEO_SABADO_SLUG) {
+    if (cleanSlug !== TORNEO_SLUG) {
       return NextResponse.json(
         { ok: false, error: "Torneo no disponible." },
         { status: 404 }
