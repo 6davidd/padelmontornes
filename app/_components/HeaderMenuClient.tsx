@@ -22,15 +22,10 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Inicio" },
-  {
-    href: "/torneo",
-    adminHref: "/admin/torneo",
-    label: "Torneo",
-  },
-  { href: "/partidas-abiertas", label: "Partidas abiertas" },
   { href: "/reservar", label: "Reservar pista" },
+  { href: "/partidas-abiertas", label: "Partidas abiertas" },
   { href: "/mis-reservas", label: "Mis reservas" },
-  { href: "/ayuda", label: "Ayuda" },
+  { href: "/torneo-sabado", label: "Torneo" },
   {
     href: "/admin",
     label: "Panel de administrador",

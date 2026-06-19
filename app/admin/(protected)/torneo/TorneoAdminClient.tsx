@@ -1,10 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import { LoadingButton } from "@/app/_components/LoadingButton";
 import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
-import { copyTextToClipboard } from "@/lib/client-clipboard";
 import { getClientSession } from "@/lib/client-session";
 import { getDisplayName } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
@@ -59,18 +57,15 @@ function classNames(...xs: Array<string | false | null | undefined>) {
 function getSaveSnapshot({
   name,
   date,
-  publicEnabled,
   state,
 }: {
   name: string;
   date: string;
-  publicEnabled: boolean;
   state: TournamentState;
 }) {
   return JSON.stringify({
     name,
     date: date || null,
-    publicEnabled,
     state,
   });
 }
@@ -137,14 +132,6 @@ function getWinnerFromScore(match: TournamentMatch, score: string) {
   return "";
 }
 
-function ButtonIcon({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="flex h-5 w-5 items-center justify-center text-base leading-none">
-      {children}
-    </span>
-  );
-}
-
 function Notice({
   tone,
   children,
@@ -163,107 +150,6 @@ function Notice({
     >
       {children}
     </div>
-  );
-}
-
-function QRCard({
-  publicUrl,
-  onError,
-  onOk,
-}: {
-  publicUrl: string;
-  onError: (message: string) => void;
-  onOk: (message: string) => void;
-}) {
-  const qrRef = useRef<SVGSVGElement | null>(null);
-
-  async function copyLink() {
-    const copied = await copyTextToClipboard(publicUrl);
-    if (copied) {
-      onOk("Enlace copiado.");
-    } else {
-      onError("No se ha podido copiar el enlace.");
-    }
-  }
-
-  function openPublicPage() {
-    window.open(publicUrl, "_blank", "noopener,noreferrer");
-  }
-
-  function downloadQr() {
-    const svg = qrRef.current;
-
-    if (!svg) {
-      onError("No se ha podido preparar el QR.");
-      return;
-    }
-
-    const source = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([source], {
-      type: "image/svg+xml;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "torneo-qr.svg";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <section className="rounded-3xl border border-gray-300 bg-white p-5 shadow-sm">
-      <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
-        <div className="flex justify-center rounded-2xl border border-gray-200 bg-white p-3">
-          <QRCodeSVG
-            ref={qrRef}
-            value={publicUrl}
-            size={168}
-            level="M"
-            marginSize={2}
-            title="QR torneo"
-          />
-        </div>
-
-        <div className="min-w-0 space-y-3">
-          <div>
-            <div className="text-lg font-bold text-gray-900">QR público</div>
-            <div className="mt-1 break-all text-sm font-medium text-gray-600">
-              {publicUrl}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={copyLink}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
-            >
-              <ButtonIcon>⧉</ButtonIcon>
-              Copiar enlace
-            </button>
-            <button
-              type="button"
-              onClick={openPublicPage}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
-            >
-              <ButtonIcon>↗</ButtonIcon>
-              Abrir pública
-            </button>
-            <button
-              type="button"
-              onClick={downloadQr}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
-            >
-              <ButtonIcon>↓</ButtonIcon>
-              Descargar QR
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -301,6 +187,9 @@ function GroupEditor({
     <section className="overflow-hidden rounded-2xl border border-gray-300 bg-white shadow-sm">
       <div className="border-b border-gray-200 px-4 py-3">
         <h2 className="text-lg font-black text-gray-900">{group.name}</h2>
+        <p className="mt-0.5 text-xs font-bold uppercase text-[#0f5e2e]">
+          {group.court}
+        </p>
       </div>
 
       <div className="grid gap-2 p-3">
@@ -361,25 +250,35 @@ function GroupEditor({
             return (
               <div
                 key={match.id}
-                className="grid grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] items-center gap-2 rounded-xl bg-gray-50 p-2"
+                className="rounded-xl bg-gray-50 p-2"
               >
-                <div className="flex justify-end">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0f5e2e] text-sm font-black text-white">
-                    {left ? pairNumberById.get(left.id) : "-"}
+                <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold uppercase text-[#0f5e2e]">
+                  <span className="rounded-full bg-[#eef8f1] px-2 py-0.5">
+                    {group.court}
+                  </span>
+                  <span className="rounded-full bg-[#eef8f1] px-2 py-0.5">
+                    {match.startTime} - {match.endTime}
                   </span>
                 </div>
-                <input
-                  value={match.score}
-                  onChange={(event) =>
-                    onGroupMatchScoreChange(group.id, match.id, event.target.value)
-                  }
-                  placeholder="-"
-                  className="h-10 rounded-xl border border-gray-300 bg-white px-2 text-center text-sm font-black text-gray-900 outline-none focus:ring-2 focus:ring-green-200"
-                />
-                <div className="flex">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0f5e2e] text-sm font-black text-white">
-                    {right ? pairNumberById.get(right.id) : "-"}
-                  </span>
+                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] items-center gap-2">
+                  <div className="flex justify-end">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0f5e2e] text-sm font-black text-white">
+                      {left ? pairNumberById.get(left.id) : "-"}
+                    </span>
+                  </div>
+                  <input
+                    value={match.score}
+                    onChange={(event) =>
+                      onGroupMatchScoreChange(group.id, match.id, event.target.value)
+                    }
+                    placeholder="-"
+                    className="h-10 rounded-xl border border-gray-300 bg-white px-2 text-center text-sm font-black text-gray-900 outline-none focus:ring-2 focus:ring-green-200"
+                  />
+                  <div className="flex">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0f5e2e] text-sm font-black text-white">
+                      {right ? pairNumberById.get(right.id) : "-"}
+                    </span>
+                  </div>
                 </div>
               </div>
             );
@@ -541,8 +440,50 @@ function MatchEditor({
     });
   }
 
+  function updateMatchMeta(
+    updates: Partial<Pick<TournamentMatch, "court" | "startTime" | "endTime">>
+  ) {
+    setTournamentState((current) =>
+      updateTournamentMatch(current, bracketKey, match.id, updates)
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-gray-300 bg-white p-3 shadow-sm">
+      <div className="mb-2 text-xs font-bold uppercase text-[#0f5e2e]">
+        {match.label}
+      </div>
+      <div className="mb-2 grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] gap-2">
+        <label className="block">
+          <span className="sr-only">Pista</span>
+          <input
+            value={match.court}
+            onChange={(event) => updateMatchMeta({ court: event.target.value })}
+            placeholder="Pista"
+            className="w-full rounded-xl border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-green-200"
+          />
+        </label>
+        <label className="block">
+          <span className="sr-only">Hora inicio</span>
+          <input
+            value={match.startTime}
+            onChange={(event) =>
+              updateMatchMeta({ startTime: event.target.value })
+            }
+            placeholder="Inicio"
+            className="w-full rounded-xl border border-gray-300 bg-white px-2 py-1.5 text-center text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-green-200"
+          />
+        </label>
+        <label className="block">
+          <span className="sr-only">Hora fin</span>
+          <input
+            value={match.endTime}
+            onChange={(event) => updateMatchMeta({ endTime: event.target.value })}
+            placeholder="Fin"
+            className="w-full rounded-xl border border-gray-300 bg-white px-2 py-1.5 text-center text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-green-200"
+          />
+        </label>
+      </div>
       <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
         <div className="min-w-0 space-y-2">
           <div
@@ -748,7 +689,7 @@ function BracketEditor({
         <input
           value={bracket.champion || "Por definir"}
           readOnly
-          placeholder="Campeón"
+          placeholder="CampeÃ³n"
           className="mt-1 w-full border-0 bg-transparent p-0 text-2xl font-black text-gray-950 outline-none"
         />
       </div>
@@ -761,13 +702,11 @@ export default function TorneoAdminClient() {
   const [tournament, setTournament] = useState<TournamentEvent | null>(null);
   const [name, setName] = useState(TOURNAMENT_DEFAULT_NAME);
   const [date, setDate] = useState(getNextSaturdayISODate());
-  const [publicEnabled, setPublicEnabled] = useState(true);
   const [state, setState] = useState<TournamentState>(() =>
     createEmptyTournamentState()
   );
   const [activeMembers, setActiveMembers] = useState<MemberRow[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTab>("groups");
-  const [publicUrl, setPublicUrl] = useState("/torneo");
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -792,38 +731,32 @@ export default function TorneoAdminClient() {
     if (!nextTournament) {
       const nextName = TOURNAMENT_DEFAULT_NAME;
       const nextDate = getNextSaturdayISODate();
-      const nextPublicEnabled = true;
       const nextState = createEmptyTournamentState();
 
       lastSavedSnapshotRef.current = getSaveSnapshot({
         name: nextName,
         date: nextDate,
-        publicEnabled: nextPublicEnabled,
         state: nextState,
       });
 
       setName(nextName);
       setDate(nextDate);
-      setPublicEnabled(nextPublicEnabled);
       setState(nextState);
       return;
     }
 
     const nextName = nextTournament.name;
     const nextDate = nextTournament.date ?? "";
-    const nextPublicEnabled = nextTournament.public_enabled;
     const nextState = nextTournament.state;
 
     lastSavedSnapshotRef.current = getSaveSnapshot({
       name: nextName,
       date: nextDate,
-      publicEnabled: nextPublicEnabled,
       state: nextState,
     });
 
     setName(nextName);
     setDate(nextDate);
-    setPublicEnabled(nextPublicEnabled);
     setState(nextState);
   }
 
@@ -838,7 +771,7 @@ export default function TorneoAdminClient() {
       setAccessToken(token);
 
       if (!token) {
-        setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
+        setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
         return;
       }
 
@@ -879,7 +812,6 @@ export default function TorneoAdminClient() {
   }, [apiUrl]);
 
   useEffect(() => {
-    setPublicUrl(`${window.location.origin}/torneo`);
     void loadTournament();
   }, [loadTournament]);
 
@@ -899,7 +831,6 @@ export default function TorneoAdminClient() {
     const snapshot = getSaveSnapshot({
       name,
       date,
-      publicEnabled,
       state,
     });
 
@@ -924,7 +855,7 @@ export default function TorneoAdminClient() {
           body: JSON.stringify({
             name,
             date: date || null,
-            publicEnabled,
+            publicEnabled: true,
             state,
           }),
         });
@@ -954,7 +885,6 @@ export default function TorneoAdminClient() {
     date,
     loading,
     name,
-    publicEnabled,
     state,
     tournament,
   ]);
@@ -964,7 +894,7 @@ export default function TorneoAdminClient() {
     setOk(null);
 
     if (!accessToken) {
-      setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
+      setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
       return;
     }
 
@@ -990,7 +920,7 @@ export default function TorneoAdminClient() {
       }
 
       applyTournament(normalizeTournamentEvent(data.tournament));
-      setOk(data.created ? "Torneo inicializado." : "El torneo ya existía.");
+      setOk(data.created ? "Torneo inicializado." : "El torneo ya existÃ­a.");
     } finally {
       setInitializing(false);
     }
@@ -1001,7 +931,7 @@ export default function TorneoAdminClient() {
     setOk(null);
 
     if (!accessToken) {
-      setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
+      setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
       return;
     }
 
@@ -1017,7 +947,7 @@ export default function TorneoAdminClient() {
         body: JSON.stringify({
           name,
           date: date || null,
-          publicEnabled,
+          publicEnabled: true,
           state,
         }),
       });
@@ -1081,7 +1011,7 @@ export default function TorneoAdminClient() {
               </LoadingButton>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.3fr_auto_auto] lg:items-end">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.3fr_auto] lg:items-end">
               <label className="block space-y-1.5">
                 <span className="text-sm font-semibold text-gray-700">
                   Nombre
@@ -1104,31 +1034,17 @@ export default function TorneoAdminClient() {
                   className={classNames(FIELD_CLASS, "app-date-input")}
                 />
               </label>
-
-              <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm">
-                <input
-                  type="checkbox"
-                  checked={publicEnabled}
-                  onChange={(event) => setPublicEnabled(event.target.checked)}
-                  className="h-5 w-5 rounded border-gray-300 accent-green-700"
-                />
-                <span className="text-sm font-semibold text-gray-900">
-                  Pública
-                </span>
-              </label>
             </div>
           )}
         </PageHeaderCard>
 
         {tournament ? (
           <>
-            <QRCard publicUrl={publicUrl} onError={setMsg} onOk={setOk} />
-
             <div className="flex overflow-x-auto rounded-full border border-gray-300 bg-white p-1 shadow-sm">
               {[
                 ["groups", "Grupos"],
                 ["main", "Cuadro principal"],
-                ["consolation", "Consolación"],
+                ["consolation", "🥉 3r puesto"],
               ].map(([tab, label]) => (
                 <button
                   key={tab}

@@ -1,4 +1,4 @@
-import {
+﻿import {
   addDaysToISODate,
   formatDateLong,
   getTodayClubISODate,
@@ -7,7 +7,7 @@ import {
 } from "./booking-window";
 
 export const TORNEO_SLUG = "torneo";
-export const TOURNAMENT_DEFAULT_NAME = "Torneo Montornés";
+export const TOURNAMENT_DEFAULT_NAME = "Torneo MontornÃ©s";
 export const TOURNAMENT_AUTO_REFRESH_MS = 12000;
 
 export const TOURNAMENT_GROUP_IDS = ["A", "B", "C", "D"] as const;
@@ -28,12 +28,16 @@ export type TournamentGroupMatch = {
   id: string;
   pair1Id: string;
   pair2Id: string;
+  court: string;
+  startTime: string;
+  endTime: string;
   score: string;
 };
 
 export type TournamentGroup = {
   id: TournamentGroupId;
   name: string;
+  court: string;
   players: TournamentPlayer[];
   matches: TournamentGroupMatch[];
   standings: Record<TournamentPlace, string>;
@@ -46,6 +50,9 @@ export type TournamentMatch = {
   player2: string;
   score: string;
   winner: string;
+  court: string;
+  startTime: string;
+  endTime: string;
   nextMatchId?: string;
   nextSlot?: 1 | 2;
 };
@@ -85,10 +92,35 @@ export type TournamentEventRow = Omit<TournamentEvent, "state"> & {
 };
 
 const STANDING_LABELS: Record<TournamentPlace, string> = {
-  first: "1º",
-  second: "2º",
-  third: "3º",
+  first: "1Âº",
+  second: "2Âº",
+  third: "3Âº",
 };
+
+const GROUP_COURTS: Record<TournamentGroupId, string> = {
+  A: "Pista 1",
+  B: "Pista 2",
+  C: "Pista 3",
+  D: "Pista 4",
+};
+
+const GROUP_MATCH_SLOTS = [
+  { startTime: "17:30", endTime: "17:55" },
+  { startTime: "17:55", endTime: "18:20" },
+  { startTime: "18:20", endTime: "18:45" },
+  { startTime: "18:45", endTime: "19:10" },
+  { startTime: "19:10", endTime: "19:35" },
+  { startTime: "19:35", endTime: "20:00" },
+] as const;
+
+const GROUP_PAIRINGS = [
+  [0, 3],
+  [1, 2],
+  [0, 1],
+  [2, 3],
+  [0, 2],
+  [1, 3],
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -121,6 +153,7 @@ function createGroup(id: TournamentGroupId): TournamentGroup {
   return {
     id,
     name: `Grupo ${id}`,
+    court: GROUP_COURTS[id],
     players,
     matches: createGroupMatches(id, players.map((player) => player.id)),
     standings: {
@@ -135,19 +168,13 @@ function createGroupMatches(
   groupId: TournamentGroupId,
   playerIds: string[]
 ): TournamentGroupMatch[] {
-  const pairings = [
-    [0, 1],
-    [2, 3],
-    [0, 2],
-    [1, 3],
-    [0, 3],
-    [1, 2],
-  ] as const;
-
-  return pairings.map(([left, right], index) => ({
+  return GROUP_PAIRINGS.map(([left, right], index) => ({
     id: `${groupId}-match-${index + 1}`,
     pair1Id: playerIds[left] ?? "",
     pair2Id: playerIds[right] ?? "",
+    court: GROUP_COURTS[groupId],
+    startTime: GROUP_MATCH_SLOTS[index]?.startTime ?? "",
+    endTime: GROUP_MATCH_SLOTS[index]?.endTime ?? "",
     score: "",
   }));
 }
@@ -157,6 +184,9 @@ function createMatch(params: {
   label: string;
   player1?: string;
   player2?: string;
+  court: string;
+  startTime: string;
+  endTime: string;
   nextMatchId?: string;
   nextSlot?: 1 | 2;
 }): TournamentMatch {
@@ -167,6 +197,9 @@ function createMatch(params: {
     player2: params.player2 ?? "",
     score: "",
     winner: "",
+    court: params.court,
+    startTime: params.startTime,
+    endTime: params.endTime,
     nextMatchId: params.nextMatchId,
     nextSlot: params.nextSlot,
   };
@@ -183,33 +216,45 @@ function createMainBracket(): TournamentBracket {
         matches: [
           createMatch({
             id: "main-qf-1",
-            label: "Cuarto 1",
-            player1: "1º Grupo A",
-            player2: "2º Grupo B",
+            label: "Cuartos Pista 1",
+            player1: "1Âº Grupo A",
+            player2: "2Âº Grupo D",
+            court: "Pista 1",
+            startTime: "20:15",
+            endTime: "20:40",
             nextMatchId: "main-sf-1",
             nextSlot: 1,
           }),
           createMatch({
             id: "main-qf-2",
-            label: "Cuarto 2",
-            player1: "1º Grupo C",
-            player2: "2º Grupo D",
+            label: "Cuartos Pista 2",
+            player1: "2Âº Grupo B",
+            player2: "1Âº Grupo C",
+            court: "Pista 2",
+            startTime: "20:15",
+            endTime: "20:40",
             nextMatchId: "main-sf-1",
             nextSlot: 2,
           }),
           createMatch({
             id: "main-qf-3",
-            label: "Cuarto 3",
-            player1: "1º Grupo B",
-            player2: "2º Grupo A",
+            label: "Cuartos Pista 3",
+            player1: "1Âº Grupo B",
+            player2: "2Âº Grupo C",
+            court: "Pista 3",
+            startTime: "20:15",
+            endTime: "20:40",
             nextMatchId: "main-sf-2",
             nextSlot: 1,
           }),
           createMatch({
             id: "main-qf-4",
-            label: "Cuarto 4",
-            player1: "1º Grupo D",
-            player2: "2º Grupo C",
+            label: "Cuartos Pista 4",
+            player1: "2Âº Grupo A",
+            player2: "1Âº Grupo D",
+            court: "Pista 4",
+            startTime: "20:15",
+            endTime: "20:40",
             nextMatchId: "main-sf-2",
             nextSlot: 2,
           }),
@@ -221,17 +266,23 @@ function createMainBracket(): TournamentBracket {
         matches: [
           createMatch({
             id: "main-sf-1",
-            label: "Semifinal 1",
-            player1: "Ganador cuarto 1",
-            player2: "Ganador cuarto 2",
+            label: "Semifinal Pista 1",
+            player1: "Ganador Cuartos Pista 1",
+            player2: "Ganador Cuartos Pista 2",
+            court: "Pista 1",
+            startTime: "20:40",
+            endTime: "21:05",
             nextMatchId: "main-final",
             nextSlot: 1,
           }),
           createMatch({
             id: "main-sf-2",
-            label: "Semifinal 2",
-            player1: "Ganador cuarto 3",
-            player2: "Ganador cuarto 4",
+            label: "Semifinal Pista 2",
+            player1: "Ganador Cuartos Pista 3",
+            player2: "Ganador Cuartos Pista 4",
+            court: "Pista 2",
+            startTime: "20:40",
+            endTime: "21:05",
             nextMatchId: "main-final",
             nextSlot: 2,
           }),
@@ -244,8 +295,11 @@ function createMainBracket(): TournamentBracket {
           createMatch({
             id: "main-final",
             label: "Final",
-            player1: "Ganador semifinal 1",
-            player2: "Ganador semifinal 2",
+            player1: "Ganador Semifinal Pista 1",
+            player2: "Ganador Semifinal Pista 2",
+            court: "Pista 1",
+            startTime: "21:05",
+            endTime: "21:30",
           }),
         ],
       },
@@ -255,7 +309,7 @@ function createMainBracket(): TournamentBracket {
 
 function createConsolationBracket(): TournamentBracket {
   return {
-    title: "Consolación",
+    title: "ConsolaciÃ³n",
     champion: "",
     rounds: [
       {
@@ -264,17 +318,23 @@ function createConsolationBracket(): TournamentBracket {
         matches: [
           createMatch({
             id: "cons-sf-1",
-            label: "Semifinal 1",
-            player1: "3º Grupo A",
-            player2: "3º Grupo B",
+            label: "Semifinal ConsolaciÃ³n Pista 3",
+            player1: "3Âº Grupo A",
+            player2: "3Âº Grupo C",
+            court: "Pista 3",
+            startTime: "20:40",
+            endTime: "21:05",
             nextMatchId: "cons-final",
             nextSlot: 1,
           }),
           createMatch({
             id: "cons-sf-2",
-            label: "Semifinal 2",
-            player1: "3º Grupo C",
-            player2: "3º Grupo D",
+            label: "Semifinal ConsolaciÃ³n Pista 4",
+            player1: "3Âº Grupo B",
+            player2: "3Âº Grupo D",
+            court: "Pista 4",
+            startTime: "20:40",
+            endTime: "21:05",
             nextMatchId: "cons-final",
             nextSlot: 2,
           }),
@@ -287,8 +347,11 @@ function createConsolationBracket(): TournamentBracket {
           createMatch({
             id: "cons-final",
             label: "Final",
-            player1: "Ganador semifinal 1",
-            player2: "Ganador semifinal 2",
+            player1: "Ganador Semi ConsolaciÃ³n Pista 3",
+            player2: "Ganador Semi ConsolaciÃ³n Pista 4",
+            court: "Pista 3",
+            startTime: "21:05",
+            endTime: "21:30",
           }),
         ],
       },
@@ -317,16 +380,26 @@ function normalizeGroup(source: unknown, fallback: TournamentGroup) {
     ? sourceRecord.matches
     : [];
   const sourceMatchesById = new Map<string, Record<string, unknown>>();
+  const sourceMatchesByPair = new Map<string, Record<string, unknown>>();
 
   for (const match of sourceMatches) {
     if (isRecord(match) && typeof match.id === "string") {
       sourceMatchesById.set(match.id, match);
+    }
+
+    if (
+      isRecord(match) &&
+      typeof match.pair1Id === "string" &&
+      typeof match.pair2Id === "string"
+    ) {
+      sourceMatchesByPair.set(getPairKey(match.pair1Id, match.pair2Id), match);
     }
   }
 
   return {
     ...fallback,
     name: stringValue(sourceRecord.name, fallback.name),
+    court: stringValue(sourceRecord.court, fallback.court),
     players: fallback.players.map((player, index) => {
       const sourcePlayer = sourcePlayers.find((candidate) => {
         return isRecord(candidate) && candidate.id === player.id;
@@ -347,7 +420,9 @@ function normalizeGroup(source: unknown, fallback: TournamentGroup) {
       };
     }),
     matches: fallback.matches.map((match, index) => {
-      const row = sourceMatchesById.get(match.id);
+      const row =
+        sourceMatchesByPair.get(getPairKey(match.pair1Id, match.pair2Id)) ??
+        sourceMatchesById.get(match.id);
       const indexedRow = sourceMatches[index];
       const sourceMatch = isRecord(row)
         ? row
@@ -357,8 +432,11 @@ function normalizeGroup(source: unknown, fallback: TournamentGroup) {
 
       return {
         id: match.id,
-        pair1Id: stringValue(sourceMatch.pair1Id, match.pair1Id),
-        pair2Id: stringValue(sourceMatch.pair2Id, match.pair2Id),
+        pair1Id: match.pair1Id,
+        pair2Id: match.pair2Id,
+        court: stringValue(sourceMatch.court, match.court),
+        startTime: stringValue(sourceMatch.startTime, match.startTime),
+        endTime: stringValue(sourceMatch.endTime, match.endTime),
         score: stringValue(sourceMatch.score),
       };
     }),
@@ -376,6 +454,10 @@ function normalizeMemberUserIds(value: unknown) {
     : [];
 
   return [ids[0] ?? "", ids[1] ?? ""];
+}
+
+function getPairKey(left: string, right: string) {
+  return [left, right].sort().join("::");
 }
 
 function normalizeBracket(source: unknown, fallback: TournamentBracket) {
@@ -413,6 +495,9 @@ function normalizeBracket(source: unknown, fallback: TournamentBracket) {
           ...match,
           player1: stringValue(sourceMatch.player1, match.player1),
           player2: stringValue(sourceMatch.player2, match.player2),
+          court: stringValue(sourceMatch.court, match.court),
+          startTime: stringValue(sourceMatch.startTime, match.startTime),
+          endTime: stringValue(sourceMatch.endTime, match.endTime),
           score: stringValue(sourceMatch.score),
           winner: stringValue(sourceMatch.winner),
         };
@@ -696,12 +781,13 @@ function getReadyGroupStandingName(
   place: TournamentPlace
 ) {
   const group = state.groups.find((candidate) => candidate.id === groupId);
+  const fallback = `${STANDING_LABELS[place]} Grupo ${groupId}`;
 
   if (!group || !isTournamentGroupComplete(group)) {
-    return "";
+    return fallback;
   }
 
-  return getGroupStandingName(state, groupId, place, "");
+  return getGroupStandingName(state, groupId, place, fallback);
 }
 
 export function syncBracketEntrantsFromStandings(state: TournamentState) {
@@ -717,19 +803,19 @@ export function syncBracketEntrantsFromStandings(state: TournamentState) {
     next.mainBracket,
     "main-qf-1",
     2,
-    getReadyGroupStandingName(next, "B", "second")
+    getReadyGroupStandingName(next, "D", "second")
   );
   assignBracketEntrant(
     next.mainBracket,
     "main-qf-2",
     1,
-    getReadyGroupStandingName(next, "C", "first")
+    getReadyGroupStandingName(next, "B", "second")
   );
   assignBracketEntrant(
     next.mainBracket,
     "main-qf-2",
     2,
-    getReadyGroupStandingName(next, "D", "second")
+    getReadyGroupStandingName(next, "C", "first")
   );
   assignBracketEntrant(
     next.mainBracket,
@@ -741,19 +827,19 @@ export function syncBracketEntrantsFromStandings(state: TournamentState) {
     next.mainBracket,
     "main-qf-3",
     2,
-    getReadyGroupStandingName(next, "A", "second")
+    getReadyGroupStandingName(next, "C", "second")
   );
   assignBracketEntrant(
     next.mainBracket,
     "main-qf-4",
     1,
-    getReadyGroupStandingName(next, "D", "first")
+    getReadyGroupStandingName(next, "A", "second")
   );
   assignBracketEntrant(
     next.mainBracket,
     "main-qf-4",
     2,
-    getReadyGroupStandingName(next, "C", "second")
+    getReadyGroupStandingName(next, "D", "first")
   );
 
   assignBracketEntrant(
@@ -766,13 +852,13 @@ export function syncBracketEntrantsFromStandings(state: TournamentState) {
     next.consolationBracket,
     "cons-sf-1",
     2,
-    getReadyGroupStandingName(next, "B", "third")
+    getReadyGroupStandingName(next, "C", "third")
   );
   assignBracketEntrant(
     next.consolationBracket,
     "cons-sf-2",
     1,
-    getReadyGroupStandingName(next, "C", "third")
+    getReadyGroupStandingName(next, "B", "third")
   );
   assignBracketEntrant(
     next.consolationBracket,
@@ -784,11 +870,124 @@ export function syncBracketEntrantsFromStandings(state: TournamentState) {
   return next;
 }
 
+function findGroupMatchByPair(
+  group: TournamentGroup,
+  pair1Id: string,
+  pair2Id: string
+) {
+  const pairKey = getPairKey(pair1Id, pair2Id);
+
+  return group.matches.find((match) => {
+    return getPairKey(match.pair1Id, match.pair2Id) === pairKey;
+  });
+}
+
+function getBracketMatchesInOrder(bracket: TournamentBracket) {
+  return bracket.rounds.flatMap((round) => round.matches);
+}
+
+function haveSameEntrants(left: TournamentMatch, right: TournamentMatch) {
+  return (
+    left.player1.trim() === right.player1.trim() &&
+    left.player2.trim() === right.player2.trim()
+  );
+}
+
+function preserveBracketResultsWhenEntrantsMatch(
+  state: TournamentState,
+  bracketKey: TournamentBracketKey,
+  sourceBracket: TournamentBracket
+) {
+  let next = state;
+
+  for (const targetMatch of getBracketMatchesInOrder(state[bracketKey])) {
+    const sourceMatch = findMatch(sourceBracket, targetMatch.id);
+
+    if (!sourceMatch || !haveSameEntrants(targetMatch, sourceMatch)) {
+      continue;
+    }
+
+    if (sourceMatch.score) {
+      next = updateTournamentMatch(next, bracketKey, targetMatch.id, {
+        score: sourceMatch.score,
+      });
+    }
+
+    if (sourceMatch.winner) {
+      next = updateTournamentMatchWinner(
+        next,
+        bracketKey,
+        targetMatch.id,
+        sourceMatch.winner
+      );
+    }
+  }
+
+  return next;
+}
+
+export function applyOfficialTournamentStructure(state: TournamentState) {
+  const current = normalizeTournamentState(state);
+  const official = createEmptyTournamentState();
+  const officialState: TournamentState = {
+    version: 1,
+    groups: official.groups.map((officialGroup) => {
+      const currentGroup =
+        current.groups.find((group) => group.id === officialGroup.id) ??
+        officialGroup;
+
+      return {
+        ...officialGroup,
+        players: officialGroup.players.map((officialPlayer) => {
+          return (
+            currentGroup.players.find((player) => player.id === officialPlayer.id) ??
+            officialPlayer
+          );
+        }),
+        matches: officialGroup.matches.map((officialMatch) => {
+          const currentMatch = findGroupMatchByPair(
+            currentGroup,
+            officialMatch.pair1Id,
+            officialMatch.pair2Id
+          );
+
+          return {
+            ...officialMatch,
+            score: currentMatch?.score ?? "",
+          };
+        }),
+        standings: currentGroup.standings,
+      };
+    }),
+    mainBracket: official.mainBracket,
+    consolationBracket: official.consolationBracket,
+  };
+  let next = syncBracketEntrantsFromStandings(officialState);
+
+  next = preserveBracketResultsWhenEntrantsMatch(
+    next,
+    "mainBracket",
+    current.mainBracket
+  );
+  next = preserveBracketResultsWhenEntrantsMatch(
+    next,
+    "consolationBracket",
+    current.consolationBracket
+  );
+
+  return next;
+}
+
 export function updateTournamentMatch(
   state: TournamentState,
   bracketKey: TournamentBracketKey,
   matchId: string,
-  updates: Partial<Pick<TournamentMatch, "player1" | "player2" | "score">>
+  updates: Partial<
+    Pick<
+      TournamentMatch,
+      "player1" | "player2" | "score" | "court" | "startTime" | "endTime"
+    >
+  >
 ) {
   const next = cloneState(normalizeTournamentState(state));
   const match = findMatch(next[bracketKey], matchId);
@@ -807,6 +1006,18 @@ export function updateTournamentMatch(
 
   if (typeof updates.score === "string") {
     match.score = updates.score;
+  }
+
+  if (typeof updates.court === "string") {
+    match.court = updates.court;
+  }
+
+  if (typeof updates.startTime === "string") {
+    match.startTime = updates.startTime;
+  }
+
+  if (typeof updates.endTime === "string") {
+    match.endTime = updates.endTime;
   }
 
   return next;
