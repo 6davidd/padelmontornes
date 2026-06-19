@@ -23,6 +23,7 @@ import {
 import { getDisplayName } from "@/lib/display-name";
 import { toHM } from "@/lib/slots";
 import {
+  getCourtsForBookingSlot,
   getSaturdaySlotOverrides,
   getSlotsForBookingDate,
   type SaturdaySlotOverrideRow,
@@ -250,6 +251,7 @@ export default function AdminCrearPartidasPage() {
       existingSlots: reservations.map((reservation) => ({
         start: toHM(reservation.slot_start),
         end: toHM(reservation.slot_end),
+        courtId: reservation.court_id,
       })),
     });
   }, [allSaturdaySlots, date, isSunday, isOutOfRange, reservations]);
@@ -528,11 +530,6 @@ export default function AdminCrearPartidasPage() {
       return;
     }
 
-    if (isSundayISO(selectedMatch.date)) {
-      setMsg("Domingo cerrado: no se puede crear una partida.");
-      return;
-    }
-
     if (selectedPlayerIds.length === 0) {
       setMsg("Añade al menos un socio.");
       return;
@@ -650,7 +647,7 @@ export default function AdminCrearPartidasPage() {
               Selecciona una fecha a partir de hoy.
             </div>
           </div>
-        ) : isSunday ? (
+        ) : isSunday && slotsToShow.length === 0 ? (
           <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
             <div className="text-lg font-bold text-red-800">Club cerrado</div>
             <div className="mt-2 text-sm text-red-700">
@@ -677,18 +674,21 @@ export default function AdminCrearPartidasPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {slotsToShow.map((slot) => (
-              <div
-                key={slot.start}
-                className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm"
-              >
-                <div className="border-b border-gray-200 px-4 py-3 sm:px-5">
-                  <TimeRangeDisplay start={slot.start} end={slot.end} />
-                </div>
+            {slotsToShow.map((slot) => {
+              const courtsForSlot = getCourtsForBookingSlot(slot, courts);
 
-                <div className="p-3 sm:p-4">
-                  <div className="grid grid-cols-1 gap-3">
-                    {courts.map((court) => {
+              return (
+                <div
+                  key={slot.start}
+                  className="overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm"
+                >
+                  <div className="border-b border-gray-200 px-4 py-3 sm:px-5">
+                    <TimeRangeDisplay start={slot.start} end={slot.end} />
+                  </div>
+
+                  <div className="p-3 sm:p-4">
+                    <div className="grid grid-cols-1 gap-3">
+                      {courtsForSlot.map((court) => {
                       const key = `${slot.start}-${court.id}`;
                       const reservation = reservationByKey.get(key);
                       const block = blockByKey.get(key);
@@ -783,11 +783,12 @@ export default function AdminCrearPartidasPage() {
                           ) : null}
                         </ReservationCard>
                       );
-                    })}
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

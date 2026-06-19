@@ -21,6 +21,7 @@ import {
 import { buildReservationWhatsappMessage } from "../../lib/reservation-whatsapp-message";
 import { toHM } from "../../lib/slots";
 import {
+  getCourtsForBookingSlot,
   getSaturdaySlotOverrides,
   getSlotsForBookingDate,
   type SaturdaySlotOverrideRow,
@@ -217,6 +218,7 @@ export default function ReservarPage() {
       existingSlots: reservations.map((reservation) => ({
         start: toHM(reservation.slot_start),
         end: toHM(reservation.slot_end),
+        courtId: reservation.court_id,
       })),
     });
   }, [allSaturdaySlots, date, isSunday, isOutOfRange, reservations]);
@@ -465,11 +467,6 @@ export default function ReservarPage() {
     try {
       if (!isDateWithinGeneralBookingWindow(date)) {
         setMsg(getAdvanceLimitMessage("reservar"));
-        return;
-      }
-
-      if (isSundayISO(date)) {
-        setMsg("Domingo cerrado: no se puede reservar.");
         return;
       }
 
@@ -813,7 +810,7 @@ export default function ReservarPage() {
               {getAdvanceRangeMessage("reservar")}
             </div>
           </div>
-        ) : isSunday ? (
+        ) : isSunday && slotsToShow.length === 0 ? (
           <div className="bg-red-50 border border-red-200 rounded-3xl shadow-sm p-6 text-center">
             <div className="text-lg font-bold text-red-800">Club cerrado</div>
             <div className="mt-2 text-sm text-red-700">
@@ -832,6 +829,8 @@ export default function ReservarPage() {
         ) : (
           <div className="space-y-6">
             {slotsToShow.map((s) => {
+              const courtsForSlot = getCourtsForBookingSlot(s, courts);
+
               return (
                 <div
                   key={s.start}
@@ -843,7 +842,7 @@ export default function ReservarPage() {
 
                   <div className="p-5">
                     <div className="grid grid-cols-1 gap-4">
-                      {courts.map((c) => {
+                      {courtsForSlot.map((c) => {
                         const key = `${s.start}-${c.id}`;
                         const res = reservationByKey.get(key);
                         const block = blockByKey.get(key);

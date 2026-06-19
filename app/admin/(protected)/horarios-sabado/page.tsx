@@ -4,59 +4,27 @@ import { useEffect, useMemo, useState } from "react";
 import { LoadingButton } from "@/app/_components/LoadingButton";
 import { PageHeaderCard } from "@/app/_components/PageHeaderCard";
 import {
-  addDaysToISODate,
+  formatDateLong,
   getTodayClubISODate,
   isSaturdayISO,
+  isSundayISO,
 } from "@/lib/booking-window";
 import { getClientSession } from "@/lib/client-session";
 import {
-  getConfiguredSlotsForDate,
-  getSaturdaySlotOverrides,
-  type SaturdaySlotOverrideRow,
+  getSpecialScheduleRows,
+  getSpecialSlotsForDate,
+  type SpecialScheduleRow,
 } from "@/lib/client-saturday-slots";
+import { getCourts, type Court } from "@/lib/client-reference-data";
 import {
   getSlotEndFromStart,
   isQuarterHourHMTime,
   isValidHMTime,
   toHM,
+  WEEKDAY_SLOTS,
 } from "@/lib/slots";
 
 const CLUB_GREEN = "#0f5e2e";
-
-function getNextSaturdayISO() {
-  const today = getTodayClubISODate();
-
-  for (let offset = 0; offset < 7; offset += 1) {
-    const candidate = addDaysToISODate(today, offset);
-    if (isSaturdayISO(candidate)) {
-      return candidate;
-    }
-  }
-
-  return today;
-}
-
-function getUpcomingSaturdays(count = 16) {
-  const firstSaturday = getNextSaturdayISO();
-
-  return Array.from({ length: count }, (_, index) =>
-    addDaysToISODate(firstSaturday, index * 7)
-  );
-}
-
-function formatSaturdayLabel(dateISO: string) {
-  const date = new Date(`${dateISO}T12:00:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return dateISO;
-  }
-
-  return new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(date);
-}
 
 function getQuarterHourStartOptions() {
   const lastStartMinutes = 22 * 60 + 30;
@@ -77,10 +45,13 @@ function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
-export default function AdminHorariosSabadoPage() {
-  const [date, setDate] = useState(getNextSaturdayISO());
+export default function AdminHorariosEspecialesPage() {
+  const [date, setDate] = useState(getTodayClubISODate());
   const [slotStart, setSlotStart] = useState("");
-  const [slots, setSlots] = useState<SaturdaySlotOverrideRow[]>([]);
+  const [slots, setSlots] = useState<SpecialScheduleRow[]>([]);
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [allCourts, setAllCourts] = useState(true);
+  const [selectedCourtIds, setSelectedCourtIds] = useState<number[]>([]);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,12 +59,17 @@ export default function AdminHorariosSabadoPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  const saturdayOptions = useMemo(() => getUpcomingSaturdays(), []);
   const hourOptions = useMemo(() => getQuarterHourStartOptions(), []);
   const isSaturday = useMemo(() => isSaturdayISO(date), [date]);
+  const isSunday = useMemo(() => isSundayISO(date), [date]);
+  const selectedDateLabel = useMemo(() => formatDateLong(date), [date]);
   const selectedSlots = useMemo(
-    () => getConfiguredSlotsForDate(date, slots),
+    () => getSpecialSlotsForDate(date, slots),
     [date, slots]
+  );
+  const courtsMap = useMemo(
+    () => new Map(courts.map((court) => [court.id, court.name])),
+    [courts]
   );
   const slotEndPreview = useMemo(
     () => (slotStart ? getSlotEndFromStart(slotStart) : null),
@@ -108,7 +84,7 @@ export default function AdminHorariosSabadoPage() {
     try {
       const [session, rows] = await Promise.all([
         getClientSession(),
-        getSaturdaySlotOverrides([selectedDate]),
+        getSpecialScheduleRows([selectedDate]),
       ]);
 
       setAccessToken(session?.access_token ?? null);
@@ -129,17 +105,57 @@ export default function AdminHorariosSabadoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
+  useEffect(() => {
+    async function loadCourts() {
+      try {
+        const rows = await getCourts();
+        setCourts(rows.slice(0, 3));
+      } catch (error) {
+        setMsg(
+          error instanceof Error
+            ? error.message
+            : "No se han podido cargar las pistas."
+        );
+      }
+    }
+
+    void loadCourts();
+  }, []);
+
+  function toggleAllCourts(checked: boolean) {
+    setAllCourts(checked);
+
+    if (!checked) {
+      setSelectedCourtIds(courts.map((court) => court.id));
+    }
+  }
+
+  function toggleCourt(courtId: number) {
+    setSelectedCourtIds((prev) => {
+      if (prev.includes(courtId)) {
+        return prev.filter((id) => id !== courtId);
+      }
+
+      return [...prev, courtId].sort((a, b) => a - b);
+    });
+  }
+
+  function formatCourtIds(courtIds: number[] | null) {
+    if (!courtIds) {
+      return "Todas las pistas";
+    }
+
+    return courtIds
+      .map((courtId) => courtsMap.get(courtId) ?? `Pista ${courtId}`)
+      .join(", ");
+  }
+
   async function addSlot() {
     setMsg(null);
     setOk(null);
 
     if (!accessToken) {
       setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
-      return;
-    }
-
-    if (!isSaturday) {
-      setMsg("La fecha seleccionada debe ser sábado.");
       return;
     }
 
@@ -154,14 +170,28 @@ export default function AdminHorariosSabadoPage() {
     }
 
     if (selectedSlots.some((slot) => slot.start === toHM(slotStart))) {
-      setMsg("Ese horario ya está configurado para este sábado.");
+      setMsg("Ese horario ya está configurado para esta fecha.");
+      return;
+    }
+
+    if (
+      !isSaturday &&
+      !isSunday &&
+      WEEKDAY_SLOTS.some((slot) => slot.start === toHM(slotStart))
+    ) {
+      setMsg("Ese horario ya forma parte del horario habitual de este día.");
+      return;
+    }
+
+    if (!allCourts && selectedCourtIds.length === 0) {
+      setMsg("Selecciona al menos una pista.");
       return;
     }
 
     setSaving(true);
 
     try {
-      const res = await fetch("/api/admin/saturday-slots", {
+      const res = await fetch("/api/admin/special-schedules", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -170,6 +200,7 @@ export default function AdminHorariosSabadoPage() {
         body: JSON.stringify({
           date,
           slotStart,
+          courtIds: allCourts ? null : selectedCourtIds,
         }),
       });
 
@@ -181,6 +212,8 @@ export default function AdminHorariosSabadoPage() {
       }
 
       setSlotStart("");
+      setAllCourts(true);
+      setSelectedCourtIds([]);
       setOk("Horario añadido.");
       await loadSlots(date);
     } finally {
@@ -201,7 +234,7 @@ export default function AdminHorariosSabadoPage() {
 
     try {
       const res = await fetch(
-        `/api/admin/saturday-slots?id=${encodeURIComponent(slotId)}`,
+        `/api/admin/special-schedules?id=${encodeURIComponent(slotId)}`,
         {
           method: "DELETE",
           headers: {
@@ -227,20 +260,18 @@ export default function AdminHorariosSabadoPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <PageHeaderCard title="Horario sábados" contentClassName="space-y-3">
-          <label className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-3.5 py-3 text-sm shadow-sm">
+        <PageHeaderCard title="Horarios especiales" contentClassName="space-y-3">
+          <label className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white px-3.5 py-3 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="font-semibold text-gray-800">Fecha</span>
-            <select
+            <input
+              type="date"
               value={date}
-              onChange={(event) => setDate(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-right font-semibold text-gray-900 outline-none"
-            >
-              {saturdayOptions.map((saturday) => (
-                <option key={saturday} value={saturday}>
-                  {formatSaturdayLabel(saturday)}
-                </option>
-              ))}
-            </select>
+              onChange={(event) => {
+                setDate(event.target.value);
+                setSlotStart("");
+              }}
+              className="min-w-0 bg-transparent font-semibold text-gray-900 outline-none sm:flex-1 sm:text-right"
+            />
           </label>
 
           {msg && (
@@ -257,11 +288,7 @@ export default function AdminHorariosSabadoPage() {
         </PageHeaderCard>
 
         <div className="rounded-3xl border border-gray-300 bg-white p-5 shadow-sm">
-          <div className="text-lg font-bold text-gray-900">
-            Definir horario especial
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <label className="space-y-2">
               <div className="text-sm font-semibold text-gray-900">
                 Hora de inicio
@@ -269,8 +296,7 @@ export default function AdminHorariosSabadoPage() {
               <select
                 value={slotStart}
                 onChange={(event) => setSlotStart(event.target.value)}
-                disabled={!isSaturday}
-                className="app-form-control w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-green-200 disabled:opacity-60"
+                className="app-form-control w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-green-200"
               >
                 <option value="">Seleccionar hora</option>
                 {hourOptions.map((hour) => (
@@ -285,12 +311,43 @@ export default function AdminHorariosSabadoPage() {
               type="button"
               loading={saving}
               onClick={addSlot}
-              disabled={!isSaturday || saving}
+              disabled={saving || !slotStart}
               className="rounded-full px-5 py-3 font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               style={{ backgroundColor: CLUB_GREEN }}
             >
               Añadir
             </LoadingButton>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <label className="flex items-center gap-3 text-sm font-semibold text-gray-900">
+              <input
+                type="checkbox"
+                checked={allCourts}
+                onChange={(event) => toggleAllCourts(event.target.checked)}
+                className="h-5 w-5 rounded border-gray-300 accent-green-700"
+              />
+              Todas las pistas
+            </label>
+
+            {!allCourts && (
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {courts.map((court) => (
+                  <label
+                    key={court.id}
+                    className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCourtIds.includes(court.id)}
+                      onChange={() => toggleCourt(court.id)}
+                      className="h-5 w-5 rounded border-gray-300 accent-green-700"
+                    />
+                    {court.name}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           {slotStart && (
@@ -304,9 +361,14 @@ export default function AdminHorariosSabadoPage() {
         </div>
 
         <div className="rounded-3xl border border-gray-300 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-lg font-bold text-gray-900">
-              Horarios configurados
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-lg font-bold text-gray-900">
+                Horarios configurados
+              </div>
+              <div className="mt-1 text-sm text-gray-600">
+                {selectedDateLabel}
+              </div>
             </div>
             <div className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-semibold text-gray-700">
               {selectedSlots.length}
@@ -317,14 +379,6 @@ export default function AdminHorariosSabadoPage() {
             <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
               Cargando...
             </div>
-          ) : !isSaturday ? (
-            <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-              Elige un sábado.
-            </div>
-          ) : selectedSlots.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-semibold text-yellow-900">
-              Horario no definido.
-            </div>
           ) : (
             <div className="mt-4 space-y-3">
               {slots
@@ -333,10 +387,13 @@ export default function AdminHorariosSabadoPage() {
                 .map((slot) => (
                   <div
                     key={slot.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"
+                    className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="font-semibold text-gray-900">
+                    <div className="min-w-0 font-semibold text-gray-900">
                       {toHM(slot.slot_start)} - {toHM(slot.slot_end)}
+                      <div className="mt-1 text-sm font-medium text-gray-600">
+                        {formatCourtIds(slot.court_ids)}
+                      </div>
                     </div>
 
                     <button
@@ -344,7 +401,7 @@ export default function AdminHorariosSabadoPage() {
                       onClick={() => deleteSlot(slot.id)}
                       disabled={deletingId === slot.id}
                       className={classNames(
-                        "shrink-0 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]",
+                        "w-full shrink-0 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 active:scale-[0.99] sm:w-auto",
                         deletingId === slot.id && "opacity-60"
                       )}
                     >

@@ -111,6 +111,7 @@ export default function LoginPageClient({
             </div>
 
             <PasswordField
+              id="login-password"
               label="Contraseña"
               value={password}
               onChange={setPassword}

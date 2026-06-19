@@ -1,8 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 
 type PasswordFieldProps = {
+  id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -51,6 +52,7 @@ function EyeIcon({ visible }: { visible: boolean }) {
 }
 
 export default function PasswordField({
+  id,
   label,
   value,
   onChange,
@@ -59,7 +61,6 @@ export default function PasswordField({
   required,
   disabled,
 }: PasswordFieldProps) {
-  const id = useId();
   const [visible, setVisible] = useState(false);
 
   return (

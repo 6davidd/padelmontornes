@@ -16,15 +16,16 @@ const HEADER_ACTION_CLASS_NAME =
 type NavItem = {
   href: string;
   label: string;
+  adminHref?: string;
   requiresAdmin?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Inicio" },
-  { href: "/partidas-abiertas", label: "Partidas abiertas" },
   { href: "/reservar", label: "Reservar pista" },
+  { href: "/partidas-abiertas", label: "Partidas abiertas" },
   { href: "/mis-reservas", label: "Mis reservas" },
-  { href: "/ayuda", label: "Ayuda" },
+  { href: "/torneo-sabado", label: "Torneo" },
   {
     href: "/admin",
     label: "Panel de administrador",
@@ -70,7 +71,12 @@ function MenuIcon({ isOpen }: { isOpen: boolean }) {
 export default function HeaderMenuClient({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname() ?? "/";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const navItems = NAV_ITEMS.filter((item) => !item.requiresAdmin || isAdmin);
+  const navItems = NAV_ITEMS.filter((item) => !item.requiresAdmin || isAdmin).map(
+    (item) => ({
+      ...item,
+      href: isAdmin && item.adminHref ? item.adminHref : item.href,
+    })
+  );
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;

@@ -3,7 +3,6 @@ import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import {
   getAdvanceLimitMessage,
   isDateWithinGeneralBookingWindow,
-  isSundayISO,
 } from "../../../../lib/booking-window";
 import { getAuthenticatedMemberFromRequest } from "../../../../lib/server-route-auth";
 import { getDisplayName } from "../../../../lib/display-name";
@@ -84,16 +83,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (isSundayISO(date)) {
+    if (!(await isReservableSlot({ date, slotStart, slotEnd, courtId }))) {
       return NextResponse.json(
-        { ok: false, error: "Domingo cerrado: no se puede reservar." },
-        { status: 400 }
-      );
-    }
-
-    if (!(await isReservableSlot({ date, slotStart, slotEnd }))) {
-      return NextResponse.json(
-        { ok: false, error: "El horario no es válido para ese día." },
+        { ok: false, error: "El horario no es válido para esa pista." },
         { status: 400 }
       );
     }
