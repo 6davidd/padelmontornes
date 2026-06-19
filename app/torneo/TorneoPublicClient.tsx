@@ -591,7 +591,7 @@ export default function TorneoPublicClient({
         <div className="flex items-center gap-4 text-3xl font-bold text-[#0f5e2e]">
           <img
             src="/logo-header.png"
-            alt="Club PÃ del MontornÃ¨s"
+            alt="Club Pàdel Montornès"
             className="h-16 w-auto"
           />
           <span>Cargando torneo...</span>
@@ -609,7 +609,7 @@ export default function TorneoPublicClient({
         <div className="max-w-xl rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm">
           <img
             src="/logo-header.png"
-            alt="Club PÃ del MontornÃ¨s"
+            alt="Club Pàdel Montornès"
             className="mx-auto h-20 w-auto"
           />
           <h1 className="mt-4 text-3xl font-bold text-[#0f5e2e]">
@@ -628,11 +628,11 @@ export default function TorneoPublicClient({
           <div className="flex min-w-0 items-center gap-4 xl:gap-3">
             <img
               src="/logo-header.png"
-              alt="Club PÃ del MontornÃ¨s"
+              alt="Club Pàdel Montornès"
               className="h-28 w-auto shrink-0 sm:h-36 lg:h-44 xl:h-28 2xl:h-32"
             />
             <div className="hidden">
-              Padel MontornÃ©s
+              Padel Montornés
             </div>
             <div className="min-w-0">
             <h1 className="break-words text-4xl font-bold leading-none text-[#0f5e2e] sm:text-6xl xl:text-4xl">

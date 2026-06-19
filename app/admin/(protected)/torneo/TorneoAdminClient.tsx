@@ -689,7 +689,7 @@ function BracketEditor({
         <input
           value={bracket.champion || "Por definir"}
           readOnly
-          placeholder="CampeÃ³n"
+          placeholder="Campeón"
           className="mt-1 w-full border-0 bg-transparent p-0 text-2xl font-black text-gray-950 outline-none"
         />
       </div>
@@ -771,7 +771,7 @@ export default function TorneoAdminClient() {
       setAccessToken(token);
 
       if (!token) {
-        setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
+        setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -894,7 +894,7 @@ export default function TorneoAdminClient() {
     setOk(null);
 
     if (!accessToken) {
-      setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
+      setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
       return;
     }
 
@@ -920,7 +920,7 @@ export default function TorneoAdminClient() {
       }
 
       applyTournament(normalizeTournamentEvent(data.tournament));
-      setOk(data.created ? "Torneo inicializado." : "El torneo ya existÃ­a.");
+      setOk(data.created ? "Torneo inicializado." : "El torneo ya existía.");
     } finally {
       setInitializing(false);
     }
@@ -931,7 +931,7 @@ export default function TorneoAdminClient() {
     setOk(null);
 
     if (!accessToken) {
-      setMsg("No hay sesiÃ³n vÃ¡lida. Vuelve a iniciar sesiÃ³n.");
+      setMsg("No hay sesión válida. Vuelve a iniciar sesión.");
       return;
     }
 

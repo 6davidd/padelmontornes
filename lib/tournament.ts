@@ -7,7 +7,7 @@
 } from "./booking-window";
 
 export const TORNEO_SLUG = "torneo";
-export const TOURNAMENT_DEFAULT_NAME = "Torneo MontornÃ©s";
+export const TOURNAMENT_DEFAULT_NAME = "Torneo Montornés";
 export const TOURNAMENT_AUTO_REFRESH_MS = 12000;
 
 export const TOURNAMENT_GROUP_IDS = ["A", "B", "C", "D"] as const;
@@ -92,9 +92,9 @@ export type TournamentEventRow = Omit<TournamentEvent, "state"> & {
 };
 
 const STANDING_LABELS: Record<TournamentPlace, string> = {
-  first: "1Âº",
-  second: "2Âº",
-  third: "3Âº",
+  first: "1º",
+  second: "2º",
+  third: "3º",
 };
 
 const GROUP_COURTS: Record<TournamentGroupId, string> = {
@@ -126,8 +126,51 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+const MOJIBAKE_REPLACEMENTS: Array<[string, string]> = [
+  ["\u00c2\u00ba", "º"],
+  ["\u00c2\u00aa", "ª"],
+  ["\u00c2\u00bf", "¿"],
+  ["\u00c2\u00a1", "¡"],
+  ["\u00c3\u00a0", "à"],
+  ["\u00c3\u00a1", "á"],
+  ["\u00c3\u00a8", "è"],
+  ["\u00c3\u00a9", "é"],
+  ["\u00c3\u00ad", "í"],
+  ["\u00c3\u00b1", "ñ"],
+  ["\u00c3\u00b2", "ò"],
+  ["\u00c3\u00b3", "ó"],
+  ["\u00c3\u00ba", "ú"],
+  ["\u00c3\u00bc", "ü"],
+  ["\u00c3\u0081", "Á"],
+  ["\u00c3\u0089", "É"],
+  ["\u00c3\u008d", "Í"],
+  ["\u00c3\u0091", "Ñ"],
+  ["\u00c3\u0093", "Ó"],
+  ["\u00c3\u009a", "Ú"],
+  ["\u00c3\u009c", "Ü"],
+  ["\u00c3\u0153", "Ü"],
+  ["\u00c3\u20ac", "À"],
+  ["\u00c3\u2030", "É"],
+  ["\u00c3\u02c6", "È"],
+  ["\u00c3\u2018", "Ñ"],
+  ["\u00c3\u201c", "Ó"],
+  ["\u00c3\u2019", "Ò"],
+  ["\u00c3\u0161", "Ú"],
+];
+
+export function repairMojibakeText(value: string) {
+  if (!/[\u00c2\u00c3]/.test(value)) {
+    return value;
+  }
+
+  return MOJIBAKE_REPLACEMENTS.reduce(
+    (next, [bad, good]) => next.split(bad).join(good),
+    value
+  );
+}
+
 function stringValue(value: unknown, fallback = "") {
-  return typeof value === "string" ? value : fallback;
+  return repairMojibakeText(typeof value === "string" ? value : fallback);
 }
 
 function numberValue(value: unknown, fallback = 0) {
@@ -217,8 +260,8 @@ function createMainBracket(): TournamentBracket {
           createMatch({
             id: "main-qf-1",
             label: "Cuartos Pista 1",
-            player1: "1Âº Grupo A",
-            player2: "2Âº Grupo D",
+            player1: "1º Grupo A",
+            player2: "2º Grupo D",
             court: "Pista 1",
             startTime: "20:15",
             endTime: "20:40",
@@ -228,8 +271,8 @@ function createMainBracket(): TournamentBracket {
           createMatch({
             id: "main-qf-2",
             label: "Cuartos Pista 2",
-            player1: "2Âº Grupo B",
-            player2: "1Âº Grupo C",
+            player1: "2º Grupo B",
+            player2: "1º Grupo C",
             court: "Pista 2",
             startTime: "20:15",
             endTime: "20:40",
@@ -239,8 +282,8 @@ function createMainBracket(): TournamentBracket {
           createMatch({
             id: "main-qf-3",
             label: "Cuartos Pista 3",
-            player1: "1Âº Grupo B",
-            player2: "2Âº Grupo C",
+            player1: "1º Grupo B",
+            player2: "2º Grupo C",
             court: "Pista 3",
             startTime: "20:15",
             endTime: "20:40",
@@ -250,8 +293,8 @@ function createMainBracket(): TournamentBracket {
           createMatch({
             id: "main-qf-4",
             label: "Cuartos Pista 4",
-            player1: "2Âº Grupo A",
-            player2: "1Âº Grupo D",
+            player1: "2º Grupo A",
+            player2: "1º Grupo D",
             court: "Pista 4",
             startTime: "20:15",
             endTime: "20:40",
@@ -309,7 +352,7 @@ function createMainBracket(): TournamentBracket {
 
 function createConsolationBracket(): TournamentBracket {
   return {
-    title: "ConsolaciÃ³n",
+    title: "Consolación",
     champion: "",
     rounds: [
       {
@@ -318,9 +361,9 @@ function createConsolationBracket(): TournamentBracket {
         matches: [
           createMatch({
             id: "cons-sf-1",
-            label: "Semifinal ConsolaciÃ³n Pista 3",
-            player1: "3Âº Grupo A",
-            player2: "3Âº Grupo C",
+            label: "Semifinal Consolación Pista 3",
+            player1: "3º Grupo A",
+            player2: "3º Grupo C",
             court: "Pista 3",
             startTime: "20:40",
             endTime: "21:05",
@@ -329,9 +372,9 @@ function createConsolationBracket(): TournamentBracket {
           }),
           createMatch({
             id: "cons-sf-2",
-            label: "Semifinal ConsolaciÃ³n Pista 4",
-            player1: "3Âº Grupo B",
-            player2: "3Âº Grupo D",
+            label: "Semifinal Consolación Pista 4",
+            player1: "3º Grupo B",
+            player2: "3º Grupo D",
             court: "Pista 4",
             startTime: "20:40",
             endTime: "21:05",
@@ -347,8 +390,8 @@ function createConsolationBracket(): TournamentBracket {
           createMatch({
             id: "cons-final",
             label: "Final",
-            player1: "Ganador Semi ConsolaciÃ³n Pista 3",
-            player2: "Ganador Semi ConsolaciÃ³n Pista 4",
+            player1: "Ganador Semi Consolación Pista 3",
+            player2: "Ganador Semi Consolación Pista 4",
             court: "Pista 3",
             startTime: "21:05",
             endTime: "21:30",
@@ -535,6 +578,7 @@ export function normalizeTournamentState(value: unknown): TournamentState {
 export function normalizeTournamentEvent(row: TournamentEventRow) {
   return {
     ...row,
+    name: repairMojibakeText(row.name),
     state: syncBracketEntrantsFromStandings(normalizeTournamentState(row.state)),
   } satisfies TournamentEvent;
 }
